@@ -45,14 +45,26 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
 
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
-    const isActive = location.pathname === item.url;
+    // Hide Attendance and Staff for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff")) {
+      return null;
+    }
+
+    let url = item.url;
+    if (isAdmin) {
+      if (url === "/") url = "/admin/dashboard";
+      else url = `/admin${url}`;
+    }
+
+    const isActive = location.pathname === url;
     const Icon = item.icon;
 
     const linkContent = (
       <NavLink
-        to={item.url}
+        to={url}
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
           isActive
@@ -118,8 +130,8 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           <div className="flex items-center gap-2 p-2 rounded-lg bg-sidebar-accent">
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">Downtown Fitness</p>
-              <p className="text-xs text-muted-foreground">Super Admin</p>
+              <p className="text-sm font-medium truncate">{isAdmin ? "Platform Admin" : "Downtown Fitness"}</p>
+              <p className="text-xs text-muted-foreground">{isAdmin ? "Super Admin" : "Gym Admin"}</p>
             </div>
           </div>
         </div>
@@ -137,7 +149,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
         {bottomItems.map((item) => (
           <NavItem key={item.url} item={item} />
         ))}
-        
+
         {/* User Profile */}
         <div className={cn(
           "flex items-center gap-3 p-2 rounded-lg mt-2",
