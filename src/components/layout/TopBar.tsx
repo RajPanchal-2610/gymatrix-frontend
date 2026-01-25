@@ -15,22 +15,25 @@ import { useTheme } from "@/hooks/useTheme";
 interface TopBarProps {
   onMenuClick?: () => void;
   title?: string;
+  hideMenuButton?: boolean;
 }
 
-export function TopBar({ onMenuClick, title = "Dashboard" }: TopBarProps) {
+export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-30 flex items-center justify-between px-4 lg:px-6">
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={onMenuClick}
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+        {!hideMenuButton && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +14,9 @@ import {
   ChevronRight,
   LogOut,
   Building2,
+  Package,
+  Wallet,
+  List,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -23,13 +26,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Members", url: "/members", icon: Users },
   { title: "Membership Plans", url: "/plans", icon: CreditCard },
+  { title: "Features", url: "/features", icon: List },
+  { title: "Pricing", url: "/pricing", icon: Wallet },
   { title: "Attendance", url: "/attendance", icon: Calendar },
   { title: "Payments", url: "/payments", icon: Receipt },
+  { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Staff & Trainers", url: "/staff", icon: UserCog },
   { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
@@ -45,11 +53,27 @@ interface AppSidebarProps {
 
 export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith("/admin");
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Logged out successfully");
+        navigate(isAdmin ? "/admin/login" : "/auth");
+      }
+    } catch (error) {
+      console.error("Logout error", error);
+      toast.error("Failed to log out");
+    }
+  };
+
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
-    // Hide Attendance and Staff for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff")) {
+    // Hide Attendance, Staff, and Pricing for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing")) {
       return null;
     }
 
@@ -166,7 +190,12 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={handleLogout}
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           )}

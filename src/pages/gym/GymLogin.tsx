@@ -1,23 +1,70 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2 } from "lucide-react";
+import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 
 export default function GymLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login
-    navigate("/");
+    setLoading(true);
+
+    if (!email || !password) {
+      toast.error("Please fill in all fields");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      if (error) throw error;
+
+      if (data.user) {
+        // Check if user is a gym admin
+        const { data: gymUser, error: gymError } = await supabase
+          .from('gym_users')
+          .select('id, role_id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (gymError) {
+          console.error("Gym user check error:", gymError);
+          toast.error("Error verifying access");
+          setLoading(false);
+          await supabase.auth.signOut();
+          return;
+        }
+
+        if (!gymUser) {
+          toast.error("Access denied. Not a registered gym user.");
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        toast.success("Welcome back!");
+        navigate("/");
+      }
+
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Login failed");
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,6 +97,7 @@ export default function GymLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -65,6 +113,7 @@ export default function GymLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
                 />
                 <Button
                   type="button"
@@ -72,6 +121,7 @@ export default function GymLogin() {
                   size="icon"
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                   onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -83,7 +133,7 @@ export default function GymLogin() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Checkbox id="remember" />
+                <Checkbox id="remember" disabled={loading} />
                 <Label htmlFor="remember" className="text-sm font-normal">
                   Remember me
                 </Label>
@@ -95,8 +145,15 @@ export default function GymLogin() {
                 Forgot password?
               </Link>
             </div>
-            <Button type="submit" className="w-full gradient-primary shadow-glow">
-              Login as Admin
+            <Button type="submit" className="w-full gradient-primary shadow-glow" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                "Login as Admin"
+              )}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">

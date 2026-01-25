@@ -1,15 +1,19 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, User } from "lucide-react";
+import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, User, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+
 export default function GymRegister() {
     const [showPassword, setShowPassword] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         gymName: "",
         adminName: "",
@@ -23,14 +27,149 @@ export default function GymRegister() {
         setFormData({ ...formData, [e.target.id]: e.target.value });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
-            alert("Passwords do not match");
+            toast.error("Passwords do not match");
             return;
         }
-        // Simulate registration
-        navigate("/");
+
+        setIsLoading(true);
+
+        try {
+            // 1. Register User
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: formData.email,
+                password: formData.password,
+            });
+            if (authError) throw authError;
+            if (!authData.user) throw new Error("Registration failed");
+
+            const userId = authData.user.id;
+
+            // 2. Create Profile
+            const { error: profileError } = await supabase
+                .from('profiles')
+                .insert({
+                    user_id: userId,
+                    full_name: formData.adminName,
+                });
+            if (profileError) {
+                // detailed error logging
+                console.error("Profile creation error:", profileError);
+                throw new Error("Failed to create user profile");
+            }
+
+            // 3. Create Gym
+            const { data: gymData, error: gymError } = await supabase
+                .from('gyms')
+                .insert({
+                    name: formData.gymName,
+                    owner_id: userId
+                })
+                .select()
+                .single();
+            if (gymError) {
+                console.error("Gym creation error:", gymError);
+                throw new Error("Failed to create gym");
+            }
+
+            // 4. Assign Role
+            // Get role id for GYM_ADMIN
+            const { data: roleData, error: roleError } = await supabase
+                .from('roles')
+                .select('id')
+                .eq('name', 'GYM_ADMIN')
+                .single();
+
+            if (roleError || !roleData) {
+                console.error("Role fetch error:", roleError);
+                throw new Error("Role configuration error: GYM_ADMIN not found. Please contact support.");
+            }
+
+            const { error: gymUserError } = await supabase
+                .from('gym_users')
+                .insert({
+                    gym_id: gymData.id,
+                    user_id: userId,
+                    role_id: roleData.id
+                });
+            if (gymUserError) {
+                console.error("Gym user assignment assignment error:", gymUserError);
+                throw new Error("Failed to assign admin role");
+            }
+
+            // 5. Create 14-day Trial Subscription (Pro Plan)
+            // Fetch the Pro plan along with limits and price info
+            const { data: planData, error: planError } = await supabase
+                .from('plans')
+                .select(`
+                    id, 
+                    max_gyms, 
+                    max_members,
+                    plan_prices!inner (
+                        id
+                    )
+                `)
+                .ilike('name', '%Pro%')
+                .limit(1)
+                .maybeSingle();
+
+            // If Pro plan not found, fetch ANY active plan to assign as trial
+            let selectedPlan = planData;
+
+            if (!selectedPlan) {
+                const { data: fallbackPlan } = await supabase
+                    .from('plans')
+                    .select(`
+                        id, 
+                        max_gyms, 
+                        max_members,
+                        plan_prices!inner (
+                            id
+                        )
+                    `)
+                    .eq('is_active', true)
+                    .limit(1)
+                    .maybeSingle();
+                selectedPlan = fallbackPlan;
+            }
+
+            if (selectedPlan && selectedPlan.plan_prices?.[0]) {
+                const startDate = new Date();
+                const endDate = new Date();
+                endDate.setDate(startDate.getDate() + 14); // 14 days trial
+
+                const { error: subError } = await supabase
+                    .from('subscriptions')
+                    .insert({
+                        user_id: userId,
+                        plan_id: selectedPlan.id,
+                        plan_price_id: selectedPlan.plan_prices[0].id, // Use first available price ID
+                        max_gyms: selectedPlan.max_gyms,
+                        max_members: selectedPlan.max_members,
+                        status: 'trial',
+                        start_date: startDate.toISOString(),
+                        end_date: endDate.toISOString()
+                    });
+
+                if (subError) {
+                    console.error("Subscription creation error:", subError);
+                    toast.error("Account created but failed to assign trial plan. Please contact support.");
+                }
+            } else {
+                console.warn("No valid plans with pricing found to assign for trial.");
+            }
+
+            toast.success("Gym registered successfully! Please login.");
+            navigate("/auth");
+
+        } catch (error: any) {
+            console.error(error);
+            toast.error(error.message || "Registration failed");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -153,8 +292,15 @@ export default function GymRegister() {
                             </Label>
                         </div>
 
-                        <Button type="submit" className="w-full gradient-primary shadow-glow">
-                            Create Gym Account
+                        <Button type="submit" className="w-full gradient-primary shadow-glow" disabled={isLoading}>
+                            {isLoading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating Account...
+                                </>
+                            ) : (
+                                "Create Gym Account"
+                            )}
                         </Button>
                     </form>
                     <div className="mt-6 text-center text-sm">
