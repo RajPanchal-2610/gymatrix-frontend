@@ -17,6 +17,9 @@ import {
   Package,
   Wallet,
   List,
+  Check,
+  PlusCircle,
+  ChevronsUpDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,17 @@ import {
 } from "@/components/ui/tooltip";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useGym } from "@/hooks/useGym";
+import { CreateGymDialog } from "@/components/gym/CreateGymDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -55,6 +69,11 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith("/admin");
+  const { hasFeature, loading: subscriptionLoading } = useSubscription();
+  const { gyms, gymId, switchGym, refreshGyms } = useGym();
+  const [createGymOpen, setCreateGymOpen] = useState(false);
+
+  const currentGym = gyms.find(g => g.id === gymId);
 
   const handleLogout = async () => {
     try {
@@ -72,9 +91,24 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   };
 
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
-    // Hide Attendance, Staff, and Pricing for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing")) {
+    // Hide Attendance, Staff, Pricing, and Inventory for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.title === "Inventory")) {
       return null;
+    }
+
+    // Hide Features for Gym Admin
+    if (!isAdmin && item.title === "Features") {
+      return null;
+    }
+
+    // Feature checks for Gym Admins (non-super-admin)
+    if (!isAdmin) {
+      // Inventory module check
+      if (item.title === "Inventory") {
+        // If loading, we could show a skeleton, but for now let's hide to prevent flashing unauthorized content
+        if (subscriptionLoading) return null;
+        if (!hasFeature("Inventory")) return null;
+      }
     }
 
     let url = item.url;
@@ -126,6 +160,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     >
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
+        {/* ... Logo content ... */}
         <div className="flex items-center gap-2">
           <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
             <Dumbbell className="h-5 w-5 text-primary-foreground" />
@@ -151,13 +186,54 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       {/* Gym Selector */}
       {!collapsed && (
         <div className="px-3 py-3 border-b border-sidebar-border">
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-sidebar-accent">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{isAdmin ? "Platform Admin" : "Downtown Fitness"}</p>
-              <p className="text-xs text-muted-foreground">{isAdmin ? "Super Admin" : "Gym Admin"}</p>
+          {isAdmin ? (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-sidebar-accent">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">Platform Admin</p>
+                <p className="text-xs text-muted-foreground">Super Admin</p>
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="w-full flex items-center justify-between p-2 h-auto hover:bg-sidebar-accent mb-1 border border-transparent hover:border-sidebar-border">
+                    <div className="flex items-center gap-2 min-w-0 text-left">
+                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{currentGym?.name || "Select Gym"}</p>
+                        <p className="text-xs text-muted-foreground">Gym Admin</p>
+                      </div>
+                    </div>
+                    <ChevronsUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="start">
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">My Gyms</DropdownMenuLabel>
+                  {gyms.map(gym => (
+                    <DropdownMenuItem key={gym.id} onClick={() => switchGym(gym.id)} className="cursor-pointer">
+                      <div className="flex items-center justify-between w-full">
+                        <span className="truncate">{gym.name}</span>
+                        {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary" />}
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setCreateGymOpen(true)} className="cursor-pointer text-primary focus:text-primary">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Create New Gym
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <CreateGymDialog
+                open={createGymOpen}
+                onOpenChange={setCreateGymOpen}
+                onSuccess={refreshGyms}
+              />
+            </>
+          )}
         </div>
       )}
 

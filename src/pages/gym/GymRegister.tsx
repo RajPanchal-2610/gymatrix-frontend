@@ -109,6 +109,10 @@ export default function GymRegister() {
                     max_members,
                     plan_prices!inner (
                         id
+                    ),
+                    plan_features (
+                        feature_id,
+                        value
                     )
                 `)
                 .ilike('name', '%Pro%')
@@ -127,6 +131,10 @@ export default function GymRegister() {
                         max_members,
                         plan_prices!inner (
                             id
+                        ),
+                        plan_features (
+                            feature_id,
+                            value
                         )
                     `)
                     .eq('is_active', true)
@@ -140,7 +148,7 @@ export default function GymRegister() {
                 const endDate = new Date();
                 endDate.setDate(startDate.getDate() + 14); // 14 days trial
 
-                const { error: subError } = await supabase
+                const { data: subscription, error: subError } = await supabase
                     .from('subscriptions')
                     .insert({
                         user_id: userId,
@@ -151,11 +159,29 @@ export default function GymRegister() {
                         status: 'trial',
                         start_date: startDate.toISOString(),
                         end_date: endDate.toISOString()
-                    });
+                    })
+                    .select()
+                    .single();
 
                 if (subError) {
                     console.error("Subscription creation error:", subError);
                     toast.error("Account created but failed to assign trial plan. Please contact support.");
+                } else if (subscription && selectedPlan.plan_features && selectedPlan.plan_features.length > 0) {
+                    // 6. Add Subscription Features
+                    const featuresToInsert = selectedPlan.plan_features.map((pf: any) => ({
+                        subscription_id: subscription.id,
+                        feature_id: pf.feature_id,
+                        value: pf.value
+                    }));
+
+                    const { error: featuresError } = await supabase
+                        .from('subscription_features')
+                        .insert(featuresToInsert);
+
+                    if (featuresError) {
+                        console.error("Subscription features creation error:", featuresError);
+                        // We don't block the user flow here, as the account and subscription are created
+                    }
                 }
             } else {
                 console.warn("No valid plans with pricing found to assign for trial.");
