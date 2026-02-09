@@ -35,21 +35,23 @@ export const PrivateRoute = ({ allowedRoles }: { allowedRoles?: string[] }) => {
                     .select('roles:roles(name)')
                     .eq('user_id', session.user.id);
 
-                // Check Gym Admin roles
-                const { data: gymUserRoles, error: gymUserRolesError } = await supabase
-                    .from('gym_users')
-                    .select('roles:role_id(name)')
-                    .eq('user_id', session.user.id);
+                // Check Gym Owner (Implicit GYM_ADMIN)
+                const { data: gymOwner, error: gymOwnerError } = await supabase
+                    .from('gyms')
+                    .select('id')
+                    .eq('owner_id', session.user.id)
+                    .limit(1)
+                    .maybeSingle();
 
-                if (userRolesError && gymUserRolesError) {
-                    console.error("Auth check error:", userRolesError, gymUserRolesError);
+                if (userRolesError && gymOwnerError) {
+                    console.error("Auth check error:", userRolesError, gymOwnerError);
                     setHasAccess(false);
                     setLoading(false);
                     return;
                 }
 
                 const roles1 = userRoles?.map((ur: any) => ur.roles?.name) || [];
-                const roles2 = gymUserRoles?.map((ur: any) => ur.roles?.name) || [];
+                const roles2 = gymOwner ? ['GYM_ADMIN'] : [];
 
                 const allUserRoleNames = [...roles1, ...roles2];
                 const hasRequiredRole = allowedRoles.some(role => allUserRoleNames.includes(role));

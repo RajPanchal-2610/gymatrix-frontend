@@ -53,6 +53,7 @@ const navItems = [
   { title: "Payments", url: "/payments", icon: Receipt },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Staff & Trainers", url: "/staff", icon: UserCog },
+  { title: "Roles", url: "/roles", icon: Users },
   { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
@@ -92,7 +93,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
 
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
     // Hide Attendance, Staff, Pricing, and Inventory for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.title === "Inventory")) {
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.title === "Inventory")) {
       return null;
     }
 

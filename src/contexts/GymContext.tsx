@@ -33,17 +33,14 @@ export function GymProvider({ children }: { children: ReactNode }) {
             }
 
             const { data, error } = await supabase
-                .from('gym_users')
+                .from('gyms')
                 .select(`
-                    gym_id,
-                    gyms (
-                        id,
-                        name,
-                        created_at,
-                        owner_id
-                    )
+                    id,
+                    name,
+                    created_at,
+                    owner_id
                 `)
-                .eq('user_id', user.id);
+                .eq('owner_id', user.id);
 
             if (error) {
                 console.error("Error fetching gyms:", error);
@@ -51,10 +48,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
             }
 
             if (data) {
-                const userGyms = data
-                    .map((item: any) => item.gyms)
-                    .filter((gym: any) => gym !== null) as Gym[];
-
+                const userGyms = data as Gym[];
                 setGyms(userGyms);
 
                 // Handle Gym Selection

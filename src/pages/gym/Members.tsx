@@ -18,7 +18,8 @@ import {
     IndianRupee,
     Upload,
     Loader2,
-    RefreshCw
+    RefreshCw,
+    User
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -56,8 +57,9 @@ import {
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { useGym } from "@/hooks/useGym";
-import { GymMember, GymMembershipPlan, GymMembershipPayment } from "@/types/gym";
+import { GymMember, GymMembershipPlan, GymMembershipPayment, GymStaff } from "@/types/gym";
 import { supabase } from "@/lib/supabase";
+import { staffService } from "@/services/staffService";
 import { toast } from "sonner";
 import { format, addMonths, addDays, addYears, differenceInCalendarDays } from "date-fns";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
@@ -66,6 +68,7 @@ export default function Members() {
     const { gymId, loading: gymLoading } = useGym();
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
+    const [trainers, setTrainers] = useState<GymStaff[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -76,6 +79,7 @@ export default function Members() {
         email: "",
         phone: "",
         membership_plan_id: "",
+        trainer_id: "none",
         join_date: format(new Date(), "yyyy-MM-dd"),
         image_url: "",
         status: "active" as "active" | "expired" | "paused" | "cancelled",
@@ -100,10 +104,16 @@ export default function Members() {
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
     const [selectedPaymentMember, setSelectedPaymentMember] = useState<GymMembershipPayment | null>(null);
 
+    // Assign Trainer State
+    const [assignTrainerOpen, setAssignTrainerOpen] = useState(false);
+    const [assignTrainerMember, setAssignTrainerMember] = useState<GymMember | null>(null);
+    const [selectedTrainerId, setSelectedTrainerId] = useState<string>("none");
+
     useEffect(() => {
         if (gymId) {
             fetchMembers();
             fetchPlans();
+            fetchTrainers();
         }
     }, [gymId]);
 
@@ -131,6 +141,10 @@ export default function Members() {
                         payment_status,
                         created_at,
                         membership_history_id
+                    ),
+                    gym_staff (
+                        id,
+                        full_name
                     )
                 `)
                 .eq("gym_id", gymId)
@@ -157,6 +171,15 @@ export default function Members() {
         if (data) setPlans(data);
     };
 
+    const fetchTrainers = async () => {
+        try {
+            const data = await staffService.getStaff(gymId!);
+            setTrainers(data || []);
+        } catch (error) {
+            console.error("Failed to fetch trainers", error);
+        }
+    };
+
     const handleOpenDialog = (member?: GymMember) => {
         if (member) {
             setEditingMember(member);
@@ -165,6 +188,7 @@ export default function Members() {
                 email: member.email || "",
                 phone: member.phone || "",
                 membership_plan_id: member.membership_plan_id?.toString() || "",
+                trainer_id: member.trainer_id?.toString() || "none",
                 join_date: member.join_date,
                 image_url: member.image_url || "",
                 status: member.status,
@@ -176,6 +200,7 @@ export default function Members() {
                 email: "",
                 phone: "",
                 membership_plan_id: "",
+                trainer_id: "none",
                 join_date: format(new Date(), "yyyy-MM-dd"),
                 image_url: "",
                 status: "active",
@@ -202,6 +227,31 @@ export default function Members() {
             start_date: format(new Date(), "yyyy-MM-dd"),
         });
         setRenewDialogOpen(true);
+    };
+
+    const handleOpenAssignTrainer = (member: GymMember) => {
+        setAssignTrainerMember(member);
+        setSelectedTrainerId(member.trainer_id?.toString() || "none");
+        setAssignTrainerOpen(true);
+    };
+
+    const handleAssignTrainerSubmit = async () => {
+        if (!assignTrainerMember || !gymId) return;
+
+        try {
+            const { error } = await supabase
+                .from("gym_members")
+                .update({ trainer_id: selectedTrainerId === "none" ? null : parseInt(selectedTrainerId) })
+                .eq("id", assignTrainerMember.id);
+
+            if (error) throw error;
+
+            toast.success("Personal Trainer assigned successfully");
+            setAssignTrainerOpen(false);
+            fetchMembers();
+        } catch (error: any) {
+            toast.error("Failed to assign Personal Trainer: " + error.message);
+        }
     };
 
     const handleViewHistory = async (member: GymMember) => {
@@ -400,6 +450,7 @@ export default function Members() {
                 email: formData.email,
                 phone: formData.phone,
                 membership_plan_id: formData.membership_plan_id ? parseInt(formData.membership_plan_id) : null,
+                trainer_id: formData.trainer_id && formData.trainer_id !== "none" ? parseInt(formData.trainer_id) : null,
                 join_date: formData.join_date,
                 expiry_date: expiry_date,
                 image_url: formData.image_url || null,
@@ -663,6 +714,25 @@ export default function Members() {
                                     />
                                 </div>
                                 <div className="space-y-2">
+                                    <Label>Assigned Personal Trainer</Label>
+                                    <Select
+                                        value={formData.trainer_id}
+                                        onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select Personal Trainer (optional)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Personal Trainer</SelectItem>
+                                            {trainers.map((trainer) => (
+                                                <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                                    {trainer.full_name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
                                     <Label>Status</Label>
                                     <Select
                                         value={formData.status}
@@ -896,6 +966,12 @@ export default function Members() {
                                                     Expires: {member.expiry_date}
                                                 </span>
                                             )}
+                                            {member.gym_staff && (
+                                                <span className="flex items-center gap-1 text-primary">
+                                                    <User className="h-3.5 w-3.5" />
+                                                    PT: {member.gym_staff.full_name}
+                                                </span>
+                                            )}
                                             {(() => {
                                                 const allPayments = member.gym_membership_payments || [];
                                                 // 1. Identify "Current" Payment (linked to latest history, or just most recent)
@@ -978,6 +1054,10 @@ export default function Members() {
                                             <DropdownMenuItem onClick={() => handleOpenDialog(member)}>
                                                 <Edit className="h-4 w-4 mr-2" />
                                                 Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleOpenAssignTrainer(member)}>
+                                                <User className="h-4 w-4 mr-2" />
+                                                Assign Personal Trainer
                                             </DropdownMenuItem>
                                             <DropdownMenuItem onClick={() => handleOpenRenewDialog(member)}>
                                                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -1102,6 +1182,45 @@ export default function Members() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={assignTrainerOpen} onOpenChange={setAssignTrainerOpen}>
+                <DialogContent className="sm:max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle>Assign Personal Trainer</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Member</Label>
+                            <div className="font-medium">{assignTrainerMember?.full_name}</div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Select Personal Trainer</Label>
+                            <Select
+                                value={selectedTrainerId}
+                                onValueChange={setSelectedTrainerId}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select Personal Trainer" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">No Personal Trainer</SelectItem>
+                                    {trainers.map((trainer) => (
+                                        <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                            {trainer.full_name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <Button variant="outline" onClick={() => setAssignTrainerOpen(false)}>Cancel</Button>
+                        <Button className="gradient-primary" onClick={handleAssignTrainerSubmit}>
+                            Save Assignment
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <RecordPaymentDialog
                 open={recordPaymentOpen}

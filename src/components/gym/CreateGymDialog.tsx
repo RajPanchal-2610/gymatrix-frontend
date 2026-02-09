@@ -71,25 +71,8 @@ export function CreateGymDialog({ open, onOpenChange, onSuccess }: CreateGymDial
 
             if (gymError) throw gymError;
 
-            // 2. Fetch GYM_ADMIN role
-            const { data: roleData } = await supabase
-                .from('roles')
-                .select('id')
-                .eq('name', 'GYM_ADMIN')
-                .single();
+            // Role assignment is implicit via owner_id in gyms table
 
-            if (!roleData) throw new Error("Role 'GYM_ADMIN' not found");
-
-            // 3. Add to gym_users
-            const { error: userError } = await supabase
-                .from('gym_users')
-                .insert({
-                    gym_id: gymData.id,
-                    user_id: user.id,
-                    role_id: roleData.id
-                });
-
-            if (userError) throw userError;
 
             toast.success("Gym created successfully!");
             onSuccess(); // Refresh parent

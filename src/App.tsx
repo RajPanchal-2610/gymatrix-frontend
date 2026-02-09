@@ -26,6 +26,7 @@ import GymMembers from "./pages/gym/Members";
 import Pricing from "./pages/gym/Pricing";
 import GymAttendance from "./pages/gym/Attendance";
 import GymStaff from "./pages/gym/Staff";
+import GymRoles from "./pages/gym/Roles";
 import GymMembershipPlans from "./pages/gym/MembershipPlans";
 import GymPayments from "./pages/gym/Payments";
 
@@ -56,6 +57,7 @@ const App = () => (
                   </FeatureGuard>
                 } />
                 <Route path="/staff" element={<GymStaff />} />
+                <Route path="/roles" element={<GymRoles />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>

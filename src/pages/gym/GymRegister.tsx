@@ -74,30 +74,8 @@ export default function GymRegister() {
                 throw new Error("Failed to create gym");
             }
 
-            // 4. Assign Role
-            // Get role id for GYM_ADMIN
-            const { data: roleData, error: roleError } = await supabase
-                .from('roles')
-                .select('id')
-                .eq('name', 'GYM_ADMIN')
-                .single();
+            // 4. Role assignment skipped for Gym Owner (handled via owner_id in gyms table)
 
-            if (roleError || !roleData) {
-                console.error("Role fetch error:", roleError);
-                throw new Error("Role configuration error: GYM_ADMIN not found. Please contact support.");
-            }
-
-            const { error: gymUserError } = await supabase
-                .from('gym_users')
-                .insert({
-                    gym_id: gymData.id,
-                    user_id: userId,
-                    role_id: roleData.id
-                });
-            if (gymUserError) {
-                console.error("Gym user assignment assignment error:", gymUserError);
-                throw new Error("Failed to assign admin role");
-            }
 
             // 5. Create 14-day Trial Subscription (Pro Plan)
             // Fetch the Pro plan along with limits and price info

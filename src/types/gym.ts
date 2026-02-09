@@ -24,6 +24,7 @@ export interface GymMember {
     join_date: string;
     expiry_date?: string;
     image_url?: string | null;
+    trainer_id?: number | null;
     status: 'active' | 'expired' | 'paused' | 'cancelled';
     is_active: boolean;
     is_deleted: boolean;
@@ -34,6 +35,7 @@ export interface GymMember {
     gym_membership_plans?: GymMembershipPlan;
     gym_membership_history?: GymMembershipHistory[];
     gym_membership_payments?: GymMembershipPayment[]; // Array because member has many payments
+    gym_staff?: GymStaff; // The assigned trainer
 }
 
 export interface GymMembershipHistory {
@@ -86,4 +88,68 @@ export interface GymPaymentTransaction {
     updated_at?: string;
     is_active: boolean;
     is_deleted: boolean;
+}
+
+export interface GymRole {
+    id: number;
+    name: string;
+    description?: string;
+    created_at?: string;
+}
+
+export interface GymStaff {
+    id: number;
+    gym_id: number;
+    user_id?: string;
+    role_id?: number;
+    full_name: string;
+    join_date?: string;
+    phone?: string;
+    salary?: number;
+    status?: string;
+    is_active: boolean;
+    is_deleted: boolean;
+    created_at?: string;
+    updated_at?: string;
+
+    // Joined fields
+    gym_roles?: GymRole;
+    user_email?: string; // Optional helper for display if joined with auth users
+}
+
+export interface GymStaffAttendance {
+    id: number;
+    gym_id: number;
+    staff_id: number;
+    attendance_date: string;
+    status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE';
+    remarks?: string;
+    created_at?: string;
+    updated_at?: string;
+
+    // Joined fields
+    gym_staff?: GymStaff;
+}
+
+export interface GymStaffPayroll {
+    id: number;
+    gym_id: number;
+    staff_id: number;
+    payroll_month: number;
+    payroll_year: number;
+    base_salary: number;
+    total_working_days: number;
+    present_days: number;
+    absent_days: number;
+    overtime_hours?: number;
+    overtime_amount?: number;
+    deductions?: number;
+    net_salary: number;
+    payment_status: 'PENDING' | 'PAID' | 'HOLD';
+    payment_date?: string;
+    created_at?: string;
+    updated_at?: string;
+
+    // Joined fields
+    gym_staff?: GymStaff;
 }
