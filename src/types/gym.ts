@@ -51,6 +51,9 @@ export interface GymMembershipHistory {
     updated_at?: string;
     is_active: boolean;
     is_deleted: boolean;
+
+    // Joined fields
+    gym_membership_plans?: GymMembershipPlan;
 }
 
 export interface GymMembershipPayment {
@@ -74,6 +77,7 @@ export interface GymMembershipPayment {
     gym_membership_history?: GymMembershipHistory & {
         gym_membership_plans?: GymMembershipPlan;
     };
+    gym_payment_transactions?: GymPaymentTransaction[];
 }
 
 export interface GymPaymentTransaction {

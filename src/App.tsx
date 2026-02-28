@@ -23,6 +23,7 @@ import GymRegister from "./pages/gym/GymRegister";
 import GymDashboard from "./pages/gym/Dashboard";
 import GymInventory from "./pages/gym/Inventory";
 import GymMembers from "./pages/gym/Members";
+import MemberView from "./pages/gym/Members/MemberView";
 import Pricing from "./pages/gym/Pricing";
 import GymAttendance from "./pages/gym/Attendance";
 import GymStaff from "./pages/gym/Staff";
@@ -47,6 +48,7 @@ const App = () => (
                 <Route path="/" element={<GymDashboard />} />
                 <Route path="/dashboard" element={<GymDashboard />} />
                 <Route path="/members" element={<GymMembers />} />
+                <Route path="/members/:id" element={<MemberView />} />
                 <Route path="/plans" element={<GymMembershipPlans />} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/attendance" element={<GymAttendance />} />
