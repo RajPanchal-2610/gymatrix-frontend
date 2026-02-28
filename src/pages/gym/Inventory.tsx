@@ -1,242 +1,96 @@
-
 import { useState } from "react";
-import {
-    Package,
-    Plus,
-    Search,
-    Filter,
-    AlertTriangle,
-    Archive,
-    DollarSign,
-    Tags
-} from "lucide-react";
+import { Package, List, Building2, Activity, Wrench } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { StatCard } from "@/components/dashboard/StatCard";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
-// Mock Data
-const inventoryItems = [
-    {
-        id: 1,
-        name: "Whey Protein (5lb)",
-        category: "Supplements",
-        sku: "SUP-001",
-        quantity: 45,
-        minQuantity: 10,
-        price: 59.99,
-        status: "In Stock",
-        lastUpdated: "2024-03-20",
-    },
-    {
-        id: 2,
-        name: "Dumbbell Set (5-50lbs)",
-        category: "Equipment",
-        sku: "EQP-042",
-        quantity: 3,
-        minQuantity: 2,
-        price: 1299.00,
-        status: "In Stock",
-        lastUpdated: "2024-01-15",
-    },
-    {
-        id: 3,
-        name: "Gym T-Shirt (L)",
-        category: "Merchandise",
-        sku: "MER-103",
-        quantity: 8,
-        minQuantity: 15,
-        price: 24.99,
-        status: "Low Stock",
-        lastUpdated: "2024-03-10",
-    },
-    {
-        id: 4,
-        name: "Pre-Workout (30 servings)",
-        category: "Supplements",
-        sku: "SUP-005",
-        quantity: 0,
-        minQuantity: 20,
-        price: 34.99,
-        status: "Out of Stock",
-        lastUpdated: "2024-03-22",
-    },
-    {
-        id: 5,
-        name: "Yoga Mat",
-        category: "Equipment",
-        sku: "EQP-101",
-        quantity: 22,
-        minQuantity: 10,
-        price: 19.99,
-        status: "In Stock",
-        lastUpdated: "2024-02-28",
-    },
-    {
-        id: 6,
-        name: "Protein Bar (Box of 12)",
-        category: "Supplements",
-        sku: "SUP-012",
-        quantity: 15,
-        minQuantity: 10,
-        price: 29.99,
-        status: "In Stock",
-        lastUpdated: "2024-03-23",
-    },
-    {
-        id: 7,
-        name: "Resistance Bands Set",
-        category: "Equipment",
-        sku: "EQP-055",
-        quantity: 5,
-        minQuantity: 8,
-        price: 15.99,
-        status: "Low Stock",
-        lastUpdated: "2024-03-05",
-    },
-];
+import { InventoryItems } from "@/components/inventory/InventoryItems";
+import { InventoryCategories } from "@/components/inventory/InventoryCategories";
+import { InventoryVendors } from "@/components/inventory/InventoryVendors";
+import { InventoryTransactions } from "@/components/inventory/InventoryTransactions";
+import { InventoryMaintenance } from "@/components/inventory/InventoryMaintenance";
 
 export default function Inventory() {
-    const [searchTerm, setSearchTerm] = useState("");
+    const [activeSection, setActiveSection] = useState("items");
 
-    const getStatusBadge = (status: string) => {
-        switch (status) {
-            case "In Stock":
-                return <Badge className="bg-success/10 text-success hover:bg-success/20">In Stock</Badge>;
-            case "Low Stock":
-                return <Badge className="bg-warning/10 text-warning hover:bg-warning/20">Low Stock</Badge>;
-            case "Out of Stock":
-                return <Badge className="bg-destructive/10 text-destructive hover:bg-destructive/20">Out of Stock</Badge>;
-            default:
-                return <Badge variant="secondary">{status}</Badge>;
+    const flowSteps = [
+        { id: "vendors", icon: Building2, title: "1. Supply Chain", desc: "Manage vendors & suppliers" },
+        { id: "categories", icon: List, title: "2. Organization", desc: "Define item categories" },
+        { id: "items", icon: Package, title: "3. Item Catalog", desc: "Core equipment & stock levels" },
+        { id: "transactions", icon: Activity, title: "4. Transactions", desc: "Log purchases & movements" },
+        { id: "maintenance", icon: Wrench, title: "5. Maintenance", desc: "Manage repairs & upkeep" },
+    ];
+
+    const renderContent = () => {
+        switch (activeSection) {
+            case "vendors": return <InventoryVendors />;
+            case "categories": return <InventoryCategories />;
+            case "items": return <InventoryItems />;
+            case "transactions": return <InventoryTransactions />;
+            case "maintenance": return <InventoryMaintenance />;
+            default: return <InventoryItems />;
         }
     };
 
-    const filteredItems = inventoryItems.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     return (
         <DashboardLayout title="Inventory Management">
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                    title="Total Items"
-                    value="156"
-                    change="+12 new items"
-                    changeType="positive"
-                    icon={Package}
-                    iconClassName="gradient-primary"
-                />
-                <StatCard
-                    title="Total Value"
-                    value="$12,450"
-                    change="+5% vs last month"
-                    changeType="positive"
-                    icon={DollarSign}
-                    iconClassName="bg-success"
-                />
-                <StatCard
-                    title="Low Stock Items"
-                    value="8"
-                    change="Needs reordering"
-                    changeType="negative"
-                    icon={AlertTriangle}
-                    iconClassName="bg-warning"
-                />
-                <StatCard
-                    title="Categories"
-                    value="5"
-                    change="2 active promos"
-                    changeType="neutral"
-                    icon={Tags}
-                    iconClassName="gradient-accent"
-                />
-            </div>
+            <div className="space-y-6 animate-fade-in">
+                <div className="flex flex-col gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight">Inventory Dashboard</h2>
+                    <p className="text-muted-foreground">
+                        Manage your equipment lifecycle from vendors to maintenance.
+                    </p>
+                </div>
 
-            <Card className="animate-slide-up">
-                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4">
-                    <CardTitle className="text-xl font-semibold flex items-center gap-2">
-                        <Archive className="h-5 w-5 text-primary" />
-                        Inventory Items
-                    </CardTitle>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <div className="relative flex-1 sm:w-64">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search items..."
-                                className="pl-9"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+                <div className="flex flex-col lg:flex-row gap-6 items-start">
+                    {/* Left side: Flow Navigation */}
+                    <div className="w-full lg:w-80 shrink-0 sticky top-6">
+                        <div className="bg-card rounded-xl border shadow-sm p-4 text-card-foreground">
+                            <h3 className="font-semibold text-sm uppercase text-muted-foreground mb-4 px-2 tracking-wider">Inventory Flow</h3>
+                            <div className="relative">
+                                {/* Connecting line */}
+                                <div className="absolute left-[27px] top-8 bottom-8 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full" />
+
+                                <div className="space-y-3 relative z-10">
+                                    {flowSteps.map((step) => {
+                                        const isActive = activeSection === step.id;
+                                        return (
+                                            <button
+                                                key={step.id}
+                                                onClick={() => setActiveSection(step.id)}
+                                                className={`w-full flex items-center gap-4 p-3 rounded-xl text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive
+                                                    ? 'bg-primary/5 border border-primary/20 shadow-sm'
+                                                    : 'hover:bg-muted border border-transparent hover:border-border'
+                                                    }`}
+                                            >
+                                                <div className={`p-2.5 rounded-full flex-shrink-0 transition-colors ${isActive
+                                                    ? 'bg-primary text-primary-foreground shadow-md'
+                                                    : 'bg-background border shadow-sm text-muted-foreground'
+                                                    }`}>
+                                                    <step.icon className="w-5 h-5" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className={`font-semibold text-sm leading-none mb-1.5 ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                        {step.title}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground leading-tight">
+                                                        {step.desc}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
-                        <Button variant="outline" size="icon">
-                            <Filter className="h-4 w-4" />
-                        </Button>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            <span className="hidden sm:inline">Add Item</span>
-                        </Button>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Item Name</TableHead>
-                                    <TableHead>Category</TableHead>
-                                    <TableHead>SKU</TableHead>
-                                    <TableHead>Quantity</TableHead>
-                                    <TableHead>Price</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Last Updated</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredItems.map((item) => (
-                                    <TableRow key={item.id} className="hover:bg-muted/50 transition-colors">
-                                        <TableCell className="font-medium">{item.name}</TableCell>
-                                        <TableCell>{item.category}</TableCell>
-                                        <TableCell className="font-mono text-xs">{item.sku}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                {item.quantity}
-                                                {item.quantity <= item.minQuantity && (
-                                                    <AlertTriangle className="h-3 w-3 text-warning" />
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>${item.price.toFixed(2)}</TableCell>
-                                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground">{item.lastUpdated}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+
+                    {/* Right side: Active Content */}
+                    <div className="flex-1 w-full min-w-0">
+                        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            {renderContent()}
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </DashboardLayout>
     );
 }
