@@ -167,7 +167,9 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             <Dumbbell className="h-5 w-5 text-primary-foreground" />
           </div>
           {!collapsed && (
-            <span className="font-bold text-lg text-foreground">GymFlow</span>
+            <span className="font-bold text-lg text-foreground">
+              Fit<span className="gradient-text">Flow</span>
+            </span>
           )}
         </div>
         <Button

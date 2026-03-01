@@ -97,9 +97,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         fetchSubscription();
 
-        // Optional: Listen for auth changes to re-fetch
+        // Listen for auth changes to re-fetch - using silent fetch
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                // Fetch in background, do not set loading to true
                 fetchSubscription();
             } else if (event === 'SIGNED_OUT') {
                 setSubscription(null);

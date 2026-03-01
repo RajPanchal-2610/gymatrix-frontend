@@ -23,11 +23,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
     const [gymId, setGymId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchGyms = async () => {
+    const fetchGyms = async (isInitial = false) => {
         try {
-            setLoading(true);
+            if (isInitial && gyms.length === 0) setLoading(true);
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
+                setGyms([]);
+                setGymId(null);
                 setLoading(false);
                 return;
             }
@@ -44,6 +46,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
             if (error) {
                 console.error("Error fetching gyms:", error);
+                setLoading(false);
                 return;
             }
 
@@ -79,11 +82,12 @@ export function GymProvider({ children }: { children: ReactNode }) {
     };
 
     useEffect(() => {
-        fetchGyms();
+        fetchGyms(true);
 
         // Listen for auth changes to reset/fetch
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-            if (event === 'SIGNED_IN') fetchGyms();
+            // Only refetch on sign in to prevent massive refetch on every window focus
+            if (event === 'SIGNED_IN') fetchGyms(false);
             if (event === 'SIGNED_OUT') {
                 setGyms([]);
                 setGymId(null);

@@ -123,8 +123,23 @@ export default function Reports() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart />
-        <MembershipChart />
+        <RevenueChart
+          data={[
+            { name: "Jan", revenue: 45000 },
+            { name: "Feb", revenue: 52000 },
+            { name: "Mar", revenue: 48000 },
+            { name: "Apr", revenue: 61000 },
+            { name: "May", revenue: 55000 },
+            { name: "Jun", revenue: 67000 },
+          ]}
+        />
+        <MembershipChart
+          data={[
+            { name: "Active", value: 120, color: "hsl(var(--success))" },
+            { name: "Expiring", value: 45, color: "hsl(var(--warning))" },
+            { name: "Expired", value: 25, color: "hsl(var(--destructive))" },
+          ]}
+        />
       </div>
     </DashboardLayout>
   );

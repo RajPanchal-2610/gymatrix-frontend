@@ -121,7 +121,7 @@ export default function Members() {
 
     const fetchMembers = async () => {
         try {
-            setLoading(true);
+            if (members.length === 0) setLoading(true);
             const { data, error } = await supabase
                 .from("gym_members")
                 .select(`
@@ -597,132 +597,696 @@ export default function Members() {
         member.phone?.includes(searchQuery)
     );
 
-    if (gymLoading || (loading && !members.length && gymId)) {
-        return (
-            <DashboardLayout title="Gym Members">
+    return (
+        <DashboardLayout title="Gym Members">
+            {gymLoading || (loading && !members.length && gymId) ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
-            </DashboardLayout>
-        );
-    }
-
-    return (
-        <DashboardLayout title="Gym Members">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
-                <div className="flex-1 w-full sm:max-w-md relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search members..."
-                        className="pl-9"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Member
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                        <DialogHeader>
-                            <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 mt-4">
-                            <div className="flex justify-center">
-                                <Avatar className="h-20 w-20">
-                                    <AvatarImage src={formData.image_url} />
-                                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                                        {formData.full_name ? formData.full_name.substring(0, 2).toUpperCase() : "M"}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="imageUpload">Profile Image</Label>
-                                <div className="flex gap-2">
-                                    <Input
-                                        id="imageUpload"
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={handleFileUpload}
-                                        disabled={uploading}
-                                        className="cursor-pointer"
-                                    />
-                                    {uploading && (
-                                        <div className="flex items-center px-3 border rounded-md bg-muted">
-                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+                <>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
+                        <div className="flex-1 w-full sm:max-w-md relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search members..."
+                                className="pl-9"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Member
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[500px]">
+                                <DialogHeader>
+                                    <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 mt-4">
+                                    <div className="flex justify-center">
+                                        <Avatar className="h-20 w-20">
+                                            <AvatarImage src={formData.image_url} />
+                                            <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                                                {formData.full_name ? formData.full_name.substring(0, 2).toUpperCase() : "M"}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="imageUpload">Profile Image</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                id="imageUpload"
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handleFileUpload}
+                                                disabled={uploading}
+                                                className="cursor-pointer"
+                                            />
+                                            {uploading && (
+                                                <div className="flex items-center px-3 border rounded-md bg-muted">
+                                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                </div>
+                                            )}
                                         </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                                        <Input
+                                            id="fullName"
+                                            placeholder="John Doe"
+                                            value={formData.full_name}
+                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="email">Email</Label>
+                                            <Input
+                                                id="email"
+                                                type="email"
+                                                placeholder="john@email.com"
+                                                value={formData.email}
+                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="phone">Phone</Label>
+                                            <Input
+                                                id="phone"
+                                                placeholder="+1 234 567 890"
+                                                value={formData.phone}
+                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Subscription Plan <span className="text-destructive">*</span></Label>
+                                        <Select
+                                            value={formData.membership_plan_id}
+                                            onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select plan" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {plans.map((plan) => (
+                                                    <SelectItem key={plan.id} value={plan.id.toString()}>
+                                                        {plan.name} - ₹{plan.price}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="joinDate">Join Date</Label>
+                                            <Input
+                                                id="joinDate"
+                                                type="date"
+                                                value={formData.join_date}
+                                                onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Assigned Personal Trainer</Label>
+                                            <Select
+                                                value={formData.trainer_id}
+                                                onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Personal Trainer (optional)" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="none">No Personal Trainer</SelectItem>
+                                                    {trainers.map((trainer) => (
+                                                        <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                                            {trainer.full_name}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Status</Label>
+                                            <Select
+                                                value={formData.status}
+                                                onValueChange={(val: any) => setFormData({ ...formData, status: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="active">Active</SelectItem>
+                                                    <SelectItem value="expired">Expired</SelectItem>
+                                                    <SelectItem value="paused">Paused</SelectItem>
+                                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3 mt-6">
+                                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                        Cancel
+                                    </Button>
+                                    <Button className="gradient-primary" onClick={handleSubmit}>
+                                        {editingMember ? "Update Member" : "Register Member"}
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+
+                        {/* Renewal Dialog */}
+                        <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+                            <DialogContent className="sm:max-w-[400px]">
+                                <DialogHeader>
+                                    <DialogTitle>Renew Membership</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-2">
+                                        <Label>Member</Label>
+                                        <div className="font-medium">{renewingMember?.full_name}</div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Select Plan</Label>
+                                        <Select
+                                            value={renewFormData.plan_id}
+                                            onValueChange={(val) => setRenewFormData({ ...renewFormData, plan_id: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select plan" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {plans.map((plan) => (
+                                                    <SelectItem key={plan.id} value={plan.id.toString()}>
+                                                        {plan.name} - ₹{plan.price} ({plan.duration_value} {plan.duration_unit})
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Start Date</Label>
+                                        <Input
+                                            type="date"
+                                            value={renewFormData.start_date}
+                                            onChange={(e) => setRenewFormData({ ...renewFormData, start_date: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex justify-end gap-3">
+                                    <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
+                                    <Button className="gradient-primary" onClick={handleRenewSubmit}>
+                                        Confirm Renewal
+                                    </Button>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+
+                        {/* History Dialog */}
+                        <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+                            <DialogContent className="sm:max-w-[700px]">
+                                <DialogHeader>
+                                    <DialogTitle>Membership History - {viewingMember?.full_name}</DialogTitle>
+                                </DialogHeader>
+                                <div className="mt-4">
+                                    {historyLoading ? (
+                                        <div className="flex justify-center p-8">
+                                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                        </div>
+                                    ) : memberHistory.length === 0 ? (
+                                        <div className="text-center p-8 text-muted-foreground">
+                                            No history found for this member.
+                                        </div>
+                                    ) : (
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Plan</TableHead>
+                                                    <TableHead>Start Date</TableHead>
+                                                    <TableHead>End Date</TableHead>
+                                                    <TableHead>Renwed At</TableHead>
+                                                    <TableHead>Payment Status</TableHead>
+                                                    <TableHead>Status</TableHead>
+                                                    <TableHead className="text-right">Action</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {memberHistory.map((history) => {
+                                                    const payment = history.gym_membership_payments?.[0];
+                                                    return (
+                                                        <TableRow key={history.id}>
+                                                            <TableCell className="font-medium">
+                                                                {history.gym_membership_plans?.name || "Unknown Plan"}
+                                                            </TableCell>
+                                                            <TableCell>{history.start_date}</TableCell>
+                                                            <TableCell>{history.end_date}</TableCell>
+                                                            <TableCell>
+                                                                {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                {payment ? (
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        {payment.payment_status === 'paid' && (
+                                                                            <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
+                                                                                <CheckCircle className="w-3 h-3 mr-1" /> Paid
+                                                                            </Badge>
+                                                                        )}
+                                                                        {payment.payment_status === 'partial' && (
+                                                                            <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
+                                                                                <Clock className="w-3 h-3 mr-1" /> Partial
+                                                                            </Badge>
+                                                                        )}
+                                                                        {payment.payment_status === 'unpaid' && (
+                                                                            <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
+                                                                                <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
+                                                                            </Badge>
+                                                                        )}
+                                                                        <span className="text-xs text-muted-foreground font-medium">
+                                                                            ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
+                                                                        </span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground text-sm">-</span>
+                                                                )}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
+                                                                    {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
+                                                                </Badge>
+                                                            </TableCell>
+                                                            <TableCell className="text-right">
+                                                                {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="h-7 text-xs"
+                                                                        onClick={() => {
+                                                                            if (viewingMember) {
+                                                                                setSelectedPaymentMember({
+                                                                                    ...payment,
+                                                                                    gym_members: viewingMember
+                                                                                } as any);
+                                                                                setRecordPaymentOpen(true);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Pay
+                                                                    </Button>
+                                                                ) : (payment && payment.payment_status === 'paid') ? (
+                                                                    <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
+                                                                        <CheckCircle className="h-3.5 w-3.5" />
+                                                                        Done
+                                                                    </div>
+                                                                ) : null}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })}
+                                            </TableBody>
+                                        </Table>
                                     )}
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                                <Input
-                                    id="fullName"
-                                    placeholder="John Doe"
-                                    value={formData.full_name}
-                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+
+                    <Card>
+                        <CardContent className="p-0">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Member</TableHead>
+                                        <TableHead>Contact</TableHead>
+                                        <TableHead>Plan</TableHead>
+                                        <TableHead>Expiry</TableHead>
+                                        <TableHead>Trainer</TableHead>
+                                        <TableHead>Payment</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredMembers.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                                                No members found.
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredMembers.map((member) => (
+                                            <TableRow
+                                                key={member.id}
+                                                className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
+                                                onClick={() => navigate(`/members/${member.id}`)}
+                                            >
+                                                <TableCell>
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-10 w-10">
+                                                            <AvatarImage src={member.image_url || undefined} />
+                                                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                                                                {member.full_name.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="font-semibold">{member.full_name}</div>
+                                                    </div>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                        {member.email && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Mail className="h-3.5 w-3.5" />
+                                                                {member.email}
+                                                            </span>
+                                                        )}
+                                                        {member.phone ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <Phone className="h-3.5 w-3.5" />
+                                                                {member.phone}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="flex items-center gap-1 text-muted-foreground/50">
+                                                                <Phone className="h-3.5 w-3.5 opacity-50" />
+                                                                -
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                        {member.gym_membership_plans ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <Calendar className="h-3.5 w-3.5" />
+                                                                {member.gym_membership_plans.name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                        {member.expiry_date ? (
+                                                            <span className="flex items-center gap-1">
+                                                                <Clock className="h-3.5 w-3.5" />
+                                                                {member.expiry_date}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground">-</span>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    {member.gym_staff ? (
+                                                        <span className="flex items-center gap-1 text-primary text-sm">
+                                                            <User className="h-3.5 w-3.5" />
+                                                            {member.gym_staff.full_name}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-muted-foreground text-sm">-</span>
+                                                    )}
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    <div className="flex flex-col items-start gap-1">
+                                                        {(() => {
+                                                            const allPayments = member.gym_membership_payments || [];
+                                                            // 1. Identify "Current" Payment (linked to latest history, or just most recent)
+                                                            // Use slice() to avoid mutating original array
+                                                            const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
+                                                            const latestHistory = sortedHistory[0];
+
+                                                            const linkedPayment = allPayments.find(p => p.membership_history_id === latestHistory?.id);
+
+                                                            // If no linked payment, fallback to most recent created
+                                                            const currentPayment = linkedPayment || allPayments.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+
+                                                            const badges = [];
+
+                                                            // 1. Current/Latest Payment Status
+                                                            if (currentPayment) {
+                                                                let colorClass = "bg-secondary text-secondary-foreground";
+                                                                if (currentPayment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                                if (currentPayment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                                if (currentPayment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                                                badges.push(
+                                                                    <span key="current" className="flex items-center">
+                                                                        <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                                            {currentPayment.payment_status.toUpperCase()}
+                                                                            {currentPayment.payment_status !== 'paid' && ` (₹${currentPayment.due_amount})`}
+                                                                        </Badge>
+                                                                    </span>
+                                                                );
+                                                            } else if (latestHistory && latestHistory.payment_status) {
+                                                                // Fallback to history status if payment record missing
+                                                                let colorClass = "bg-secondary text-secondary-foreground";
+                                                                if (latestHistory.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                                if (latestHistory.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                                if (latestHistory.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                                                badges.push(
+                                                                    <span key="history-status" className="flex items-center">
+                                                                        <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                                            {latestHistory.payment_status.toUpperCase()}
+                                                                        </Badge>
+                                                                    </span>
+                                                                );
+                                                            }
+
+                                                            // 2. Check for Previous Unpaid/Partial Payments
+                                                            const previousUnpaid = allPayments.filter(p =>
+                                                                p.id !== currentPayment?.id &&
+                                                                (p.payment_status === 'unpaid' || p.payment_status === 'partial')
+                                                            );
+
+                                                            if (previousUnpaid.length > 0) {
+                                                                const totalPreviousDue = previousUnpaid.reduce((sum, p) => sum + (p.due_amount || 0), 0);
+
+                                                                badges.push(
+                                                                    <span key="previous-dues" className="flex items-center">
+                                                                        <Badge variant="outline" className="h-5 text-[10px] px-1.5 text-destructive bg-destructive/10 border-destructive/20 border-dashed">
+                                                                            PREVIOUS DUE (₹{totalPreviousDue})
+                                                                        </Badge>
+                                                                    </span>
+                                                                );
+                                                            }
+
+                                                            return badges;
+                                                        })()}
+                                                    </div>
+                                                </TableCell>
+
+                                                <TableCell>
+                                                    {(() => {
+                                                        const status = getMemberStatusDisplay(member);
+                                                        return <Badge
+                                                            variant={status.variant as "default" | "secondary" | "destructive" | "outline"}
+                                                            className={status.className}
+                                                        >
+                                                            {status.label}
+                                                        </Badge>
+                                                            ;
+                                                    })()}
+                                                </TableCell>
+
+                                                <TableCell className="text-right">
+                                                    <div className="flex justify-end items-center gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenDialog(member);
+                                                            }}
+                                                            title="Edit Member"
+                                                        >
+                                                            <Edit className="h-4 w-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-destructive hover:bg-destructive/10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDelete(member.id);
+                                                            }}
+                                                            title="Delete Member"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                <DropdownMenuItem onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewHistory(member);
+                                                                }}>
+                                                                    <Eye className="h-4 w-4 mr-2" />
+                                                                    View History
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenAssignTrainer(member);
+                                                                }}>
+                                                                    <User className="h-4 w-4 mr-2" />
+                                                                    Assign Personal Trainer
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenRenewDialog(member);
+                                                                }}>
+                                                                    <RefreshCw className="h-4 w-4 mr-2" />
+                                                                    Renew
+                                                                </DropdownMenuItem>
+
+                                                                {/* Payment Action */}
+                                                                {(() => {
+                                                                    const actions = [];
+                                                                    // 1. Existing Payments that need attention (Unpaid or Partial)
+                                                                    // Get ALL payments for this member
+                                                                    const allPayments = member.gym_membership_payments || [];
+
+                                                                    // Filter for unpaid or partial
+                                                                    const outstandingPayments = allPayments.filter(p => p.payment_status !== 'paid');
+
+                                                                    // Sort: Most recent first
+                                                                    outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+
+                                                                    // Find the active or most recent history to identify which one is "Current"
+                                                                    const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
+                                                                    const latestHistory = sortedHistory[0];
+
+                                                                    // Render actions for existing payments
+                                                                    outstandingPayments.forEach(payment => {
+                                                                        const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
+                                                                        const label = isLatest
+                                                                            ? `Record Payment`
+                                                                            : `Pay Previous Due`;
+
+                                                                        actions.push(
+                                                                            <DropdownMenuItem key={`pay-${payment.id}`} onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const paymentWithMember = { ...payment, gym_members: member };
+                                                                                setSelectedPaymentMember(paymentWithMember as any);
+                                                                                setRecordPaymentOpen(true);
+                                                                            }}>
+                                                                                <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                {label} (₹{payment.due_amount})
+                                                                            </DropdownMenuItem>
+                                                                        );
+                                                                    });
+
+                                                                    // 2. Missing Invoices (History exists as unpaid/partial, but no payment record)
+                                                                    // This happens if a user deleted the payment record manually but history remains
+                                                                    const paidHistoryIds = allPayments.map(p => p.membership_history_id);
+
+                                                                    // Find histories that are unpaid/partial but NOT in the payments list
+                                                                    const orphanHistories = sortedHistory.filter(h =>
+                                                                        (h.payment_status === 'unpaid' || h.payment_status === 'partial') &&
+                                                                        !paidHistoryIds.includes(h.id)
+                                                                    );
+
+                                                                    orphanHistories.forEach(history => {
+                                                                        const isLatest = history.id === latestHistory?.id;
+                                                                        const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
+
+                                                                        actions.push(
+                                                                            <DropdownMenuItem key={`regen-${history.id}`} onClick={async (e) => {
+                                                                                e.stopPropagation();
+                                                                                try {
+                                                                                    // Find plan details to get price
+                                                                                    const plan = plans.find(p => p.id === history.plan_id);
+                                                                                    if (!plan) {
+                                                                                        toast.error("Plan details not found, cannot regenerate invoice.");
+                                                                                        return;
+                                                                                    }
+
+                                                                                    const loadingToast = toast.loading("Regenerating invoice...");
+
+                                                                                    // Create new Payment Record
+                                                                                    const { data: newPayment, error } = await supabase
+                                                                                        .from("gym_membership_payments")
+                                                                                        .insert({
+                                                                                            membership_history_id: history.id,
+                                                                                            member_id: member.id,
+                                                                                            gym_id: gymId,
+                                                                                            total_amount: plan.price,
+                                                                                            paid_amount: 0,
+                                                                                            due_amount: plan.price,
+                                                                                            payment_status: 'unpaid',
+                                                                                            billing_date: new Date().toISOString()
+                                                                                        })
+                                                                                        .select()
+                                                                                        .single();
+
+                                                                                    if (error) throw error;
+
+                                                                                    toast.dismiss(loadingToast);
+                                                                                    toast.success("Invoice regenerated");
+
+                                                                                    // Refresh list then open dialog
+                                                                                    await fetchMembers();
+
+                                                                                    const paymentWithMember = { ...newPayment, gym_members: member };
+                                                                                    setSelectedPaymentMember(paymentWithMember as any);
+                                                                                    setRecordPaymentOpen(true);
+
+                                                                                } catch (err: any) {
+                                                                                    toast.error("Failed to regenerate invoice: " + err.message);
+                                                                                }
+                                                                            }}>
+                                                                                <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                {label}
+                                                                            </DropdownMenuItem>
+                                                                        );
+                                                                    });
+
+                                                                    return actions;
+                                                                })()}
+
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+
+                    <Dialog open={assignTrainerOpen} onOpenChange={setAssignTrainerOpen}>
+                        <DialogContent className="sm:max-w-[400px]">
+                            <DialogHeader>
+                                <DialogTitle>Assign Personal Trainer</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="email">Email</Label>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="john@email.com"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    />
+                                    <Label>Member</Label>
+                                    <div className="font-medium">{assignTrainerMember?.full_name}</div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Phone</Label>
-                                    <Input
-                                        id="phone"
-                                        placeholder="+1 234 567 890"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Subscription Plan <span className="text-destructive">*</span></Label>
-                                <Select
-                                    value={formData.membership_plan_id}
-                                    onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select plan" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {plans.map((plan) => (
-                                            <SelectItem key={plan.id} value={plan.id.toString()}>
-                                                {plan.name} - ₹{plan.price}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="joinDate">Join Date</Label>
-                                    <Input
-                                        id="joinDate"
-                                        type="date"
-                                        value={formData.join_date}
-                                        onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Assigned Personal Trainer</Label>
+                                    <Label>Select Personal Trainer</Label>
                                     <Select
-                                        value={formData.trainer_id}
-                                        onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                        value={selectedTrainerId}
+                                        onValueChange={setSelectedTrainerId}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select Personal Trainer (optional)" />
+                                            <SelectValue placeholder="Select Personal Trainer" />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="none">No Personal Trainer</SelectItem>
@@ -734,595 +1298,29 @@ export default function Members() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Status</Label>
-                                    <Select
-                                        value={formData.status}
-                                        onValueChange={(val: any) => setFormData({ ...formData, status: val })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="active">Active</SelectItem>
-                                            <SelectItem value="expired">Expired</SelectItem>
-                                            <SelectItem value="paused">Paused</SelectItem>
-                                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button className="gradient-primary" onClick={handleSubmit}>
-                                {editingMember ? "Update Member" : "Register Member"}
-                            </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
-
-                {/* Renewal Dialog */}
-                <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
-                    <DialogContent className="sm:max-w-[400px]">
-                        <DialogHeader>
-                            <DialogTitle>Renew Membership</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label>Member</Label>
-                                <div className="font-medium">{renewingMember?.full_name}</div>
+                            <div className="flex justify-end gap-3">
+                                <Button variant="outline" onClick={() => setAssignTrainerOpen(false)}>Cancel</Button>
+                                <Button className="gradient-primary" onClick={handleAssignTrainerSubmit}>
+                                    Save Assignment
+                                </Button>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Select Plan</Label>
-                                <Select
-                                    value={renewFormData.plan_id}
-                                    onValueChange={(val) => setRenewFormData({ ...renewFormData, plan_id: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select plan" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {plans.map((plan) => (
-                                            <SelectItem key={plan.id} value={plan.id.toString()}>
-                                                {plan.name} - ₹{plan.price} ({plan.duration_value} {plan.duration_unit})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Start Date</Label>
-                                <Input
-                                    type="date"
-                                    value={renewFormData.start_date}
-                                    onChange={(e) => setRenewFormData({ ...renewFormData, start_date: e.target.value })}
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
-                            <Button className="gradient-primary" onClick={handleRenewSubmit}>
-                                Confirm Renewal
-                            </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
 
-                {/* History Dialog */}
-                <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                    <DialogContent className="sm:max-w-[700px]">
-                        <DialogHeader>
-                            <DialogTitle>Membership History - {viewingMember?.full_name}</DialogTitle>
-                        </DialogHeader>
-                        <div className="mt-4">
-                            {historyLoading ? (
-                                <div className="flex justify-center p-8">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            ) : memberHistory.length === 0 ? (
-                                <div className="text-center p-8 text-muted-foreground">
-                                    No history found for this member.
-                                </div>
-                            ) : (
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Plan</TableHead>
-                                            <TableHead>Start Date</TableHead>
-                                            <TableHead>End Date</TableHead>
-                                            <TableHead>Renwed At</TableHead>
-                                            <TableHead>Payment Status</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Action</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {memberHistory.map((history) => {
-                                            const payment = history.gym_membership_payments?.[0];
-                                            return (
-                                                <TableRow key={history.id}>
-                                                    <TableCell className="font-medium">
-                                                        {history.gym_membership_plans?.name || "Unknown Plan"}
-                                                    </TableCell>
-                                                    <TableCell>{history.start_date}</TableCell>
-                                                    <TableCell>{history.end_date}</TableCell>
-                                                    <TableCell>
-                                                        {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {payment ? (
-                                                            <div className="flex flex-col gap-1.5">
-                                                                {payment.payment_status === 'paid' && (
-                                                                    <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
-                                                                        <CheckCircle className="w-3 h-3 mr-1" /> Paid
-                                                                    </Badge>
-                                                                )}
-                                                                {payment.payment_status === 'partial' && (
-                                                                    <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
-                                                                        <Clock className="w-3 h-3 mr-1" /> Partial
-                                                                    </Badge>
-                                                                )}
-                                                                {payment.payment_status === 'unpaid' && (
-                                                                    <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
-                                                                        <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
-                                                                    </Badge>
-                                                                )}
-                                                                <span className="text-xs text-muted-foreground font-medium">
-                                                                    ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            <span className="text-muted-foreground text-sm">-</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
-                                                            {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                className="h-7 text-xs"
-                                                                onClick={() => {
-                                                                    if (viewingMember) {
-                                                                        setSelectedPaymentMember({
-                                                                            ...payment,
-                                                                            gym_members: viewingMember
-                                                                        } as any);
-                                                                        setRecordPaymentOpen(true);
-                                                                    }
-                                                                }}
-                                                            >
-                                                                Pay
-                                                            </Button>
-                                                        ) : (payment && payment.payment_status === 'paid') ? (
-                                                            <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
-                                                                <CheckCircle className="h-3.5 w-3.5" />
-                                                                Done
-                                                            </div>
-                                                        ) : null}
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            )}
-                        </div>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Member</TableHead>
-                                <TableHead>Contact</TableHead>
-                                <TableHead>Plan</TableHead>
-                                <TableHead>Expiry</TableHead>
-                                <TableHead>Trainer</TableHead>
-                                <TableHead>Payment</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Action</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredMembers.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                                        No members found.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredMembers.map((member) => (
-                                    <TableRow
-                                        key={member.id}
-                                        className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
-                                        onClick={() => navigate(`/members/${member.id}`)}
-                                    >
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-10 w-10">
-                                                    <AvatarImage src={member.image_url || undefined} />
-                                                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                                                        {member.full_name.substring(0, 2).toUpperCase()}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                                <div className="font-semibold">{member.full_name}</div>
-                                            </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                {member.email && (
-                                                    <span className="flex items-center gap-1">
-                                                        <Mail className="h-3.5 w-3.5" />
-                                                        {member.email}
-                                                    </span>
-                                                )}
-                                                {member.phone ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <Phone className="h-3.5 w-3.5" />
-                                                        {member.phone}
-                                                    </span>
-                                                ) : (
-                                                    <span className="flex items-center gap-1 text-muted-foreground/50">
-                                                        <Phone className="h-3.5 w-3.5 opacity-50" />
-                                                        -
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                {member.gym_membership_plans ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <Calendar className="h-3.5 w-3.5" />
-                                                        {member.gym_membership_plans.name}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                {member.expiry_date ? (
-                                                    <span className="flex items-center gap-1">
-                                                        <Clock className="h-3.5 w-3.5" />
-                                                        {member.expiry_date}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            {member.gym_staff ? (
-                                                <span className="flex items-center gap-1 text-primary text-sm">
-                                                    <User className="h-3.5 w-3.5" />
-                                                    {member.gym_staff.full_name}
-                                                </span>
-                                            ) : (
-                                                <span className="text-muted-foreground text-sm">-</span>
-                                            )}
-                                        </TableCell>
-
-                                        <TableCell>
-                                            <div className="flex flex-col items-start gap-1">
-                                                {(() => {
-                                                    const allPayments = member.gym_membership_payments || [];
-                                                    // 1. Identify "Current" Payment (linked to latest history, or just most recent)
-                                                    // Use slice() to avoid mutating original array
-                                                    const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
-                                                    const latestHistory = sortedHistory[0];
-
-                                                    const linkedPayment = allPayments.find(p => p.membership_history_id === latestHistory?.id);
-
-                                                    // If no linked payment, fallback to most recent created
-                                                    const currentPayment = linkedPayment || allPayments.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
-
-                                                    const badges = [];
-
-                                                    // 1. Current/Latest Payment Status
-                                                    if (currentPayment) {
-                                                        let colorClass = "bg-secondary text-secondary-foreground";
-                                                        if (currentPayment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
-                                                        if (currentPayment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
-                                                        if (currentPayment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
-
-                                                        badges.push(
-                                                            <span key="current" className="flex items-center">
-                                                                <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
-                                                                    {currentPayment.payment_status.toUpperCase()}
-                                                                    {currentPayment.payment_status !== 'paid' && ` (₹${currentPayment.due_amount})`}
-                                                                </Badge>
-                                                            </span>
-                                                        );
-                                                    } else if (latestHistory && latestHistory.payment_status) {
-                                                        // Fallback to history status if payment record missing
-                                                        let colorClass = "bg-secondary text-secondary-foreground";
-                                                        if (latestHistory.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
-                                                        if (latestHistory.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
-                                                        if (latestHistory.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
-
-                                                        badges.push(
-                                                            <span key="history-status" className="flex items-center">
-                                                                <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
-                                                                    {latestHistory.payment_status.toUpperCase()}
-                                                                </Badge>
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    // 2. Check for Previous Unpaid/Partial Payments
-                                                    const previousUnpaid = allPayments.filter(p =>
-                                                        p.id !== currentPayment?.id &&
-                                                        (p.payment_status === 'unpaid' || p.payment_status === 'partial')
-                                                    );
-
-                                                    if (previousUnpaid.length > 0) {
-                                                        const totalPreviousDue = previousUnpaid.reduce((sum, p) => sum + (p.due_amount || 0), 0);
-
-                                                        badges.push(
-                                                            <span key="previous-dues" className="flex items-center">
-                                                                <Badge variant="outline" className="h-5 text-[10px] px-1.5 text-destructive bg-destructive/10 border-destructive/20 border-dashed">
-                                                                    PREVIOUS DUE (₹{totalPreviousDue})
-                                                                </Badge>
-                                                            </span>
-                                                        );
-                                                    }
-
-                                                    return badges;
-                                                })()}
-                                            </div>
-                                        </TableCell>
-
-                                        <TableCell>
-                                            {(() => {
-                                                const status = getMemberStatusDisplay(member);
-                                                return <Badge
-                                                    variant={status.variant as "default" | "secondary" | "destructive" | "outline"}
-                                                    className={status.className}
-                                                >
-                                                    {status.label}
-                                                </Badge>
-                                                    ;
-                                            })()}
-                                        </TableCell>
-
-                                        <TableCell className="text-right">
-                                            <div className="flex justify-end items-center gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleOpenDialog(member);
-                                                    }}
-                                                    title="Edit Member"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="text-destructive hover:bg-destructive/10"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(member.id);
-                                                    }}
-                                                    title="Delete Member"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                                                            <MoreHorizontal className="h-4 w-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                        <DropdownMenuItem onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleViewHistory(member);
-                                                        }}>
-                                                            <Eye className="h-4 w-4 mr-2" />
-                                                            View History
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleOpenAssignTrainer(member);
-                                                        }}>
-                                                            <User className="h-4 w-4 mr-2" />
-                                                            Assign Personal Trainer
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleOpenRenewDialog(member);
-                                                        }}>
-                                                            <RefreshCw className="h-4 w-4 mr-2" />
-                                                            Renew
-                                                        </DropdownMenuItem>
-
-                                                        {/* Payment Action */}
-                                                        {(() => {
-                                                            const actions = [];
-                                                            // 1. Existing Payments that need attention (Unpaid or Partial)
-                                                            // Get ALL payments for this member
-                                                            const allPayments = member.gym_membership_payments || [];
-
-                                                            // Filter for unpaid or partial
-                                                            const outstandingPayments = allPayments.filter(p => p.payment_status !== 'paid');
-
-                                                            // Sort: Most recent first
-                                                            outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
-
-                                                            // Find the active or most recent history to identify which one is "Current"
-                                                            const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
-                                                            const latestHistory = sortedHistory[0];
-
-                                                            // Render actions for existing payments
-                                                            outstandingPayments.forEach(payment => {
-                                                                const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
-                                                                const label = isLatest
-                                                                    ? `Record Payment`
-                                                                    : `Pay Previous Due`;
-
-                                                                actions.push(
-                                                                    <DropdownMenuItem key={`pay-${payment.id}`} onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const paymentWithMember = { ...payment, gym_members: member };
-                                                                        setSelectedPaymentMember(paymentWithMember as any);
-                                                                        setRecordPaymentOpen(true);
-                                                                    }}>
-                                                                        <IndianRupee className="h-4 w-4 mr-2" />
-                                                                        {label} (₹{payment.due_amount})
-                                                                    </DropdownMenuItem>
-                                                                );
-                                                            });
-
-                                                            // 2. Missing Invoices (History exists as unpaid/partial, but no payment record)
-                                                            // This happens if a user deleted the payment record manually but history remains
-                                                            const paidHistoryIds = allPayments.map(p => p.membership_history_id);
-
-                                                            // Find histories that are unpaid/partial but NOT in the payments list
-                                                            const orphanHistories = sortedHistory.filter(h =>
-                                                                (h.payment_status === 'unpaid' || h.payment_status === 'partial') &&
-                                                                !paidHistoryIds.includes(h.id)
-                                                            );
-
-                                                            orphanHistories.forEach(history => {
-                                                                const isLatest = history.id === latestHistory?.id;
-                                                                const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
-
-                                                                actions.push(
-                                                                    <DropdownMenuItem key={`regen-${history.id}`} onClick={async (e) => {
-                                                                        e.stopPropagation();
-                                                                        try {
-                                                                            // Find plan details to get price
-                                                                            const plan = plans.find(p => p.id === history.plan_id);
-                                                                            if (!plan) {
-                                                                                toast.error("Plan details not found, cannot regenerate invoice.");
-                                                                                return;
-                                                                            }
-
-                                                                            const loadingToast = toast.loading("Regenerating invoice...");
-
-                                                                            // Create new Payment Record
-                                                                            const { data: newPayment, error } = await supabase
-                                                                                .from("gym_membership_payments")
-                                                                                .insert({
-                                                                                    membership_history_id: history.id,
-                                                                                    member_id: member.id,
-                                                                                    gym_id: gymId,
-                                                                                    total_amount: plan.price,
-                                                                                    paid_amount: 0,
-                                                                                    due_amount: plan.price,
-                                                                                    payment_status: 'unpaid',
-                                                                                    billing_date: new Date().toISOString()
-                                                                                })
-                                                                                .select()
-                                                                                .single();
-
-                                                                            if (error) throw error;
-
-                                                                            toast.dismiss(loadingToast);
-                                                                            toast.success("Invoice regenerated");
-
-                                                                            // Refresh list then open dialog
-                                                                            await fetchMembers();
-
-                                                                            const paymentWithMember = { ...newPayment, gym_members: member };
-                                                                            setSelectedPaymentMember(paymentWithMember as any);
-                                                                            setRecordPaymentOpen(true);
-
-                                                                        } catch (err: any) {
-                                                                            toast.error("Failed to regenerate invoice: " + err.message);
-                                                                        }
-                                                                    }}>
-                                                                        <IndianRupee className="h-4 w-4 mr-2" />
-                                                                        {label}
-                                                                    </DropdownMenuItem>
-                                                                );
-                                                            });
-
-                                                            return actions;
-                                                        })()}
-
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-
-            <Dialog open={assignTrainerOpen} onOpenChange={setAssignTrainerOpen}>
-                <DialogContent className="sm:max-w-[400px]">
-                    <DialogHeader>
-                        <DialogTitle>Assign Personal Trainer</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Member</Label>
-                            <div className="font-medium">{assignTrainerMember?.full_name}</div>
-                        </div>
-                        <div className="space-y-2">
-                            <Label>Select Personal Trainer</Label>
-                            <Select
-                                value={selectedTrainerId}
-                                onValueChange={setSelectedTrainerId}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select Personal Trainer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">No Personal Trainer</SelectItem>
-                                    {trainers.map((trainer) => (
-                                        <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                            {trainer.full_name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-3">
-                        <Button variant="outline" onClick={() => setAssignTrainerOpen(false)}>Cancel</Button>
-                        <Button className="gradient-primary" onClick={handleAssignTrainerSubmit}>
-                            Save Assignment
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            <RecordPaymentDialog
-                open={recordPaymentOpen}
-                onOpenChange={setRecordPaymentOpen}
-                payment={selectedPaymentMember}
-                onSuccess={() => {
-                    fetchMembers();
-                    if (historyDialogOpen && viewingMember) {
-                        handleViewHistory(viewingMember);
-                    }
-                }}
-            />
+                    <RecordPaymentDialog
+                        open={recordPaymentOpen}
+                        onOpenChange={setRecordPaymentOpen}
+                        payment={selectedPaymentMember}
+                        onSuccess={() => {
+                            fetchMembers();
+                            if (historyDialogOpen && viewingMember) {
+                                handleViewHistory(viewingMember);
+                            }
+                        }}
+                    />
+                </>
+            )}
         </DashboardLayout>
     );
 }
