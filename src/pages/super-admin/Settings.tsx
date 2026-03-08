@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { User, Building2, Bell, Shield, CreditCard, Palette } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +14,7 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
 
   return (
-    <DashboardLayout title="Settings">
+    <>
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="bg-muted p-1 h-auto flex-wrap">
           <TabsTrigger value="profile" className="gap-2">
@@ -147,7 +146,9 @@ export default function Settings() {
                     <p className="font-medium">{item.title}</p>
                     <p className="text-sm text-muted-foreground">{item.description}</p>
                   </div>
-                  <Switch defaultChecked={index < 3} />
+                  <span className="flex items-center space-x-2">
+                    <Switch id={`notify-${index}`} defaultChecked={index < 3} />
+                  </span>
                 </div>
               ))}
             </CardContent>
@@ -223,6 +224,6 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+    </>
   );
 }

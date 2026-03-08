@@ -11,7 +11,6 @@ import {
   MoreHorizontal,
   Receipt,
 } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -132,7 +131,7 @@ export default function Payments() {
   const overdue = payments.filter((p) => p.status === "overdue").reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <DashboardLayout title="Payments & Billing">
+    <>
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
@@ -266,6 +265,6 @@ export default function Payments() {
           </div>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   );
 }

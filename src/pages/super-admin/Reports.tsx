@@ -1,5 +1,4 @@
 import { Download, FileText, BarChart3, Users, DollarSign, Calendar } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -45,7 +44,7 @@ const reportTypes = [
 
 export default function Reports() {
   return (
-    <DashboardLayout title="Reports">
+    <>
       {/* Quick Reports */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {reportTypes.map((report) => {
@@ -141,6 +140,6 @@ export default function Reports() {
           ]}
         />
       </div>
-    </DashboardLayout>
+    </>
   );
 }

@@ -13,7 +13,6 @@ import {
     Edit,
     Trash2
 } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -150,7 +149,7 @@ export default function GymPayments() {
     };
 
     return (
-        <DashboardLayout title="Payments & Billing">
+        <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <StatCard
                     title="Total Collected"
@@ -317,6 +316,6 @@ export default function GymPayments() {
                 payment={selectedPayment}
                 onSuccess={fetchPayments}
             />
-        </DashboardLayout >
+        </>
     );
 }

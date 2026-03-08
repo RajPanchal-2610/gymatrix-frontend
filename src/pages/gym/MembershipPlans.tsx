@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -159,7 +158,7 @@ export default function MembershipPlans() {
     };
 
     return (
-        <DashboardLayout title="Subscription Plans">
+        <>
             {gymLoading || (loading && !plans.length && gymId) ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -303,6 +302,6 @@ export default function MembershipPlans() {
                     )}
                 </>
             )}
-        </DashboardLayout>
+        </>
     );
 }

@@ -15,14 +15,12 @@ import {
     CheckCircle,
     AlertCircle,
     Clock,
-
     IndianRupee,
     Upload,
     Loader2,
     RefreshCw,
     User
 } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +56,7 @@ import {
 } from "@/components/ui/table";
 import { Label } from "@/components/ui/label";
 import { useGym } from "@/hooks/useGym";
+import { useSubscription } from "@/hooks/useSubscription";
 import { GymMember, GymMembershipPlan, GymMembershipPayment, GymStaff } from "@/types/gym";
 import { supabase } from "@/lib/supabase";
 import { staffService } from "@/services/staffService";
@@ -67,7 +66,8 @@ import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 
 export default function Members() {
     const navigate = useNavigate();
-    const { gymId, loading: gymLoading } = useGym();
+    const { gymId, gyms, loading: gymLoading } = useGym();
+    const { subscription } = useSubscription();
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
     const [trainers, setTrainers] = useState<GymStaff[]>([]);
@@ -84,6 +84,7 @@ export default function Members() {
         trainer_id: "none",
         join_date: format(new Date(), "yyyy-MM-dd"),
         image_url: "",
+        gender: "",
         status: "active" as "active" | "expired" | "paused" | "cancelled",
     });
     const [uploading, setUploading] = useState(false);
@@ -193,6 +194,7 @@ export default function Members() {
                 trainer_id: member.trainer_id?.toString() || "none",
                 join_date: member.join_date,
                 image_url: member.image_url || "",
+                gender: member.gender || "",
                 status: member.status,
             });
         } else {
@@ -205,6 +207,7 @@ export default function Members() {
                 trainer_id: "none",
                 join_date: format(new Date(), "yyyy-MM-dd"),
                 image_url: "",
+                gender: "",
                 status: "active",
             });
         }
@@ -441,6 +444,30 @@ export default function Members() {
             return;
         }
 
+        // Subscription Member Limit Check
+        if (!editingMember && subscription) {
+            try {
+                // Count active/valid members across ALL gyms of this owner
+                const { count, error: countError } = await supabase
+                    .from("gym_members")
+                    .select("*", { count: 'exact', head: true })
+                    .in('gym_id', gyms.map(g => g.id))
+                    .eq('is_deleted', false);
+
+                if (countError) throw countError;
+
+                if (count !== null && count >= (subscription.max_members || 0)) {
+                    toast.error(`Member limit reached! Your ${subscription.status === 'trial' ? 'trial' : 'plan'} allows ${subscription.max_members} members. Upgrade to add more.`);
+                    setDialogOpen(false);
+                    navigate("/pricing");
+                    return;
+                }
+            } catch (error) {
+                console.error("Error checking member limit:", error);
+                // Continue if check fails? Or block? Usually safer to block or log.
+            }
+        }
+
         try {
             const expiry_date = formData.membership_plan_id
                 ? calculateExpiry(formData.join_date, formData.membership_plan_id)
@@ -456,6 +483,7 @@ export default function Members() {
                 join_date: formData.join_date,
                 expiry_date: expiry_date,
                 image_url: formData.image_url || null,
+                gender: formData.gender || null,
                 status: formData.status,
                 is_active: formData.status === 'active',
                 is_deleted: false
@@ -598,7 +626,7 @@ export default function Members() {
     );
 
     return (
-        <DashboardLayout title="Gym Members">
+        <>
             {gymLoading || (loading && !members.length && gymId) ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -727,6 +755,22 @@ export default function Members() {
                                                             {trainer.full_name}
                                                         </SelectItem>
                                                     ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Gender</Label>
+                                            <Select
+                                                value={formData.gender}
+                                                onValueChange={(val) => setFormData({ ...formData, gender: val })}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select gender" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="Male">Male</SelectItem>
+                                                    <SelectItem value="Female">Female</SelectItem>
+                                                    <SelectItem value="Other">Other</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -1321,6 +1365,6 @@ export default function Members() {
                     />
                 </>
             )}
-        </DashboardLayout>
+        </>
     );
 }

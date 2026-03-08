@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Calendar, Clock, UserCheck, Search, Filter } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +32,7 @@ export default function Attendance() {
   const currentlyIn = attendanceRecords.filter((r) => !r.checkOut).length;
 
   return (
-    <DashboardLayout title="Attendance">
+    <>
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard
@@ -155,6 +154,6 @@ export default function Attendance() {
           </div>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   );
 }

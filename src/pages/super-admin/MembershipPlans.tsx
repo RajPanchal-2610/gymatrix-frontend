@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Users, Check, Banknote, Building2, Loader2, Calendar } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -356,7 +355,7 @@ export default function MembershipPlans() {
   };
 
   return (
-    <DashboardLayout title="Membership Plans">
+    <>
       <div className="flex justify-between items-center mb-6">
         <div>
           <p className="text-muted-foreground">
@@ -601,6 +600,6 @@ export default function MembershipPlans() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </>
   );
 }

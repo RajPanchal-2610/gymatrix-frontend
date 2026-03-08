@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Loader2, List, Type, Key } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -172,7 +171,7 @@ export default function Features() {
     };
 
     return (
-        <DashboardLayout title="Platform Features">
+        <>
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <p className="text-muted-foreground">
@@ -331,6 +330,6 @@ export default function Features() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </DashboardLayout>
+        </>
     );
 }

@@ -24,6 +24,7 @@ export interface GymMember {
     join_date: string;
     expiry_date?: string;
     image_url?: string | null;
+    gender?: string;
     trainer_id?: number | null;
     status: 'active' | 'expired' | 'paused' | 'cancelled';
     is_active: boolean;

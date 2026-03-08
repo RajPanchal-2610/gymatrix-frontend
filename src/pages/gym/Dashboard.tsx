@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Users, CreditCard, Activity, CalendarCheck, UserCog, AlertCircle, TrendingUp, IndianRupee, Wrench, Package, Clock } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { MembershipChart } from "@/components/dashboard/MembershipChart";
@@ -89,8 +88,25 @@ export default function GymDashboard() {
     useEffect(() => {
         if (!gymId) return;
 
+        // Reset data when gym changes to show skeletons and clear old data
+        setStats({
+            activeMembers: 0,
+            monthlyRevenue: 0,
+            totalStaff: 0,
+            pendingDues: 0,
+            pendingMaintenance: 0,
+            activeInventory: 0,
+            upcomingExpirations: 0
+        });
+        setRevenueData([]);
+        setMembershipData([]);
+        setRecentActivities([]);
+        setTodayCheckIns([]);
+        setUnpaidInvoices([]);
+        setMembershipAtRisk([]);
+
         const fetchDashboardData = async () => {
-            if (!stats.activeMembers && !revenueData.length) setDashboardLoading(true);
+            setDashboardLoading(true);
             try {
                 // Fetch active members
                 const { count: activeMembersCount } = await supabase
@@ -358,8 +374,7 @@ export default function GymDashboard() {
     };
 
     return (
-        <DashboardLayout title="Gym Dashboard">
-
+        <>
             {/* Subscription Banner */}
             {!loading && subscription && subscription.status === 'trial' && (
                 <div className="mb-8 animate-fade-in">
@@ -493,6 +508,6 @@ export default function GymDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
                 <RecentActivity activities={recentActivities} loading={dashboardLoading} />
             </div>
-        </DashboardLayout>
+        </>
     );
 }

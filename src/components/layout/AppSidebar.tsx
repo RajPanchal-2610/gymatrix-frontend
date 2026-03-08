@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -19,7 +19,8 @@ import {
   List,
   Check,
   PlusCircle,
-  ChevronsUpDown
+  ChevronsUpDown,
+  Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useGym } from "@/hooks/useGym";
 import { CreateGymDialog } from "@/components/gym/CreateGymDialog";
+import { EditGymDialog } from "@/components/gym/EditGymDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +75,29 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
   const { gyms, gymId, switchGym, refreshGyms } = useGym();
   const [createGymOpen, setCreateGymOpen] = useState(false);
+  const [editingGym, setEditingGym] = useState<{ id: number; name: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{ full_name: string; avatar_url: string | null; email: string } | null>(null);
+
+  useEffect(() => {
+    const getUserProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .single();
+
+        setUserProfile({
+          full_name: profile?.full_name || user.email?.split('@')[0] || "User",
+          avatar_url: null,
+          email: user.email || ""
+        });
+      }
+    };
+
+    getUserProfile();
+  }, []);
 
   const currentGym = gyms.find(g => g.id === gymId);
 
@@ -215,11 +240,26 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                 <DropdownMenuContent className="w-56" align="start">
                   <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">My Gyms</DropdownMenuLabel>
                   {gyms.map(gym => (
-                    <DropdownMenuItem key={gym.id} onClick={() => switchGym(gym.id)} className="cursor-pointer">
-                      <div className="flex items-center justify-between w-full">
+                    <DropdownMenuItem
+                      key={gym.id}
+                      className="cursor-pointer flex items-center justify-between group/item"
+                      onClick={() => switchGym(gym.id)}
+                    >
+                      <div className="flex items-center min-w-0 flex-1">
                         <span className="truncate">{gym.name}</span>
-                        {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary" />}
+                        {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary flex-shrink-0" />}
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 opacity-0 group-hover/item:opacity-100 hover:bg-primary/10 hover:text-primary transition-all ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingGym({ id: gym.id, name: gym.name });
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
@@ -229,6 +269,14 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <EditGymDialog
+                open={!!editingGym}
+                onOpenChange={(open) => !open && setEditingGym(null)}
+                gymId={editingGym?.id ?? null}
+                initialName={editingGym?.name ?? ""}
+                onSuccess={refreshGyms}
+              />
 
               <CreateGymDialog
                 open={createGymOpen}
@@ -255,28 +303,47 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
 
         {/* User Profile */}
         <div className={cn(
-          "flex items-center gap-3 p-2 rounded-lg mt-2",
-          collapsed ? "justify-center" : ""
+          "flex items-center gap-3 p-2 rounded-lg mt-2 relative group",
+          collapsed ? "justify-center" : "bg-sidebar-accent/30"
         )}>
-          <Avatar className="h-9 w-9">
-            <AvatarImage src="/placeholder.svg" />
-            <AvatarFallback className="bg-primary/10 text-primary font-semibold">JD</AvatarFallback>
+          <Avatar className="h-9 w-9 border border-primary/20">
+            <AvatarImage src={userProfile?.avatar_url || undefined} />
+            <AvatarFallback className="bg-primary/10 text-primary font-bold">
+              {userProfile?.full_name ? userProfile.full_name.substring(0, 2).toUpperCase() : "U"}
+            </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">John Doe</p>
-              <p className="text-xs text-muted-foreground">john@gymflow.com</p>
+              <p className="text-sm font-bold text-foreground truncate">{userProfile?.full_name || "Loading..."}</p>
+              <p className="text-[10px] text-muted-foreground truncate opacity-70 italic font-medium">{userProfile?.email}</p>
             </div>
           )}
           {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Logout</TooltipContent>
+            </Tooltip>
+          )}
+          {collapsed && (
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
           )}
         </div>
       </div>

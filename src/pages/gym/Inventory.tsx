@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Package, List, Building2, Activity, Wrench } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 import { InventoryItems } from "@/components/inventory/InventoryItems";
 import { InventoryCategories } from "@/components/inventory/InventoryCategories";
@@ -31,7 +30,7 @@ export default function Inventory() {
     };
 
     return (
-        <DashboardLayout title="Inventory Management">
+        <>
             <div className="space-y-6 animate-fade-in">
                 <div className="flex flex-col gap-2">
                     <h2 className="text-2xl font-bold tracking-tight">Inventory Dashboard</h2>
@@ -91,6 +90,6 @@ export default function Inventory() {
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 }

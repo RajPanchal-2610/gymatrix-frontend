@@ -1,5 +1,4 @@
 import { Users, UserCheck, DollarSign, AlertCircle, TrendingUp } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { MembershipChart } from "@/components/dashboard/MembershipChart";
@@ -8,7 +7,7 @@ import { TodayAttendance } from "@/components/dashboard/TodayAttendance";
 
 export default function Dashboard() {
   return (
-    <DashboardLayout title="Dashboard">
+    <>
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard
@@ -47,15 +46,15 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <RevenueChart />
-        <MembershipChart />
+        <RevenueChart data={[]} />
+        <MembershipChart data={[]} />
       </div>
 
       {/* Activity and Attendance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecentActivity />
-        <TodayAttendance />
+        <RecentActivity activities={[]} />
+        <TodayAttendance checkIns={[]} />
       </div>
-    </DashboardLayout>
+    </>
   );
 }

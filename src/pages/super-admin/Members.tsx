@@ -11,7 +11,6 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -148,7 +147,7 @@ export default function Members() {
   });
 
   return (
-    <DashboardLayout title="Members">
+    <>
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-6">
         <div className="flex-1 w-full sm:max-w-md relative">
@@ -173,7 +172,7 @@ export default function Members() {
               <SelectItem value="expired">Expired</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gradient-primary shadow-glow">
@@ -274,7 +273,7 @@ export default function Members() {
                     {member.avatar}
                   </AvatarFallback>
                 </Avatar>
-                
+
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-semibold">{member.name}</h3>
@@ -323,6 +322,6 @@ export default function Members() {
           </div>
         </CardContent>
       </Card>
-    </DashboardLayout>
+    </>
   );
 }

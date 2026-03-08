@@ -2,7 +2,6 @@
 import { useEffect, useState } from "react";
 import { parseISO } from "date-fns";
 import { Check, Loader2, Building2, Users } from "lucide-react";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -111,7 +110,7 @@ export default function Pricing() {
     };
 
     return (
-        <DashboardLayout title="Upgrade Subscription" hideSidebar={isExpired}>
+        <>
             <div className="flex flex-col items-center justify-center mb-10 text-center space-y-4">
                 <h2 className="text-3xl font-bold tracking-tight">Simple, transparent pricing</h2>
                 <p className="text-muted-foreground max-w-2xl">
@@ -242,6 +241,6 @@ export default function Pricing() {
                     })}
                 </div>
             )}
-        </DashboardLayout>
+        </>
     );
 }

@@ -1,5 +1,4 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { StaffList } from "@/components/staff/StaffList";
 import { AttendanceView } from "@/components/staff/AttendanceView";
 import { PayrollView } from "@/components/staff/PayrollView";
@@ -7,7 +6,7 @@ import { PayrollView } from "@/components/staff/PayrollView";
 
 export default function Staff() {
   return (
-    <DashboardLayout title="Staff Management">
+    <>
       <Tabs defaultValue="staff" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3 max-w-[400px]">
           <TabsTrigger value="staff">Staff List</TabsTrigger>
@@ -47,6 +46,6 @@ export default function Staff() {
           <PayrollView />
         </TabsContent>
       </Tabs>
-    </DashboardLayout>
+    </>
   );
 }

@@ -31,6 +31,8 @@ import GymRoles from "./pages/gym/Roles";
 import GymMembershipPlans from "./pages/gym/MembershipPlans";
 import GymPayments from "./pages/gym/Payments";
 
+import { DashboardLayout } from "./components/layout/DashboardLayout";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -45,23 +47,25 @@ const App = () => (
 
               {/* Gym Admin Routes - Protected */}
               <Route element={<PrivateRoute allowedRoles={['GYM_ADMIN']} />}>
-                <Route path="/" element={<GymDashboard />} />
-                <Route path="/dashboard" element={<GymDashboard />} />
-                <Route path="/members" element={<GymMembers />} />
-                <Route path="/members/:id" element={<MemberView />} />
-                <Route path="/plans" element={<GymMembershipPlans />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/attendance" element={<GymAttendance />} />
-                <Route path="/payments" element={<GymPayments />} />
-                <Route path="/inventory" element={
-                  <FeatureGuard feature="Inventory">
-                    <GymInventory />
-                  </FeatureGuard>
-                } />
-                <Route path="/staff" element={<GymStaff />} />
-                <Route path="/roles" element={<GymRoles />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/settings" element={<Settings />} />
+                <Route element={<DashboardLayout />}>
+                  <Route path="/" element={<GymDashboard />} />
+                  <Route path="/dashboard" element={<GymDashboard />} />
+                  <Route path="/members" element={<GymMembers />} />
+                  <Route path="/members/:id" element={<MemberView />} />
+                  <Route path="/plans" element={<GymMembershipPlans />} />
+                  <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/attendance" element={<GymAttendance />} />
+                  <Route path="/payments" element={<GymPayments />} />
+                  <Route path="/inventory" element={
+                    <FeatureGuard feature="Inventory">
+                      <GymInventory />
+                    </FeatureGuard>
+                  } />
+                  <Route path="/staff" element={<GymStaff />} />
+                  <Route path="/roles" element={<GymRoles />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
               </Route>
 
               {/* Public Gym Auth */}
@@ -70,13 +74,15 @@ const App = () => (
 
               {/* Super Admin Routes - Protected */}
               <Route element={<PrivateRoute allowedRoles={['SUPER_ADMIN']} />}>
-                <Route path="/admin/dashboard" element={<Dashboard />} />
-                <Route path="/admin/members" element={<Members />} />
-                <Route path="/admin/plans" element={<MembershipPlans />} />
-                <Route path="/admin/features" element={<Features />} />
-                <Route path="/admin/payments" element={<Payments />} />
-                <Route path="/admin/reports" element={<Reports />} />
-                <Route path="/admin/settings" element={<Settings />} />
+                <Route element={<DashboardLayout />}>
+                  <Route path="/admin/dashboard" element={<Dashboard />} />
+                  <Route path="/admin/members" element={<Members />} />
+                  <Route path="/admin/plans" element={<MembershipPlans />} />
+                  <Route path="/admin/features" element={<Features />} />
+                  <Route path="/admin/payments" element={<Payments />} />
+                  <Route path="/admin/reports" element={<Reports />} />
+                  <Route path="/admin/settings" element={<Settings />} />
+                </Route>
               </Route>
 
               {/* Public Admin Auth */}
