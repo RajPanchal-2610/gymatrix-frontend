@@ -43,27 +43,39 @@ export const PrivateRoute = ({ allowedRoles }: { allowedRoles?: string[] }) => {
                     .limit(1)
                     .maybeSingle();
 
-                if (userRolesError && gymOwnerError) {
-                    console.error("Auth check error:", userRolesError, gymOwnerError);
+                // Check Gym Staff (Also GYM_ADMIN access level for dashboard)
+                const { data: gymStaff, error: staffError } = await supabase
+                    .from('gym_staff')
+                    .select('gym_id, gyms(owner_id)')
+                    .eq('user_id', session.user.id)
+                    .ilike('status', 'active')
+                    .limit(1)
+                    .maybeSingle();
+
+                if (userRolesError && gymOwnerError && staffError) {
+                    console.error("Auth check error:", userRolesError, gymOwnerError, staffError);
                     setHasAccess(false);
                     setLoading(false);
                     return;
                 }
 
                 const roles1 = userRoles?.map((ur: any) => ur.roles?.name) || [];
-                const roles2 = gymOwner ? ['GYM_ADMIN'] : [];
+                const roles2 = (gymOwner || gymStaff) ? ['GYM_ADMIN'] : [];
 
                 const allUserRoleNames = [...roles1, ...roles2];
                 const hasRequiredRole = allowedRoles.some(role => allUserRoleNames.includes(role));
 
                 setHasAccess(hasRequiredRole);
 
-                // Check Subscription for Gym Admin
+                // Check Subscription for Gym Admin / Staff
                 if (hasRequiredRole && allowedRoles.includes('GYM_ADMIN')) {
+                    // If staff, we check the owner's subscription
+                    const targetUserId = gymStaff ? (gymStaff.gyms as any).owner_id : session.user.id;
+
                     const { data: sub } = await supabase
                         .from('subscriptions')
                         .select('status, end_date')
-                        .eq('user_id', session.user.id)
+                        .eq('user_id', targetUserId)
                         .maybeSingle();
 
                     let isExpired = false;

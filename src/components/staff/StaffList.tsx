@@ -26,10 +26,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useGym } from "@/hooks/useGym";
 import { staffService } from "@/services/staffService";
 import { GymStaff, GymRole } from "@/types/gym";
 import { useToast } from "@/components/ui/use-toast";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 type StaffListProps = {
     // Pass any necessary props
@@ -51,6 +53,7 @@ const getRoleBadge = (roleName?: string) => {
 export function StaffList() {
     const { gymId } = useGym();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
     const [staff, setStaff] = useState<GymStaff[]>([]);
     const [roles, setRoles] = useState<GymRole[]>([]);
     const [loading, setLoading] = useState(true);
@@ -60,14 +63,17 @@ export function StaffList() {
     const [currentStaffId, setCurrentStaffId] = useState<number | null>(null);
 
     // Form State
-    const [newStaff, setNewStaff] = useState<Partial<GymStaff>>({
+    const [newStaff, setNewStaff] = useState<Partial<GymStaff & { email?: string; password?: string; allow_login?: boolean }>>({
         full_name: '',
         phone: '',
+        email: '',
+        password: '',
         status: 'active',
         salary: 0,
-        role_id: undefined
+        role_id: undefined,
+        allow_login: false
     });
-    const [editStaff, setEditStaff] = useState<Partial<GymStaff>>({});
+    const [editStaff, setEditStaff] = useState<Partial<GymStaff & { password?: string }>>({});
 
     const loadData = async () => {
         if (!gymId) return;
@@ -75,7 +81,7 @@ export function StaffList() {
             setLoading(true);
             const [staffData, rolesData] = await Promise.all([
                 staffService.getStaff(gymId),
-                staffService.getRoles()
+                staffService.getRoles(gymId)
             ]);
             setStaff(staffData);
             setRoles(rolesData);
@@ -97,8 +103,15 @@ export function StaffList() {
 
     const handleCreateStaff = async () => {
         if (!gymId) return;
+
+        // Validation based on allow_login
         if (!newStaff.full_name || !newStaff.role_id) {
             toast({ title: "Validation Error", description: "Name and Role are required.", variant: "destructive" });
+            return;
+        }
+
+        if (newStaff.allow_login && (!newStaff.email || !newStaff.password)) {
+            toast({ title: "Validation Error", description: "Email and Password are required for login access.", variant: "destructive" });
             return;
         }
 
@@ -113,7 +126,16 @@ export function StaffList() {
             });
             setAddDialogOpen(false);
             loadData();
-            setNewStaff({ full_name: '', phone: '', status: 'active', salary: 0, role_id: undefined });
+            setNewStaff({
+                full_name: '',
+                phone: '',
+                email: '',
+                password: '',
+                status: 'active',
+                salary: 0,
+                role_id: undefined,
+                allow_login: false
+            });
         } catch (error) {
             console.error("Error creating staff:", error);
             toast({
@@ -131,7 +153,9 @@ export function StaffList() {
             join_date: member.join_date,
             role_id: member.role_id,
             status: member.status,
-            salary: member.salary
+            salary: member.salary,
+            email: member.email,
+            allow_login: member.allow_login
         });
         setCurrentStaffId(member.id);
         setEditDialogOpen(true);
@@ -141,6 +165,11 @@ export function StaffList() {
         if (!currentStaffId || !gymId) return;
         if (!editStaff.full_name || !editStaff.role_id) {
             toast({ title: "Validation Error", description: "Name and Role are required.", variant: "destructive" });
+            return;
+        }
+
+        if (editStaff.allow_login && !editStaff.email) {
+            toast({ title: "Validation Error", description: "Email is required for login access.", variant: "destructive" });
             return;
         }
 
@@ -183,108 +212,146 @@ export function StaffList() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
-                <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Staff
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px]">
-                        <DialogHeader>
-                            <DialogTitle>Add Staff Member</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 mt-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="full_name">Full Name *</Label>
-                                <Input
-                                    id="full_name"
-                                    value={newStaff.full_name}
-                                    onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })}
-                                    placeholder="John Doe"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Phone Number</Label>
-                                <Input
-                                    id="phone"
-                                    value={newStaff.phone}
-                                    onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
-                                    placeholder="+1 234-567-8900"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="join_date">Join Date</Label>
-                                <Input
-                                    id="join_date"
-                                    type="date"
-                                    value={newStaff.join_date || ''}
-                                    onChange={(e) => setNewStaff({ ...newStaff, join_date: e.target.value })}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                {hasPermission('add_staff') && (
+                    <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Staff
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[500px]">
+                            <DialogHeader>
+                                <DialogTitle>Add Staff Member</DialogTitle>
+                            </DialogHeader>
+                            <div className="space-y-4 mt-4">
                                 <div className="space-y-2">
-                                    <Label>Role *</Label>
-                                    <Select
-                                        value={newStaff.role_id?.toString()}
-                                        onValueChange={(val) => setNewStaff({ ...newStaff, role_id: parseInt(val) })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Role" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {roles.map(role => (
-                                                <SelectItem key={role.id} value={role.id.toString()}>
-                                                    {role.name.replace(/_/g, ' ')}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Status</Label>
-                                    <Select
-                                        value={newStaff.status}
-                                        onValueChange={(val) => setNewStaff({ ...newStaff, status: val })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Status" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="active">Active</SelectItem>
-                                            <SelectItem value="inactive">Inactive</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="salary">Monthly Salary</Label>
-                                <div className="relative">
-                                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Label htmlFor="full_name">Full Name *</Label>
                                     <Input
-                                        id="salary"
-                                        type="number"
-                                        className="pl-9"
-                                        value={newStaff.salary || ''}
-                                        onChange={(e) => setNewStaff({ ...newStaff, salary: parseFloat(e.target.value) })}
-                                        placeholder="0.00"
+                                        id="full_name"
+                                        value={newStaff.full_name}
+                                        onChange={(e) => setNewStaff({ ...newStaff, full_name: e.target.value })}
+                                        placeholder="John Doe"
                                     />
                                 </div>
-                            </div>
 
-                        </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button className="gradient-primary" onClick={handleCreateStaff}>Add Staff</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                                <div className="flex items-center justify-between p-3 border rounded-lg bg-accent/5">
+                                    <div className="space-y-0.5">
+                                        <Label className="text-sm font-medium">Allow Login Access</Label>
+                                        <p className="text-xs text-muted-foreground">
+                                            Enable to create a login account for this staff member
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={newStaff.allow_login}
+                                        onCheckedChange={(checked) => setNewStaff({ ...newStaff, allow_login: checked })}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="email">Email {newStaff.allow_login && '*'}(for login)</Label>
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            value={newStaff.email}
+                                            onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                                            placeholder="trainer@fittflow.com"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="password">Password {newStaff.allow_login && '*'}</Label>
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            value={newStaff.password}
+                                            onChange={(e) => setNewStaff({ ...newStaff, password: e.target.value })}
+                                            placeholder="••••••••"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">Phone Number</Label>
+                                    <Input
+                                        id="phone"
+                                        value={newStaff.phone}
+                                        onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                                        placeholder="+1 234-567-8900"
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="join_date">Join Date</Label>
+                                    <Input
+                                        id="join_date"
+                                        type="date"
+                                        value={newStaff.join_date || ''}
+                                        onChange={(e) => setNewStaff({ ...newStaff, join_date: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Role *</Label>
+                                        <Select
+                                            value={newStaff.role_id?.toString()}
+                                            onValueChange={(val) => setNewStaff({ ...newStaff, role_id: parseInt(val) })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Role" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {roles.map(role => (
+                                                    <SelectItem key={role.id} value={role.id.toString()}>
+                                                        {role.name.replace(/_/g, ' ')}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Status</Label>
+                                        <Select
+                                            value={newStaff.status}
+                                            onValueChange={(val) => setNewStaff({ ...newStaff, status: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Status" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="active">Active</SelectItem>
+                                                <SelectItem value="inactive">Inactive</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="salary">Monthly Salary</Label>
+                                    <div className="relative">
+                                        <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="salary"
+                                            type="number"
+                                            className="pl-9"
+                                            value={newStaff.salary || ''}
+                                            onChange={(e) => setNewStaff({ ...newStaff, salary: parseFloat(e.target.value) })}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div className="flex justify-end gap-3 mt-6">
+                                <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                                    Cancel
+                                </Button>
+                                <Button className="gradient-primary" onClick={handleCreateStaff}>Add Staff</Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -311,6 +378,41 @@ export function StaffList() {
                                 onChange={(e) => setEditStaff({ ...editStaff, phone: e.target.value })}
                                 placeholder="+1 234-567-8900"
                             />
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 border rounded-lg bg-accent/5">
+                            <div className="space-y-0.5">
+                                <Label className="text-sm font-medium">Allow Login Access</Label>
+                                <p className="text-xs text-muted-foreground">
+                                    Enable to allow this staff member to log in
+                                </p>
+                            </div>
+                            <Switch
+                                checked={editStaff.allow_login}
+                                onCheckedChange={(checked) => setEditStaff({ ...editStaff, allow_login: checked })}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_email">Email {editStaff.allow_login && '*'}(for login)</Label>
+                                <Input
+                                    id="edit_email"
+                                    type="email"
+                                    value={editStaff.email || ''}
+                                    onChange={(e) => setEditStaff({ ...editStaff, email: e.target.value })}
+                                    placeholder="trainer@fittflow.com"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="edit_password">Password {editStaff.allow_login && '*'}</Label>
+                                <Input
+                                    id="edit_password"
+                                    type="password"
+                                    onChange={(e) => setEditStaff({ ...editStaff, password: e.target.value })}
+                                    placeholder="Leave empty to keep current"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -410,23 +512,29 @@ export function StaffList() {
                                 </div>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
+                                        {(hasPermission('edit_staff') || hasPermission('delete_staff')) && (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => handleEditClick(member)}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem className="text-destructive" onClick={() => {
-                                            if (confirm('Are you sure you want to remove this staff member?')) {
-                                                staffService.deleteStaff(member.id).then(() => loadData());
-                                            }
-                                        }}>
-                                            <Trash2 className="h-4 w-4 mr-2" />
-                                            Remove
-                                        </DropdownMenuItem>
+                                        {hasPermission('edit_staff') && (
+                                            <DropdownMenuItem onClick={() => handleEditClick(member)}>
+                                                <Edit className="h-4 w-4 mr-2" />
+                                                Edit
+                                            </DropdownMenuItem>
+                                        )}
+                                        {hasPermission('delete_staff') && (
+                                            <DropdownMenuItem className="text-destructive" onClick={() => {
+                                                if (confirm('Are you sure you want to remove this staff member?')) {
+                                                    staffService.deleteStaff(member.id).then(() => loadData());
+                                                }
+                                            }}>
+                                                <Trash2 className="h-4 w-4 mr-2" />
+                                                Remove
+                                            </DropdownMenuItem>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
@@ -434,10 +542,10 @@ export function StaffList() {
                             <div className="mb-4">{getRoleBadge(member.gym_roles?.name?.replace(/_/g, ' '))}</div>
 
                             <div className="space-y-2 text-sm">
-                                {member.user_email && (
+                                {member.email && (
                                     <div className="flex items-center gap-2 text-muted-foreground">
                                         <Mail className="h-4 w-4" />
-                                        <span className="truncate">{member.user_email}</span>
+                                        <span className="truncate">{member.email}</span>
                                     </div>
                                 )}
                                 <div className="flex items-center gap-2 text-muted-foreground">

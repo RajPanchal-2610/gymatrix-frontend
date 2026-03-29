@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
     Search,
     Plus,
@@ -21,6 +21,7 @@ import {
     RefreshCw,
     User
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -62,11 +63,14 @@ import { supabase } from "@/lib/supabase";
 import { staffService } from "@/services/staffService";
 import { toast } from "sonner";
 import { format, addMonths, addDays, addYears, differenceInCalendarDays } from "date-fns";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 
 export default function Members() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { gymId, gyms, loading: gymLoading } = useGym();
+    const { hasPermission, role } = usePermissions();
     const { subscription } = useSubscription();
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
@@ -85,7 +89,9 @@ export default function Members() {
         join_date: format(new Date(), "yyyy-MM-dd"),
         image_url: "",
         gender: "",
+        pt_fee: "0",
         status: "active" as "active" | "expired" | "paused" | "cancelled",
+        device_user_id: "",
     });
     const [uploading, setUploading] = useState(false);
 
@@ -111,6 +117,16 @@ export default function Members() {
     const [assignTrainerOpen, setAssignTrainerOpen] = useState(false);
     const [assignTrainerMember, setAssignTrainerMember] = useState<GymMember | null>(null);
     const [selectedTrainerId, setSelectedTrainerId] = useState<string>("none");
+    const [showOnlyMyMembers, setShowOnlyMyMembers] = useState(false);
+
+    useEffect(() => {
+        const filter = searchParams.get('filter');
+        if (filter === 'my') {
+            setShowOnlyMyMembers(true);
+        } else {
+            setShowOnlyMyMembers(false);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         if (gymId) {
@@ -143,6 +159,7 @@ export default function Members() {
                         due_amount,
                         payment_status,
                         created_at,
+                        remarks,
                         membership_history_id
                     ),
                     gym_staff (
@@ -183,9 +200,21 @@ export default function Members() {
         }
     };
 
-    const handleOpenDialog = (member?: GymMember) => {
+    const handleOpenDialog = async (member?: GymMember) => {
         if (member) {
             setEditingMember(member);
+            let deviceId = "";
+            try {
+                const { data } = await supabase
+                    .from('gym_device_mappings')
+                    .select('device_user_id')
+                    .eq('gym_id', gymId)
+                    .eq('user_type', 'member')
+                    .eq('member_id', member.id)
+                    .maybeSingle();
+                if (data) deviceId = data.device_user_id;
+            } catch (err) { console.error("Failed to fetch device mapping", err); }
+
             setFormData({
                 full_name: member.full_name,
                 email: member.email || "",
@@ -195,7 +224,9 @@ export default function Members() {
                 join_date: member.join_date,
                 image_url: member.image_url || "",
                 gender: member.gender || "",
+                pt_fee: member.pt_fee?.toString() || "0",
                 status: member.status,
+                device_user_id: deviceId
             });
         } else {
             setEditingMember(null);
@@ -208,7 +239,9 @@ export default function Members() {
                 join_date: format(new Date(), "yyyy-MM-dd"),
                 image_url: "",
                 gender: "",
+                pt_fee: "0",
                 status: "active",
+                device_user_id: ""
             });
         }
         setDialogOpen(true);
@@ -373,8 +406,25 @@ export default function Members() {
                             paid_amount: 0,
                             due_amount: plan.price,
                             payment_status: 'unpaid',
-                            billing_date: renewFormData.start_date
+                            billing_date: renewFormData.start_date,
+                            remarks: 'Membership Subscription'
                         });
+
+                    if (renewingMember.pt_fee && renewingMember.pt_fee > 0) {
+                        await supabase
+                            .from("gym_membership_payments")
+                            .insert({
+                                membership_history_id: historyData.id,
+                                member_id: renewingMember.id,
+                                gym_id: gymId,
+                                total_amount: renewingMember.pt_fee,
+                                paid_amount: 0,
+                                due_amount: renewingMember.pt_fee,
+                                payment_status: 'unpaid',
+                                billing_date: renewFormData.start_date,
+                                remarks: 'Personal Training Fee'
+                            });
+                    }
                 }
                 toast.success("Membership renewed successfully");
             }
@@ -484,10 +534,13 @@ export default function Members() {
                 expiry_date: expiry_date,
                 image_url: formData.image_url || null,
                 gender: formData.gender || null,
+                pt_fee: parseFloat(formData.pt_fee) || 0,
                 status: formData.status,
                 is_active: formData.status === 'active',
                 is_deleted: false
             };
+
+            let savedMemberId = null;
 
             if (editingMember) {
                 const { error } = await supabase
@@ -496,6 +549,7 @@ export default function Members() {
                     .eq("id", editingMember.id);
 
                 if (error) throw error;
+                savedMemberId = editingMember.id;
                 toast.success("Member updated successfully");
             } else {
                 const { data: newMember, error } = await supabase
@@ -505,6 +559,7 @@ export default function Members() {
                     .single();
 
                 if (error) throw error;
+                savedMemberId = newMember.id;
 
                 // Add history entry for new member if plan is selected
                 if (newMember && payload.membership_plan_id && payload.expiry_date) {
@@ -535,13 +590,56 @@ export default function Members() {
                                     paid_amount: 0,
                                     due_amount: plan.price,
                                     payment_status: 'unpaid',
-                                    billing_date: payload.join_date
+                                    billing_date: payload.join_date,
+                                    remarks: 'Membership Subscription'
                                 });
+
+                            if (payload.pt_fee && payload.pt_fee > 0) {
+                                await supabase
+                                    .from("gym_membership_payments")
+                                    .insert({
+                                        membership_history_id: historyData.id,
+                                        member_id: newMember.id,
+                                        gym_id: gymId,
+                                        total_amount: payload.pt_fee,
+                                        paid_amount: 0,
+                                        due_amount: payload.pt_fee,
+                                        payment_status: 'unpaid',
+                                        billing_date: payload.join_date,
+                                        remarks: 'Personal Training Fee'
+                                    });
+                            }
                         }
                     }
                 }
 
                 toast.success("Member added successfully");
+            }
+
+            // Save device mapping
+            if (savedMemberId) {
+                const { data: existingMap } = await supabase
+                    .from('gym_device_mappings')
+                    .select('id')
+                    .eq('gym_id', gymId)
+                    .eq('user_type', 'member')
+                    .eq('member_id', savedMemberId)
+                    .maybeSingle();
+
+                if (formData.device_user_id) {
+                    if (existingMap) {
+                        await supabase.from('gym_device_mappings').update({ device_user_id: formData.device_user_id }).eq('id', existingMap.id);
+                    } else {
+                        await supabase.from('gym_device_mappings').insert({
+                            gym_id: gymId,
+                            device_user_id: formData.device_user_id,
+                            user_type: 'member',
+                            member_id: savedMemberId
+                        });
+                    }
+                } else if (existingMap) {
+                    await supabase.from('gym_device_mappings').delete().eq('id', existingMap.id);
+                }
             }
 
             setDialogOpen(false);
@@ -619,11 +717,17 @@ export default function Members() {
         };
     };
 
-    const filteredMembers = members.filter(member =>
-        member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        member.phone?.includes(searchQuery)
-    );
+    const filteredMembers = members.filter(member => {
+        const matchesSearch = member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            member.phone?.includes(searchQuery);
+
+        if (showOnlyMyMembers && role?.staff_id) {
+            return matchesSearch && member.trainer_id === role.staff_id;
+        }
+
+        return matchesSearch;
+    });
 
     return (
         <>
@@ -643,166 +747,209 @@ export default function Members() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Member
+                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                            {role?.staff_id && (
+                                <Button
+                                    variant={showOnlyMyMembers ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setShowOnlyMyMembers(!showOnlyMyMembers)}
+                                    className={cn(
+                                        "h-10 px-4 transition-all duration-200",
+                                        showOnlyMyMembers && "bg-primary text-primary-foreground shadow-glow border-none"
+                                    )}
+                                >
+                                    <User className="h-4 w-4 mr-2" />
+                                    My Members
                                 </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[500px]">
-                                <DialogHeader>
-                                    <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4 mt-4">
-                                    <div className="flex justify-center">
-                                        <Avatar className="h-20 w-20">
-                                            <AvatarImage src={formData.image_url} />
-                                            <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                                                {formData.full_name ? formData.full_name.substring(0, 2).toUpperCase() : "M"}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="imageUpload">Profile Image</Label>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                id="imageUpload"
-                                                type="file"
-                                                accept="image/*"
-                                                onChange={handleFileUpload}
-                                                disabled={uploading}
-                                                className="cursor-pointer"
-                                            />
-                                            {uploading && (
-                                                <div className="flex items-center px-3 border rounded-md bg-muted">
-                                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            )}
+                            {hasPermission('add_members') && (
+                                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button className="gradient-primary shadow-glow h-10 px-4" onClick={() => handleOpenDialog()}>
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Add Member
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[500px]">
+                                        <DialogHeader>
+                                            <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 mt-4">
+                                            <div className="flex justify-center">
+                                                <Avatar className="h-20 w-20">
+                                                    <AvatarImage src={formData.image_url} />
+                                                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
+                                                        {formData.full_name ? formData.full_name.substring(0, 2).toUpperCase() : "M"}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="imageUpload">Profile Image</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        id="imageUpload"
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleFileUpload}
+                                                        disabled={uploading}
+                                                        className="cursor-pointer"
+                                                    />
+                                                    {uploading && (
+                                                        <div className="flex items-center px-3 border rounded-md bg-muted">
+                                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                                                <Input
+                                                    id="fullName"
+                                                    placeholder="John Doe"
+                                                    value={formData.full_name}
+                                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="email">Email</Label>
+                                                    <Input
+                                                        id="email"
+                                                        type="email"
+                                                        placeholder="john@email.com"
+                                                        value={formData.email}
+                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="phone">Phone</Label>
+                                                    <Input
+                                                        id="phone"
+                                                        placeholder="+1 234 567 890"
+                                                        value={formData.phone}
+                                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="device_user_id">Biometric ID (Device Assigned)</Label>
+                                                    <Input
+                                                        id="device_user_id"
+                                                        placeholder="e.g. 1001"
+                                                        value={formData.device_user_id}
+                                                        onChange={(e) => setFormData({ ...formData, device_user_id: e.target.value })}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Subscription Plan <span className="text-destructive">*</span></Label>
+                                                <Select
+                                                    value={formData.membership_plan_id}
+                                                    onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select plan" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {plans.map((plan) => (
+                                                            <SelectItem key={plan.id} value={plan.id.toString()}>
+                                                                {plan.name} - ₹{plan.price}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label htmlFor="joinDate">Join Date</Label>
+                                                    <Input
+                                                        id="joinDate"
+                                                        type="date"
+                                                        value={formData.join_date}
+                                                        onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                                                    />
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Assigned Personal Trainer</Label>
+                                                    <Select
+                                                        value={formData.trainer_id}
+                                                        onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                                    >
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select Personal Trainer (optional)" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="none">No Personal Trainer</SelectItem>
+                                                            {trainers.map((trainer) => (
+                                                                <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                                                    {trainer.full_name}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ptFee">Personal Training Fee (Monthly)</Label>
+                                                        <div className="relative">
+                                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                            <Input
+                                                                id="ptFee"
+                                                                type="number"
+                                                                className="pl-9"
+                                                                value={formData.pt_fee}
+                                                                onChange={(e) => setFormData({ ...formData, pt_fee: e.target.value })}
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                                    <div className="space-y-2">
+                                                        <Label>Gender</Label>
+                                                        <Select
+                                                            value={formData.gender}
+                                                            onValueChange={(val) => setFormData({ ...formData, gender: val })}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select gender" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Male">Male</SelectItem>
+                                                                <SelectItem value="Female">Female</SelectItem>
+                                                                <SelectItem value="Other">Other</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label>Status</Label>
+                                                        <Select
+                                                            value={formData.status}
+                                                            onValueChange={(val: any) => setFormData({ ...formData, status: val })}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="active">Active</SelectItem>
+                                                                <SelectItem value="expired">Expired</SelectItem>
+                                                                <SelectItem value="paused">Paused</SelectItem>
+                                                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                                        <Input
-                                            id="fullName"
-                                            placeholder="John Doe"
-                                            value={formData.full_name}
-                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="email">Email</Label>
-                                            <Input
-                                                id="email"
-                                                type="email"
-                                                placeholder="john@email.com"
-                                                value={formData.email}
-                                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                            />
+                                        <div className="flex justify-end gap-3 mt-6">
+                                            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button className="gradient-primary" onClick={handleSubmit}>
+                                                {editingMember ? "Update Member" : "Register Member"}
+                                            </Button>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="phone">Phone</Label>
-                                            <Input
-                                                id="phone"
-                                                placeholder="+1 234 567 890"
-                                                value={formData.phone}
-                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Subscription Plan <span className="text-destructive">*</span></Label>
-                                        <Select
-                                            value={formData.membership_plan_id}
-                                            onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select plan" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {plans.map((plan) => (
-                                                    <SelectItem key={plan.id} value={plan.id.toString()}>
-                                                        {plan.name} - ₹{plan.price}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="joinDate">Join Date</Label>
-                                            <Input
-                                                id="joinDate"
-                                                type="date"
-                                                value={formData.join_date}
-                                                onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Assigned Personal Trainer</Label>
-                                            <Select
-                                                value={formData.trainer_id}
-                                                onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select Personal Trainer (optional)" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">No Personal Trainer</SelectItem>
-                                                    {trainers.map((trainer) => (
-                                                        <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                                            {trainer.full_name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Gender</Label>
-                                            <Select
-                                                value={formData.gender}
-                                                onValueChange={(val) => setFormData({ ...formData, gender: val })}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select gender" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="Male">Male</SelectItem>
-                                                    <SelectItem value="Female">Female</SelectItem>
-                                                    <SelectItem value="Other">Other</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Status</Label>
-                                            <Select
-                                                value={formData.status}
-                                                onValueChange={(val: any) => setFormData({ ...formData, status: val })}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="active">Active</SelectItem>
-                                                    <SelectItem value="expired">Expired</SelectItem>
-                                                    <SelectItem value="paused">Paused</SelectItem>
-                                                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button className="gradient-primary" onClick={handleSubmit}>
-                                        {editingMember ? "Update Member" : "Register Member"}
-                                    </Button>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                                    </DialogContent>
+                                </Dialog>
+                            )}
+                        </div>
 
                         {/* Renewal Dialog */}
                         <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
@@ -841,6 +988,15 @@ export default function Members() {
                                             onChange={(e) => setRenewFormData({ ...renewFormData, start_date: e.target.value })}
                                         />
                                     </div>
+                                    {renewingMember?.pt_fee && (role?.isOwner || renewingMember.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                        <div className="p-3 bg-muted/30 rounded-lg flex justify-between items-center text-sm">
+                                            <span className="text-muted-foreground font-medium flex items-center gap-2">
+                                                <User className="h-3.5 w-3.5" />
+                                                PT Fee (Current)
+                                            </span>
+                                            <span className="font-semibold text-primary">₹{renewingMember.pt_fee}</span>
+                                        </div>
+                                    ) : null}
                                 </div>
                                 <div className="flex justify-end gap-3">
                                     <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
@@ -1049,47 +1205,79 @@ export default function Members() {
                                                 </TableCell>
 
                                                 <TableCell>
-                                                    {member.gym_staff ? (
-                                                        <span className="flex items-center gap-1 text-primary text-sm">
-                                                            <User className="h-3.5 w-3.5" />
-                                                            {member.gym_staff.full_name}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-muted-foreground text-sm">-</span>
-                                                    )}
+                                                    <div className="flex flex-col gap-1">
+                                                        {member.gym_staff ? (
+                                                            <span className="flex items-center gap-1 text-primary text-sm font-medium">
+                                                                <User className="h-3.5 w-3.5" />
+                                                                {member.gym_staff.full_name}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-muted-foreground text-sm">-</span>
+                                                        )}
+                                                        {member.pt_fee && member.pt_fee > 0 && (role?.isOwner || member.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                                            <div className="flex flex-col gap-1 mt-1">
+                                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                                    <IndianRupee className="h-2.5 w-2.5" />
+                                                                    PT Fee: ₹{member.pt_fee}
+                                                                </span>
+                                                                {(() => {
+                                                                    const ptPayment = member.gym_membership_payments?.find(p => 
+                                                                        p.remarks === 'Personal Training Fee' && 
+                                                                        p.payment_status !== 'paid'
+                                                                    );
+                                                                    if (ptPayment) {
+                                                                        return (
+                                                                            <Button 
+                                                                                size="sm" 
+                                                                                variant="outline" 
+                                                                                className="h-6 text-[10px] w-fit px-2 border-primary/30 text-primary hover:bg-primary/5"
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    setSelectedPaymentMember({ ...ptPayment, gym_members: member } as any);
+                                                                                    setRecordPaymentOpen(true);
+                                                                                }}
+                                                                            >
+                                                                                Pay PT Fee
+                                                                            </Button>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
                                                 </TableCell>
 
                                                 <TableCell>
                                                     <div className="flex flex-col items-start gap-1">
                                                         {(() => {
                                                             const allPayments = member.gym_membership_payments || [];
-                                                            // 1. Identify "Current" Payment (linked to latest history, or just most recent)
-                                                            // Use slice() to avoid mutating original array
+                                                            // 1. Identify "Current" Payments (linked to latest history)
                                                             const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
                                                             const latestHistory = sortedHistory[0];
 
-                                                            const linkedPayment = allPayments.find(p => p.membership_history_id === latestHistory?.id);
-
-                                                            // If no linked payment, fallback to most recent created
-                                                            const currentPayment = linkedPayment || allPayments.slice().sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())[0];
+                                                            const currentPayments = allPayments.filter(p => p.membership_history_id === latestHistory?.id);
 
                                                             const badges = [];
 
-                                                            // 1. Current/Latest Payment Status
-                                                            if (currentPayment) {
-                                                                let colorClass = "bg-secondary text-secondary-foreground";
-                                                                if (currentPayment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
-                                                                if (currentPayment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
-                                                                if (currentPayment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+                                                            // 1. Current/Latest Payments Status
+                                                            if (currentPayments.length > 0) {
+                                                                currentPayments.forEach((payment, idx) => {
+                                                                    let colorClass = "bg-secondary text-secondary-foreground";
+                                                                    if (payment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                                    if (payment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                                    if (payment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
 
-                                                                badges.push(
-                                                                    <span key="current" className="flex items-center">
-                                                                        <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
-                                                                            {currentPayment.payment_status.toUpperCase()}
-                                                                            {currentPayment.payment_status !== 'paid' && ` (₹${currentPayment.due_amount})`}
-                                                                        </Badge>
-                                                                    </span>
-                                                                );
+                                                                    badges.push(
+                                                                        <span key={`current-${payment.id}`} className="flex items-center">
+                                                                            <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                                                {payment.remarks ? `${payment.remarks}: ` : ""}
+                                                                                {payment.payment_status.toUpperCase()}
+                                                                                {payment.payment_status !== 'paid' && ` (₹${payment.due_amount})`}
+                                                                            </Badge>
+                                                                        </span>
+                                                                    );
+                                                                });
                                                             } else if (latestHistory && latestHistory.payment_status) {
                                                                 // Fallback to history status if payment record missing
                                                                 let colorClass = "bg-secondary text-secondary-foreground";
@@ -1107,8 +1295,8 @@ export default function Members() {
                                                             }
 
                                                             // 2. Check for Previous Unpaid/Partial Payments
-                                                            const previousUnpaid = allPayments.filter(p =>
-                                                                p.id !== currentPayment?.id &&
+                                                            const previousUnpaid = allPayments.filter(p => 
+                                                                !currentPayments.some(cp => cp.id === p.id) && 
                                                                 (p.payment_status === 'unpaid' || p.payment_status === 'partial')
                                                             );
 
@@ -1144,29 +1332,33 @@ export default function Members() {
 
                                                 <TableCell className="text-right">
                                                     <div className="flex justify-end items-center gap-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenDialog(member);
-                                                            }}
-                                                            title="Edit Member"
-                                                        >
-                                                            <Edit className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="text-destructive hover:bg-destructive/10"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDelete(member.id);
-                                                            }}
-                                                            title="Delete Member"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                                        {hasPermission('edit_members') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenDialog(member);
+                                                                }}
+                                                                title="Edit Member"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        {hasPermission('delete_members') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="text-destructive hover:bg-destructive/10"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDelete(member.id);
+                                                                }}
+                                                                title="Delete Member"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
                                                                 <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
@@ -1174,30 +1366,36 @@ export default function Members() {
                                                                 </Button>
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                                <DropdownMenuItem onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleViewHistory(member);
-                                                                }}>
-                                                                    <Eye className="h-4 w-4 mr-2" />
-                                                                    View History
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleOpenAssignTrainer(member);
-                                                                }}>
-                                                                    <User className="h-4 w-4 mr-2" />
-                                                                    Assign Personal Trainer
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleOpenRenewDialog(member);
-                                                                }}>
-                                                                    <RefreshCw className="h-4 w-4 mr-2" />
-                                                                    Renew
-                                                                </DropdownMenuItem>
+                                                                {hasPermission('view_membership_history') && (
+                                                                    <DropdownMenuItem onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleViewHistory(member);
+                                                                    }}>
+                                                                        <Eye className="h-4 w-4 mr-2" />
+                                                                        View History
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {hasPermission('edit_members') && (
+                                                                    <DropdownMenuItem onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenAssignTrainer(member);
+                                                                    }}>
+                                                                        <User className="h-4 w-4 mr-2" />
+                                                                        Assign Personal Trainer
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {hasPermission('renew_membership') && (
+                                                                    <DropdownMenuItem onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenRenewDialog(member);
+                                                                    }}>
+                                                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                                                        Renew
+                                                                    </DropdownMenuItem>
+                                                                )}
 
                                                                 {/* Payment Action */}
-                                                                {(() => {
+                                                                {(hasPermission('manage_payments') || (member.trainer_id && member.trainer_id.toString() === role?.staff_id?.toString())) && (() => {
                                                                     const actions = [];
                                                                     // 1. Existing Payments that need attention (Unpaid or Partial)
                                                                     // Get ALL payments for this member
@@ -1217,8 +1415,8 @@ export default function Members() {
                                                                     outstandingPayments.forEach(payment => {
                                                                         const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
                                                                         const label = isLatest
-                                                                            ? `Record Payment`
-                                                                            : `Pay Previous Due`;
+                                                                            ? (payment.remarks || `Record Payment`)
+                                                                            : (payment.remarks ? `Pay ${payment.remarks} (Previous)` : `Pay Previous Due`);
 
                                                                         actions.push(
                                                                             <DropdownMenuItem key={`pay-${payment.id}`} onClick={(e) => {

@@ -1,3 +1,22 @@
+export interface Feature {
+    id: number;
+    key: string;
+    name: string;
+    description?: string;
+}
+
+export interface Permission {
+    id: number;
+    action: string;
+    feature_id: number;
+    description?: string;
+    features?: Feature;
+}
+
+export interface RolePermission {
+    permission_id: number;
+    permissions?: Permission;
+}
 
 export interface GymMembershipPlan {
     id: number;
@@ -26,6 +45,7 @@ export interface GymMember {
     image_url?: string | null;
     gender?: string;
     trainer_id?: number | null;
+    pt_fee?: number;
     status: 'active' | 'expired' | 'paused' | 'cancelled';
     is_active: boolean;
     is_deleted: boolean;
@@ -99,7 +119,9 @@ export interface GymRole {
     id: number;
     name: string;
     description?: string;
+    gym_id?: number;
     created_at?: string;
+    gym_role_permissions?: RolePermission[];
 }
 
 export interface GymStaff {
@@ -108,18 +130,19 @@ export interface GymStaff {
     user_id?: string;
     role_id?: number;
     full_name: string;
+    email?: string;
     join_date?: string;
     phone?: string;
     salary?: number;
     status?: string;
     is_active: boolean;
     is_deleted: boolean;
+    allow_login?: boolean;
     created_at?: string;
     updated_at?: string;
 
     // Joined fields
     gym_roles?: GymRole;
-    user_email?: string; // Optional helper for display if joined with auth users
 }
 
 export interface GymStaffAttendance {
@@ -127,7 +150,10 @@ export interface GymStaffAttendance {
     gym_id: number;
     staff_id: number;
     attendance_date: string;
-    status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE';
+    check_in_time?: string;
+    check_out_time?: string;
+    duration?: string;
+    status: 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE' | 'Present';
     remarks?: string;
     created_at?: string;
     updated_at?: string;

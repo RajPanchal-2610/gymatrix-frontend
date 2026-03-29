@@ -31,10 +31,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { InventoryTransaction, InventoryItem, InventoryVendor } from "@/types/inventory";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function InventoryTransactions() {
     const { toast } = useToast();
     const { gymId } = useGym();
+    const { hasPermission } = usePermissions();
     const [transactions, setTransactions] = useState<any[]>([]);
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [vendors, setVendors] = useState<InventoryVendor[]>([]);
@@ -176,149 +178,151 @@ export function InventoryTransactions() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Stock Transactions</h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow">
-                            <Plus className="h-4 w-4 mr-2" />
-                            Log Transaction
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[450px]">
-                        <DialogHeader>
-                            <DialogTitle>Log Stock Movement</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
-                            <div className="space-y-2">
-                                <Label>Transaction Type</Label>
-                                <Select
-                                    value={newTransaction.transaction_type}
-                                    onValueChange={(val: any) => setNewTransaction({ ...newTransaction, transaction_type: val })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="purchase">Purchase (Add Stock)</SelectItem>
-                                        <SelectItem value="repair">Send to Repair</SelectItem>
-                                        <SelectItem value="adjustment">Stock Adjustment</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>Item</Label>
-                                <Select
-                                    value={newTransaction.item_id?.toString() || ''}
-                                    onValueChange={(val) => setNewTransaction({ ...newTransaction, item_id: parseInt(val) })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select item" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {items.map(i => (
-                                            <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {newTransaction.transaction_type === 'adjustment' && (
+                {hasPermission('add_inventory') && (
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Log Transaction
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[450px]">
+                            <DialogHeader>
+                                <DialogTitle>Log Stock Movement</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
                                 <div className="space-y-2">
-                                    <Label>Adjustment Type</Label>
+                                    <Label>Transaction Type</Label>
                                     <Select
-                                        value={adjustmentType}
-                                        onValueChange={(val: any) => setAdjustmentType(val)}
+                                        value={newTransaction.transaction_type}
+                                        onValueChange={(val: any) => setNewTransaction({ ...newTransaction, transaction_type: val })}
                                     >
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="add">Add Stock (+)</SelectItem>
-                                            <SelectItem value="reduce">Reduce Stock (-)</SelectItem>
+                                            <SelectItem value="purchase">Purchase (Add Stock)</SelectItem>
+                                            <SelectItem value="repair">Send to Repair</SelectItem>
+                                            <SelectItem value="adjustment">Stock Adjustment</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
 
-                            <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label>Quantity</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        value={newTransaction.quantity || ''}
-                                        onChange={(e) => setNewTransaction({ ...newTransaction, quantity: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                                {newTransaction.transaction_type === 'purchase' && (
-                                    <div className="space-y-2">
-                                        <Label>Unit Cost (₹)</Label>
-                                        <Input
-                                            type="number"
-                                            value={newTransaction.unit_cost || ''}
-                                            onChange={(e) => setNewTransaction({ ...newTransaction, unit_cost: parseFloat(e.target.value) })}
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-
-                            {newTransaction.transaction_type === 'purchase' && (
-                                <div className="space-y-2">
-                                    <Label>Vendor</Label>
+                                    <Label>Item</Label>
                                     <Select
-                                        value={vendorId.toString() || ''}
-                                        onValueChange={(val) => setVendorId(parseInt(val))}
+                                        value={newTransaction.item_id?.toString() || ''}
+                                        onValueChange={(val) => setNewTransaction({ ...newTransaction, item_id: parseInt(val) })}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select vendor" />
+                                            <SelectValue placeholder="Select item" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">No specific vendor</SelectItem>
-                                            {vendors.map(v => (
-                                                <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>
+                                            {items.map(i => (
+                                                <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
-                            )}
 
-                            {newTransaction.transaction_type === 'repair' && (
-                                <>
+                                {newTransaction.transaction_type === 'adjustment' && (
                                     <div className="space-y-2">
-                                        <Label>Issue Description *</Label>
+                                        <Label>Adjustment Type</Label>
+                                        <Select
+                                            value={adjustmentType}
+                                            onValueChange={(val: any) => setAdjustmentType(val)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="add">Add Stock (+)</SelectItem>
+                                                <SelectItem value="reduce">Reduce Stock (-)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Quantity</Label>
                                         <Input
-                                            value={maintenanceIssue}
-                                            onChange={(e) => setMaintenanceIssue(e.target.value)}
-                                            placeholder="What is wrong with the item?"
+                                            type="number"
+                                            min="1"
+                                            value={newTransaction.quantity || ''}
+                                            onChange={(e) => setNewTransaction({ ...newTransaction, quantity: parseInt(e.target.value) })}
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>Repair Vendor / Sent To</Label>
-                                        <Input
-                                            value={repairedBy}
-                                            onChange={(e) => setRepairedBy(e.target.value)}
-                                            placeholder="Where is the item being repaired?"
-                                        />
-                                    </div>
-                                </>
-                            )}
+                                    {newTransaction.transaction_type === 'purchase' && (
+                                        <div className="space-y-2">
+                                            <Label>Unit Cost (₹)</Label>
+                                            <Input
+                                                type="number"
+                                                value={newTransaction.unit_cost || ''}
+                                                onChange={(e) => setNewTransaction({ ...newTransaction, unit_cost: parseFloat(e.target.value) })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
 
-                            <div className="space-y-2">
-                                <Label>Notes</Label>
-                                <Input
-                                    value={newTransaction.notes || ''}
-                                    onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
-                                    placeholder="Optional remarks"
-                                />
+                                {newTransaction.transaction_type === 'purchase' && (
+                                    <div className="space-y-2">
+                                        <Label>Vendor</Label>
+                                        <Select
+                                            value={vendorId.toString() || ''}
+                                            onValueChange={(val) => setVendorId(parseInt(val))}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select vendor" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">No specific vendor</SelectItem>
+                                                {vendors.map(v => (
+                                                    <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {newTransaction.transaction_type === 'repair' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label>Issue Description *</Label>
+                                            <Input
+                                                value={maintenanceIssue}
+                                                onChange={(e) => setMaintenanceIssue(e.target.value)}
+                                                placeholder="What is wrong with the item?"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Repair Vendor / Sent To</Label>
+                                            <Input
+                                                value={repairedBy}
+                                                onChange={(e) => setRepairedBy(e.target.value)}
+                                                placeholder="Where is the item being repaired?"
+                                            />
+                                        </div>
+                                    </>
+                                )}
+
+                                <div className="space-y-2">
+                                    <Label>Notes</Label>
+                                    <Input
+                                        value={newTransaction.notes || ''}
+                                        onChange={(e) => setNewTransaction({ ...newTransaction, notes: e.target.value })}
+                                        placeholder="Optional remarks"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-4">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSave}>Submit</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                            <div className="flex justify-end gap-3 mt-4">
+                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSave}>Submit</Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Card>
@@ -346,7 +350,7 @@ export function InventoryTransactions() {
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="font-medium">
-                                        {trx.inventory_items?.name || `Item #${trx.item_id}`}
+                                        {trx.gym_inventory_items?.name || `Item #${trx.item_id}`}
                                     </TableCell>
                                     <TableCell className="font-semibold">
                                         {trx.quantity > 0 && ['purchase', 'opening_stock', 'adjustment', 'replacement'].includes(trx.transaction_type) ? '+' : ''}{trx.quantity}

@@ -468,7 +468,7 @@ export default function MembershipPlans() {
           <DialogHeader>
             <DialogTitle>{editingPlan ? "Edit Plan" : "Create New Plan"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 mt-4">
+          <div className="max-h-[80vh] overflow-y-auto pr-6 -mr-6 space-y-4 mt-4 px-1">
             <div className="space-y-2">
               <Label htmlFor="planName">Plan Name</Label>
               <Input

@@ -51,8 +51,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            // Get active or trial subscription
-            const { data: subData } = await supabase
+            // 1. Try fetching subscription belonging directly to the user (for owners)
+            let { data: subData } = await supabase
                 .from('subscriptions')
                 .select('*')
                 .eq('user_id', user.id)
@@ -60,6 +60,32 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
+
+            // 2. If no direct subscription, check if user is a staff member and fetch owner's subscription
+            if (!subData) {
+                const { data: staffRecord } = await supabase
+                    .from('gym_staff')
+                    .select('gym_id, gyms(owner_id)')
+                    .eq('user_id', user.id)
+                    .eq('is_deleted', false)
+                    .eq('status', 'active')
+                    .limit(1)
+                    .maybeSingle();
+
+                if (staffRecord?.gyms) {
+                    const ownerId = (staffRecord.gyms as any).owner_id;
+                    const { data: ownerSub } = await supabase
+                        .from('subscriptions')
+                        .select('*')
+                        .eq('user_id', ownerId)
+                        .in('status', ['active', 'trial'])
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+                    
+                    subData = ownerSub;
+                }
+            }
 
             if (subData) {
                 setSubscription(subData as Subscription);

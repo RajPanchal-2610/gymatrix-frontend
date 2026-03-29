@@ -23,10 +23,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { InventoryVendor } from "@/types/inventory";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function InventoryVendors() {
     const { toast } = useToast();
     const { gymId } = useGym();
+    const { hasPermission } = usePermissions();
     const [vendors, setVendors] = useState<InventoryVendor[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,62 +108,64 @@ export function InventoryVendors() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Vendors</h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Vendor
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{editingVendor.id ? 'Edit Vendor' : 'Create Vendor'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Vendor Name *</Label>
-                                <Input
-                                    id="name"
-                                    value={editingVendor.name}
-                                    onChange={(e) => setEditingVendor({ ...editingVendor, name: e.target.value })}
-                                    placeholder="e.g. Fitness Depot"
-                                />
+                {hasPermission('add_inventory') && (
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Vendor
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>{editingVendor.id ? 'Edit Vendor' : 'Create Vendor'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Vendor Name *</Label>
+                                    <Input
+                                        id="name"
+                                        value={editingVendor.name}
+                                        onChange={(e) => setEditingVendor({ ...editingVendor, name: e.target.value })}
+                                        placeholder="e.g. Fitness Depot"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">Phone Number</Label>
+                                    <Input
+                                        id="phone"
+                                        value={editingVendor.phone || ''}
+                                        onChange={(e) => setEditingVendor({ ...editingVendor, phone: e.target.value })}
+                                        placeholder="e.g. +1 234 567 8900"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Email Address</Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        value={editingVendor.email || ''}
+                                        onChange={(e) => setEditingVendor({ ...editingVendor, email: e.target.value })}
+                                        placeholder="e.g. contact@fitnessdepot.com"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="address">Address</Label>
+                                    <Input
+                                        id="address"
+                                        value={editingVendor.address || ''}
+                                        onChange={(e) => setEditingVendor({ ...editingVendor, address: e.target.value })}
+                                        placeholder="e.g. 123 Main St"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Phone Number</Label>
-                                <Input
-                                    id="phone"
-                                    value={editingVendor.phone || ''}
-                                    onChange={(e) => setEditingVendor({ ...editingVendor, phone: e.target.value })}
-                                    placeholder="e.g. +1 234 567 8900"
-                                />
+                            <div className="flex justify-end gap-3">
+                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSave}>Save</Button>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email Address</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    value={editingVendor.email || ''}
-                                    onChange={(e) => setEditingVendor({ ...editingVendor, email: e.target.value })}
-                                    placeholder="e.g. contact@fitnessdepot.com"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="address">Address</Label>
-                                <Input
-                                    id="address"
-                                    value={editingVendor.address || ''}
-                                    onChange={(e) => setEditingVendor({ ...editingVendor, address: e.target.value })}
-                                    placeholder="e.g. 123 Main St"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSave}>Save</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Card>
@@ -184,12 +188,16 @@ export function InventoryVendors() {
                                     <TableCell>{vendor.email || '-'}</TableCell>
                                     <TableCell>{vendor.address || '-'}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => openDialog(vendor)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(vendor.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {hasPermission('edit_inventory') && (
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(vendor)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {hasPermission('delete_inventory') && (
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(vendor.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}

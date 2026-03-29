@@ -142,7 +142,7 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
                 <DialogHeader>
                     <DialogTitle>Record Payment</DialogTitle>
                     <DialogDescription>
-                        Recording payment for {payment.gym_members?.full_name}
+                        Recording {payment.remarks || "payment"} for {payment.gym_members?.full_name}
                     </DialogDescription>
                 </DialogHeader>
 

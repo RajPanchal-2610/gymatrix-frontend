@@ -34,6 +34,7 @@ import {
 import { useGym } from "@/hooks/useGym";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { GymMembershipPayment } from "@/types/gym";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 import { ViewPaymentDialog } from "@/components/payments/ViewPaymentDialog";
@@ -41,6 +42,7 @@ import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 
 export default function GymPayments() {
     const { gymId, loading: gymLoading } = useGym();
+    const { hasPermission } = usePermissions();
     const [payments, setPayments] = useState<GymMembershipPayment[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -243,7 +245,7 @@ export default function GymPayments() {
                                             <td className="px-4 py-3">{getStatusBadge(payment.payment_status)}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
-                                                    {(payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
+                                                    {hasPermission('manage_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -271,19 +273,23 @@ export default function GymPayments() {
                                                                 <Eye className="h-4 w-4 mr-2" />
                                                                 View Details
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => {
-                                                                setSelectedPayment(payment);
-                                                                setEditPaymentOpen(true);
-                                                            }}>
-                                                                <Edit className="h-4 w-4 mr-2" />
-                                                                Edit Record
-                                                            </DropdownMenuItem>
 
-                                                            <DropdownMenuItem onClick={() => handleDeletePayment(payment.id)} className="text-destructive focus:text-destructive">
-                                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                                Delete
-                                                            </DropdownMenuItem>
+                                                            {hasPermission('manage_payments') && (
+                                                                <>
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setSelectedPayment(payment);
+                                                                        setEditPaymentOpen(true);
+                                                                    }}>
+                                                                        <Edit className="h-4 w-4 mr-2" />
+                                                                        Edit Record
+                                                                    </DropdownMenuItem>
 
+                                                                    <DropdownMenuItem onClick={() => handleDeletePayment(payment.id)} className="text-destructive focus:text-destructive">
+                                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                                        Delete
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </div>

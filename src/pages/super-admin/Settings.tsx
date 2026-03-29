@@ -10,8 +10,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useTheme } from "@/hooks/useTheme";
 
+import { usePermissions } from "@/contexts/PermissionsContext";
+import { useGym } from "@/hooks/useGym";
+
 export default function Settings() {
   const { theme, setTheme } = useTheme();
+  const { hasPermission, role } = usePermissions();
+  const { gymId } = useGym();
+  const isOwner = role?.isOwner;
 
   return (
     <>
@@ -21,10 +27,12 @@ export default function Settings() {
             <User className="h-4 w-4" />
             Profile
           </TabsTrigger>
-          <TabsTrigger value="gym" className="gap-2">
-            <Building2 className="h-4 w-4" />
-            Gym Settings
-          </TabsTrigger>
+          {hasPermission('view_gym_settings') && (
+            <TabsTrigger value="gym" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Gym Settings
+            </TabsTrigger>
+          )}
           <TabsTrigger value="notifications" className="gap-2">
             <Bell className="h-4 w-4" />
             Notifications
@@ -33,10 +41,12 @@ export default function Settings() {
             <Palette className="h-4 w-4" />
             Appearance
           </TabsTrigger>
-          <TabsTrigger value="billing" className="gap-2">
-            <CreditCard className="h-4 w-4" />
-            Billing
-          </TabsTrigger>
+          {isOwner && (
+            <TabsTrigger value="billing" className="gap-2">
+              <CreditCard className="h-4 w-4" />
+              Billing
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Profile Settings */}

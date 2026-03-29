@@ -31,10 +31,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { InventoryMaintenance as IMaintenance, InventoryItem } from "@/types/inventory";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function InventoryMaintenance() {
     const { toast } = useToast();
     const { gymId } = useGym();
+    const { hasPermission } = usePermissions();
     const [maintenanceJobs, setMaintenanceJobs] = useState<any[]>([]);
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -81,7 +83,7 @@ export function InventoryMaintenance() {
         try {
             if (editingJob.id) {
                 const originalJob = maintenanceJobs.find(j => j.id === editingJob.id);
-                const { inventory_items, ...updateData } = editingJob as any;
+                const { gym_inventory_items, ...updateData } = editingJob as any;
                 await inventoryService.updateMaintenance(editingJob.id, updateData);
 
                 if (originalJob && originalJob.status === 'pending' && (editingJob.status === 'completed' || editingJob.status === 'cancelled')) {
@@ -165,107 +167,109 @@ export function InventoryMaintenance() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Maintenance & Repairs</h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Create Ticket
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[450px]">
-                        <DialogHeader>
-                            <DialogTitle>{editingJob.id ? 'Edit Ticket' : 'Create Maintenance Ticket'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
-                            <div className="space-y-2">
-                                <Label>Item</Label>
-                                <Select
-                                    value={editingJob.item_id?.toString() || ''}
-                                    onValueChange={(val) => setEditingJob({ ...editingJob, item_id: parseInt(val) })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select equipment..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {items.map(i => (
-                                            <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
+                {hasPermission('add_inventory') && (
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Ticket
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[450px]">
+                            <DialogHeader>
+                                <DialogTitle>{editingJob.id ? 'Edit Ticket' : 'Create Maintenance Ticket'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
                                 <div className="space-y-2">
-                                    <Label>Issue Description</Label>
-                                    <Input
-                                        value={editingJob.issue_description || ''}
-                                        onChange={(e) => setEditingJob({ ...editingJob, issue_description: e.target.value })}
-                                        placeholder="e.g. Broken belt, making noise"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Quantity</Label>
-                                    <Input
-                                        type="number"
-                                        min="1"
-                                        value={editingJob.quantity || ''}
-                                        onChange={(e) => setEditingJob({ ...editingJob, quantity: parseInt(e.target.value) || 1 })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Status</Label>
+                                    <Label>Item</Label>
                                     <Select
-                                        value={editingJob.status || 'pending'}
-                                        onValueChange={(val: any) => setEditingJob({ ...editingJob, status: val })}
+                                        value={editingJob.item_id?.toString() || ''}
+                                        onValueChange={(val) => setEditingJob({ ...editingJob, item_id: parseInt(val) })}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue />
+                                            <SelectValue placeholder="Select equipment..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="pending">Pending</SelectItem>
-                                            <SelectItem value="completed">Completed</SelectItem>
-                                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                                            {items.map(i => (
+                                                <SelectItem key={i.id} value={i.id.toString()}>{i.name}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Issue Description</Label>
+                                        <Input
+                                            value={editingJob.issue_description || ''}
+                                            onChange={(e) => setEditingJob({ ...editingJob, issue_description: e.target.value })}
+                                            placeholder="e.g. Broken belt, making noise"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Quantity</Label>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            value={editingJob.quantity || ''}
+                                            onChange={(e) => setEditingJob({ ...editingJob, quantity: parseInt(e.target.value) || 1 })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Status</Label>
+                                        <Select
+                                            value={editingJob.status || 'pending'}
+                                            onValueChange={(val: any) => setEditingJob({ ...editingJob, status: val })}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="pending">Pending</SelectItem>
+                                                <SelectItem value="completed">Completed</SelectItem>
+                                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Repair Cost (₹)</Label>
+                                        <Input
+                                            type="number"
+                                            value={editingJob.repair_cost || ''}
+                                            onChange={(e) => setEditingJob({ ...editingJob, repair_cost: parseFloat(e.target.value) })}
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="space-y-2">
-                                    <Label>Repair Cost (₹)</Label>
+                                    <Label>Repair Date</Label>
                                     <Input
-                                        type="number"
-                                        value={editingJob.repair_cost || ''}
-                                        onChange={(e) => setEditingJob({ ...editingJob, repair_cost: parseFloat(e.target.value) })}
-                                        placeholder="0.00"
+                                        type="date"
+                                        value={editingJob.repair_date ? editingJob.repair_date.split('T')[0] : ''}
+                                        onChange={(e) => setEditingJob({ ...editingJob, repair_date: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>Repaired By</Label>
+                                    <Input
+                                        value={editingJob.repaired_by || ''}
+                                        onChange={(e) => setEditingJob({ ...editingJob, repaired_by: e.target.value })}
+                                        placeholder="Technician name or company"
                                     />
                                 </div>
                             </div>
-
-                            <div className="space-y-2">
-                                <Label>Repair Date</Label>
-                                <Input
-                                    type="date"
-                                    value={editingJob.repair_date ? editingJob.repair_date.split('T')[0] : ''}
-                                    onChange={(e) => setEditingJob({ ...editingJob, repair_date: e.target.value })}
-                                />
+                            <div className="flex justify-end gap-3 mt-4">
+                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSave}>Save</Button>
                             </div>
-
-                            <div className="space-y-2">
-                                <Label>Repaired By</Label>
-                                <Input
-                                    value={editingJob.repaired_by || ''}
-                                    onChange={(e) => setEditingJob({ ...editingJob, repaired_by: e.target.value })}
-                                    placeholder="Technician name or company"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-4">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSave}>Save</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Card>
@@ -290,7 +294,7 @@ export function InventoryMaintenance() {
                                         {new Date(job.created_at).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell className="font-medium">
-                                        {job.inventory_items?.name || `Item #${job.item_id}`}
+                                        {job.gym_inventory_items?.name || `Item #${job.item_id}`}
                                     </TableCell>
                                     <TableCell>
                                         {job.quantity || 1}
@@ -310,12 +314,16 @@ export function InventoryMaintenance() {
                                         {job.repaired_by || '-'}
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {hasPermission('edit_inventory') && (
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {hasPermission('delete_inventory') && (
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}

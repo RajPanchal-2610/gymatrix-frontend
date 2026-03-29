@@ -32,7 +32,7 @@ export interface InventoryItem {
     updated_at?: string;
 
     // Joined fields
-    inventory_categories?: InventoryCategory;
+    gym_inventory_categories?: InventoryCategory;
 }
 
 export interface InventoryStock {
@@ -47,7 +47,7 @@ export interface InventoryStock {
     updated_at?: string;
 
     // Joined fields
-    inventory_items?: InventoryItem;
+    gym_inventory_items?: InventoryItem;
 }
 
 export interface InventoryPurchase {
@@ -60,7 +60,7 @@ export interface InventoryPurchase {
     created_at?: string;
 
     // Joined fields
-    inventory_vendors?: InventoryVendor;
+    gym_inventory_vendors?: InventoryVendor;
 }
 
 export interface InventoryTransaction {
@@ -77,8 +77,8 @@ export interface InventoryTransaction {
     created_at?: string;
 
     // Joined fields
-    inventory_items?: InventoryItem;
-    inventory_purchases?: InventoryPurchase;
+    gym_inventory_items?: InventoryItem;
+    gym_inventory_purchases?: InventoryPurchase;
 }
 
 export interface InventoryMaintenance {
@@ -94,5 +94,5 @@ export interface InventoryMaintenance {
     created_at?: string;
 
     // Joined fields
-    inventory_items?: InventoryItem;
+    gym_inventory_items?: InventoryItem;
 }

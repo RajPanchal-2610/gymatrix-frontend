@@ -9,6 +9,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -20,21 +21,33 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
+import { Checkbox } from "@/components/ui/checkbox";
 import { staffService } from "@/services/staffService";
-import { GymRole } from "@/types/gym";
+import { GymRole, Permission } from "@/types/gym";
+import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function RolesView() {
+    const { gymId } = useGym();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
     const [roles, setRoles] = useState<GymRole[]>([]);
+    const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingRole, setEditingRole] = useState<Partial<GymRole>>({ name: '', description: '' });
+    const [selectedPermissions, setSelectedPermissions] = useState<number[]>([]);
 
-    const fetchRoles = async () => {
+    const fetchData = async () => {
+        if (!gymId) return;
         setLoading(true);
         try {
-            const data = await staffService.getRoles();
-            setRoles(data);
+            const [rolesData, permsData] = await Promise.all([
+                staffService.getRoles(gymId),
+                staffService.getPermissions()
+            ]);
+            setRoles(rolesData);
+            setPermissions(permsData);
         } catch (error) {
             console.error("Error fetching roles:", error);
             toast({
@@ -48,10 +61,11 @@ export function RolesView() {
     };
 
     useEffect(() => {
-        fetchRoles();
-    }, []);
+        fetchData();
+    }, [gymId]);
 
     const handleSave = async () => {
+        if (!gymId) return;
         if (!editingRole.name) {
             toast({ title: "Validation Error", description: "Role name is required", variant: "destructive" });
             return;
@@ -59,15 +73,23 @@ export function RolesView() {
 
         try {
             if (editingRole.id) {
-                await staffService.updateRole(editingRole.id, editingRole);
+                await staffService.updateRole(editingRole.id, { 
+                    ...editingRole, 
+                    permission_ids: selectedPermissions 
+                });
                 toast({ title: "Success", description: "Role updated successfully." });
             } else {
-                await staffService.createRole(editingRole);
+                await staffService.createRole({ 
+                    ...editingRole, 
+                    gym_id: gymId,
+                    permission_ids: selectedPermissions 
+                });
                 toast({ title: "Success", description: "Role created successfully." });
             }
             setDialogOpen(false);
-            fetchRoles();
+            fetchData();
             setEditingRole({ name: '', description: '' });
+            setSelectedPermissions([]);
         } catch (error) {
             console.error("Error saving role:", error);
             toast({
@@ -81,9 +103,9 @@ export function RolesView() {
     const handleDelete = async (id: number) => {
         if (!confirm("Are you sure? accessing this role might break for existing staff.")) return;
         try {
-            await staffService.deleteRole(id);
+            await staffService.getDeleteRole(id);
             toast({ title: "Success", description: "Role deleted." });
-            fetchRoles();
+            fetchData();
         } catch (error) {
             console.error(error);
             toast({ title: "Error", description: "Failed to delete role. It might be in use.", variant: "destructive" });
@@ -93,53 +115,117 @@ export function RolesView() {
     const openDialog = (role?: GymRole) => {
         if (role) {
             setEditingRole(role);
+            // Pre-select existing permissions for this role
+            const existingIds = role.gym_role_permissions?.map(rp => rp.permission_id) || [];
+            setSelectedPermissions(existingIds);
         } else {
             setEditingRole({ name: '', description: '' });
+            setSelectedPermissions([]);
         }
         setDialogOpen(true);
     };
+
+    const togglePermission = (permId: number) => {
+        setSelectedPermissions(prev => 
+            prev.includes(permId) 
+                ? prev.filter(id => id !== permId) 
+                : [...prev, permId]
+        );
+    };
+
+    // Group permissions by feature name
+    const groupedPermissions = permissions.reduce<Record<string, Permission[]>>((acc, perm) => {
+        const featureName = perm.features?.name || 'Other';
+        if (!acc[featureName]) acc[featureName] = [];
+        acc[featureName].push(perm);
+        return acc;
+    }, {});
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Role Definitions</h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Role
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{editingRole.id ? 'Edit Role' : 'Create Role'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Role Name</Label>
-                                <Input
-                                    id="name"
-                                    value={editingRole.name}
-                                    onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
-                                    placeholder="e.g. Trainer"
-                                />
+                {hasPermission('add_roles') && (
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Role
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[550px] max-h-[90vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl font-bold"> {editingRole.id ? 'Edit Role' : 'Create Role'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-6 py-6 overflow-y-auto pr-2">
+                                <div className="space-y-3">
+                                    <Label htmlFor="name" className="text-base font-semibold">Role Name</Label>
+                                    <Input
+                                        id="name"
+                                        className="text-lg h-11"
+                                        value={editingRole.name}
+                                        onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
+                                        placeholder="e.g. Senior Trainer"
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label htmlFor="description" className="text-base font-semibold">Description (Optional)</Label>
+                                    <Input
+                                        id="description"
+                                        className="text-base h-11"
+                                        value={editingRole.description || ''}
+                                        onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
+                                        placeholder="e.g. Full access to gym facilities and staff management"
+                                    />
+                                </div>
+
+                                <div className="space-y-4 mt-6 border-t pt-6">
+                                    <Label className="text-lg font-bold flex items-center gap-2">
+                                        Select Permissions
+                                    </Label>
+                                    <div className="space-y-6">
+                                        {Object.entries(groupedPermissions).map(([featureName, perms]) => (
+                                            <div key={featureName} className="space-y-3">
+                                                <h4 className="text-sm font-bold text-primary tracking-wider uppercase bg-primary/5 px-2 py-1 rounded inline-block">
+                                                    {featureName}
+                                                </h4>
+                                                <div className="grid gap-3">
+                                                    {perms.map((p) => (
+                                                        <div key={p.id} className="flex items-start space-x-3 bg-accent/10 p-3 rounded-lg hover:bg-accent/20 transition-colors border border-transparent hover:border-primary/10">
+                                                            <Checkbox 
+                                                                id={`perm-${p.id}`} 
+                                                                className="h-5 w-5 mt-0.5"
+                                                                checked={selectedPermissions.includes(p.id)}
+                                                                onCheckedChange={() => togglePermission(p.id)}
+                                                            />
+                                                            <div className="grid gap-1.5 leading-none">
+                                                                <label
+                                                                    htmlFor={`perm-${p.id}`}
+                                                                    className="text-base font-semibold leading-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                                >
+                                                                    {p.description || p.action}
+                                                                </label>
+                                                                {p.description && (
+                                                                    <span className="text-xs text-muted-foreground font-mono font-medium tracking-tight">
+                                                                        {p.action}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="description">Description (Optional)</Label>
-                                <Input
-                                    id="description"
-                                    value={editingRole.description || ''}
-                                    onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
-                                    placeholder="e.g. Manages gym floor"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSave}>Save</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                            <DialogFooter className="border-t pt-4">
+                                <Button variant="outline" size="lg" className="h-11" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                                <Button size="lg" className="h-11 px-8" onClick={handleSave}>Save Changes</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Card>
@@ -158,12 +244,16 @@ export function RolesView() {
                                     <TableCell className="font-medium capitalize">{role.name.replace(/_/g, ' ')}</TableCell>
                                     <TableCell>{role.description}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => openDialog(role)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(role.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {hasPermission('edit_roles') && (
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(role)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {hasPermission('delete_roles') && (
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(role.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}

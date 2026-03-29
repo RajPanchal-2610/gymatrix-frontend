@@ -22,9 +22,11 @@ import { useGym } from "@/hooks/useGym";
 import { staffService } from "@/services/staffService";
 import { GymStaff, GymStaffAttendance } from "@/types/gym";
 import { useToast } from "@/components/ui/use-toast";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
-const STATUS_COLORS = {
+const STATUS_COLORS: Record<string, string> = {
     PRESENT: "bg-green-100 text-green-700 border-green-200 hover:bg-green-200",
+    Present: "bg-green-100 text-green-700 border-green-200 hover:bg-green-200",
     ABSENT: "bg-red-100 text-red-700 border-red-200 hover:bg-red-200",
     HALF_DAY: "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200",
     LEAVE: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200",
@@ -33,6 +35,7 @@ const STATUS_COLORS = {
 export function AttendanceView() {
     const { gymId } = useGym();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
     const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
     const [staff, setStaff] = useState<GymStaff[]>([]);
     const [selectedStaffId, setSelectedStaffId] = useState<string>("");
@@ -108,6 +111,15 @@ export function AttendanceView() {
     const emptyDays = Array(startDay).fill(null);
 
     const handleDateClick = (date: Date) => {
+        if (!hasPermission('manage_staff_attendance')) {
+            toast({ 
+                title: "Permission Denied", 
+                description: "You don't have permission to mark attendance.", 
+                variant: "destructive" 
+            });
+            return;
+        }
+
         if (!selectedStaffId) {
             toast({ title: "Select Staff", description: "Please select a staff member first.", variant: "destructive" });
             return;

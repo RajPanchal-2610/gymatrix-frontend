@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
 import { differenceInDays, parseISO, subMonths, format, startOfMonth } from "date-fns";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 interface Subscription {
     status: string;
@@ -24,6 +25,7 @@ interface Subscription {
 
 export default function GymDashboard() {
     const { gymId } = useGym();
+    const { hasPermission } = usePermissions();
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [loading, setLoading] = useState(true);
     const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -145,14 +147,14 @@ export default function GymDashboard() {
 
                 // Fetch pending maintenance
                 const { count: pendingMaintenanceCount } = await supabase
-                    .from('inventory_maintenance')
+                    .from('gym_inventory_maintenance')
                     .select('*', { count: 'exact', head: true })
                     .eq('gym_id', gymId)
                     .eq('status', 'pending');
 
                 // Fetch active inventory items
                 const { count: activeInventoryCount } = await supabase
-                    .from('inventory_items')
+                    .from('gym_inventory_items')
                     .select('*', { count: 'exact', head: true })
                     .eq('gym_id', gymId)
                     .eq('status', 'active');
@@ -407,107 +409,136 @@ export default function GymDashboard() {
                     </Alert>
                 </div>
             )}
-
             {/* Stats Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                    title="Active Members"
-                    value={stats.activeMembers}
-                    change="Current active"
-                    changeType="neutral"
-                    icon={Users}
-                    iconClassName="gradient-primary"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Monthly Revenue"
-                    value={`₹${stats.monthlyRevenue.toLocaleString()}`}
-                    change="Current month"
-                    changeType="neutral"
-                    icon={CreditCard}
-                    iconClassName="bg-success"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Today's Check-ins"
-                    value={todayCheckIns.length}
-                    change="Staff arrivals today"
-                    changeType="neutral"
-                    icon={Activity}
-                    iconClassName="gradient-accent"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Total Staff"
-                    value={stats.totalStaff}
-                    change="Active staff"
-                    changeType="neutral"
-                    icon={UserCog}
-                    iconClassName="bg-warning"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Pending Dues"
-                    value={`₹${stats.pendingDues.toLocaleString()}`}
-                    change="Outstanding payments"
-                    changeType="negative"
-                    icon={IndianRupee}
-                    iconClassName="bg-red-500"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Needs Maintenance"
-                    value={stats.pendingMaintenance}
-                    change="Pending repairs"
-                    changeType={stats.pendingMaintenance > 0 ? "negative" : "neutral"}
-                    icon={Wrench}
-                    iconClassName="bg-orange-500"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Active Inventory"
-                    value={stats.activeInventory}
-                    change="Total items"
-                    changeType="neutral"
-                    icon={Package}
-                    iconClassName="bg-indigo-500"
-                    loading={dashboardLoading}
-                />
-                <StatCard
-                    title="Expiring Soon"
-                    value={stats.upcomingExpirations}
-                    change="Within 7 days"
-                    changeType={stats.upcomingExpirations > 0 ? "negative" : "neutral"}
-                    icon={Clock}
-                    iconClassName="bg-yellow-500"
-                    loading={dashboardLoading}
-                />
-            </div>
+            {hasPermission('view_dashboard_stats') && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    {hasPermission('view_members') && (
+                        <StatCard
+                            title="Active Members"
+                            value={stats.activeMembers}
+                            change="Current active"
+                            changeType="neutral"
+                            icon={Users}
+                            iconClassName="gradient-primary"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_revenue_summary') && (
+                        <StatCard
+                            title="Monthly Revenue"
+                            value={`₹${stats.monthlyRevenue.toLocaleString()}`}
+                            change="Current month"
+                            changeType="neutral"
+                            icon={CreditCard}
+                            iconClassName="bg-success"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_staff_attendance') && (
+                        <StatCard
+                            title="Today's Check-ins"
+                            value={todayCheckIns.length}
+                            change="Staff arrivals today"
+                            changeType="neutral"
+                            icon={Activity}
+                            iconClassName="gradient-accent"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_staff') && (
+                        <StatCard
+                            title="Total Staff"
+                            value={stats.totalStaff}
+                            change="Active staff"
+                            changeType="neutral"
+                            icon={UserCog}
+                            iconClassName="bg-warning"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_revenue_summary') && (
+                        <StatCard
+                            title="Pending Dues"
+                            value={`₹${stats.pendingDues.toLocaleString()}`}
+                            change="Outstanding payments"
+                            changeType="negative"
+                            icon={IndianRupee}
+                            iconClassName="bg-red-500"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_inventory') && (
+                        <StatCard
+                            title="Needs Maintenance"
+                            value={stats.pendingMaintenance}
+                            change="Pending repairs"
+                            changeType={stats.pendingMaintenance > 0 ? "negative" : "neutral"}
+                            icon={Wrench}
+                            iconClassName="bg-orange-500"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_inventory') && (
+                        <StatCard
+                            title="Active Inventory"
+                            value={stats.activeInventory}
+                            change="Total items"
+                            changeType="neutral"
+                            icon={Package}
+                            iconClassName="bg-indigo-500"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                    {hasPermission('view_members') && (
+                        <StatCard
+                            title="Expiring Soon"
+                            value={stats.upcomingExpirations}
+                            change="Within 7 days"
+                            changeType={stats.upcomingExpirations > 0 ? "negative" : "neutral"}
+                            icon={Clock}
+                            iconClassName="bg-yellow-500"
+                            loading={dashboardLoading}
+                        />
+                    )}
+                </div>
+            )}
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <div className="lg:col-span-2">
-                    <RevenueChart data={revenueData} loading={dashboardLoading} />
-                </div>
-                <div>
-                    <MembershipChart data={membershipData} loading={dashboardLoading} />
-                </div>
+                {hasPermission('view_revenue_summary') && (
+                    <div className="lg:col-span-2">
+                        <RevenueChart data={revenueData} loading={dashboardLoading} />
+                    </div>
+                )}
+                {hasPermission('view_members') && (
+                    <div className={hasPermission('view_revenue_summary') ? "" : "lg:col-span-3"}>
+                        <MembershipChart data={membershipData} loading={dashboardLoading} />
+                    </div>
+                )}
             </div>
 
             {/* Management & Alert Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <PendingPayments
-                    invoices={unpaidInvoices}
-                    loading={dashboardLoading}
-                    totalAmount={stats.pendingDues}
-                />
-                <MembershipAlerts members={membershipAtRisk} loading={dashboardLoading} />
-                <TodayAttendance checkIns={todayCheckIns} loading={dashboardLoading} />
+                {hasPermission('view_revenue_summary') && (
+                    <PendingPayments
+                        invoices={unpaidInvoices}
+                        loading={dashboardLoading}
+                        totalAmount={stats.pendingDues}
+                    />
+                )}
+                {hasPermission('view_members') && (
+                    <MembershipAlerts members={membershipAtRisk} loading={dashboardLoading} />
+                )}
+                {hasPermission('view_staff_attendance') && (
+                    <TodayAttendance checkIns={todayCheckIns} loading={dashboardLoading} />
+                )}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                <RecentActivity activities={recentActivities} loading={dashboardLoading} />
-            </div>
+            {hasPermission('view_activity_logs') && (
+                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                    <RecentActivity activities={recentActivities} loading={dashboardLoading} />
+                </div>
+            )}
         </>
     );
 }

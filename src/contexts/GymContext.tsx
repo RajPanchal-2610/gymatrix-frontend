@@ -34,40 +34,53 @@ export function GymProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            const { data, error } = await supabase
+            // 1. Fetch gyms owned by the user
+            const { data: ownedGyms, error: ownerError } = await supabase
                 .from('gyms')
-                .select(`
-                    id,
-                    name,
-                    created_at,
-                    owner_id
-                `)
+                .select('id, name, created_at, owner_id')
                 .eq('owner_id', user.id);
 
-            if (error) {
-                console.error("Error fetching gyms:", error);
+            // 2. Fetch gyms where user is a staff member
+            const { data: staffRecords, error: staffError } = await supabase
+                .from('gym_staff')
+                .select('gym_id, gyms(id, name, created_at, owner_id)')
+                .eq('user_id', user.id)
+                .eq('is_deleted', false)
+                .eq('status', 'active');
+
+            if (ownerError || staffError) {
+                console.error("Error fetching gyms:", ownerError || staffError);
                 setLoading(false);
                 return;
             }
 
-            if (data) {
-                const userGyms = data as Gym[];
-                setGyms(userGyms);
+            // Combine the results
+            const combinedGyms: Gym[] = [...(ownedGyms || [])];
+            
+            // Add gyms from staff records if they aren't already in the list
+            staffRecords?.forEach(record => {
+                if (record.gyms && !combinedGyms.find(g => g.id === record.gym_id)) {
+                    combinedGyms.push(record.gyms as unknown as Gym);
+                }
+            });
+
+            if (combinedGyms) {
+                setGyms(combinedGyms);
 
                 // Handle Gym Selection
-                if (userGyms.length > 0) {
+                if (combinedGyms.length > 0) {
                     const storedGymId = localStorage.getItem('gymflow_gym_id');
                     const targetGym = storedGymId
-                        ? userGyms.find(g => g.id.toString() === storedGymId)
+                        ? combinedGyms.find(g => g.id.toString() === storedGymId)
                         : null;
 
                     if (targetGym) {
                         setGymId(targetGym.id);
                     } else {
                         // Default to first gym and save it (or checking if current gymId is valid)
-                        if (!gymId || !userGyms.find(g => g.id === gymId)) {
-                            setGymId(userGyms[0].id);
-                            localStorage.setItem('gymflow_gym_id', userGyms[0].id.toString());
+                        if (!gymId || !combinedGyms.find(g => g.id === gymId)) {
+                            setGymId(combinedGyms[0].id);
+                            localStorage.setItem('gymflow_gym_id', combinedGyms[0].id.toString());
                         }
                     }
                 } else {

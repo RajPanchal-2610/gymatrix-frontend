@@ -1,4 +1,5 @@
 import { Download, FileText, BarChart3, Users, DollarSign, Calendar } from "lucide-react";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -43,11 +44,18 @@ const reportTypes = [
 ];
 
 export default function Reports() {
+  const { hasPermission } = usePermissions();
+
+  const filteredReports = reportTypes.filter(report => {
+    if (report.id === 'revenue') return hasPermission('view_revenue_summary');
+    return true; // Other reports are fine if they have view_reports
+  });
+
   return (
     <>
       {/* Quick Reports */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {reportTypes.map((report) => {
+        {filteredReports.map((report) => {
           const Icon = report.icon;
           return (
             <Card
@@ -90,9 +98,9 @@ export default function Reports() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="membership">Membership Report</SelectItem>
-                <SelectItem value="revenue">Revenue Report</SelectItem>
+                {hasPermission('view_revenue_summary') && <SelectItem value="revenue">Revenue Report</SelectItem>}
                 <SelectItem value="attendance">Attendance Report</SelectItem>
-                <SelectItem value="payments">Payments Report</SelectItem>
+                {hasPermission('view_revenue_summary') && <SelectItem value="payments">Payments Report</SelectItem>}
               </SelectContent>
             </Select>
             <Select defaultValue="month">
@@ -122,16 +130,18 @@ export default function Reports() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RevenueChart
-          data={[
-            { name: "Jan", revenue: 45000 },
-            { name: "Feb", revenue: 52000 },
-            { name: "Mar", revenue: 48000 },
-            { name: "Apr", revenue: 61000 },
-            { name: "May", revenue: 55000 },
-            { name: "Jun", revenue: 67000 },
-          ]}
-        />
+        {hasPermission('view_revenue_summary') && (
+          <RevenueChart
+            data={[
+              { name: "Jan", revenue: 45000 },
+              { name: "Feb", revenue: 52000 },
+              { name: "Mar", revenue: 48000 },
+              { name: "Apr", revenue: 61000 },
+              { name: "May", revenue: 55000 },
+              { name: "Jun", revenue: 67000 },
+            ]}
+          />
+        )}
         <MembershipChart
           data={[
             { name: "Active", value: 120, color: "hsl(var(--success))" },

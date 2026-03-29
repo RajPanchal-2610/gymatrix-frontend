@@ -33,10 +33,12 @@ import { GymStaff, GymStaffPayroll } from "@/types/gym";
 import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Card, CardContent } from "@/components/ui/card";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function PayrollView() {
     const { gymId } = useGym();
     const { toast } = useToast();
+    const { hasPermission } = usePermissions();
 
     const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
     const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -126,6 +128,15 @@ export function PayrollView() {
     };
 
     const handleOpenPayroll = async (staffId: number) => {
+        if (!hasPermission('manage_payroll')) {
+            toast({ 
+                title: "Permission Denied", 
+                description: "You don't have permission to manage payroll.", 
+                variant: "destructive" 
+            });
+            return;
+        }
+
         const existing = payrollMap[staffId];
         const staffMember = staff.find(s => s.id === staffId);
 
@@ -335,14 +346,16 @@ export function PayrollView() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleOpenPayroll(member.id)}
-                                            >
-                                                <FileText className="h-4 w-4 mr-2" />
-                                                {record ? "Manage" : "Create"}
-                                            </Button>
+                                            {hasPermission('manage_payroll') && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleOpenPayroll(member.id)}
+                                                >
+                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    {record ? "Manage" : "Create"}
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 );

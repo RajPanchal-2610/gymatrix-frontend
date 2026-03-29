@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,9 +17,12 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 
+import { usePermissions } from "@/contexts/PermissionsContext";
+
 export default function MemberView() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const { hasPermission } = usePermissions();
     const [member, setMember] = useState<GymMember | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
@@ -386,19 +389,23 @@ export default function MemberView() {
                                                                         <td className="py-4 px-4 text-right text-destructive font-bold">₹{payment.due_amount.toLocaleString()}</td>
                                                                         <td className="py-4 px-4 text-right">
                                                                             {payment.payment_status !== 'paid' ? (
-                                                                                <Button
-                                                                                    variant="outline"
-                                                                                    size="sm"
-                                                                                    className="h-8 px-4 text-xs font-bold border-primary/20 hover:bg-primary/5 text-primary"
-                                                                                    onClick={() => {
-                                                                                        const paymentWithMember = { ...payment, gym_members: member };
-                                                                                        setSelectedPaymentMember(paymentWithMember as any);
-                                                                                        setRecordPaymentOpen(true);
-                                                                                    }}
-                                                                                >
-                                                                                    <IndianRupee className="h-3 w-3 mr-1" />
-                                                                                    Pay
-                                                                                </Button>
+                                                                                hasPermission('manage_payments') ? (
+                                                                                    <Button
+                                                                                        variant="outline"
+                                                                                        size="sm"
+                                                                                        className="h-8 px-4 text-xs font-bold border-primary/20 hover:bg-primary/5 text-primary"
+                                                                                        onClick={() => {
+                                                                                            const paymentWithMember = { ...payment, gym_members: member };
+                                                                                            setSelectedPaymentMember(paymentWithMember as any);
+                                                                                            setRecordPaymentOpen(true);
+                                                                                        }}
+                                                                                    >
+                                                                                        <IndianRupee className="h-3 w-3 mr-1" />
+                                                                                        Pay
+                                                                                    </Button>
+                                                                                ) : (
+                                                                                    <div className="text-destructive text-xs font-bold">UNPAID</div>
+                                                                                )
                                                                             ) : (
                                                                                 <div className="flex items-center justify-end text-emerald-600 text-xs font-bold gap-1 pr-2">
                                                                                     <CheckCircle className="h-4 w-4" />

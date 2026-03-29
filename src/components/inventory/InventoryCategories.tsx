@@ -23,10 +23,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { InventoryCategory } from "@/types/inventory";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export function InventoryCategories() {
     const { toast } = useToast();
     const { gymId } = useGym();
+    const { hasPermission } = usePermissions();
     const [categories, setCategories] = useState<InventoryCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,43 +108,45 @@ export function InventoryCategories() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Categories</h2>
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add Category
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>{editingCategory.id ? 'Edit Category' : 'Create Category'}</DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Category Name</Label>
-                                <Input
-                                    id="name"
-                                    value={editingCategory.name}
-                                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
-                                    placeholder="e.g. Cardio Equipment"
-                                />
+                {hasPermission('add_inventory') && (
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Category
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>{editingCategory.id ? 'Edit Category' : 'Create Category'}</DialogTitle>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Category Name</Label>
+                                    <Input
+                                        id="name"
+                                        value={editingCategory.name}
+                                        onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                                        placeholder="e.g. Cardio Equipment"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="description">Description (Optional)</Label>
+                                    <Input
+                                        id="description"
+                                        value={editingCategory.description || ''}
+                                        onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
+                                        placeholder="e.g. Treadmills, ellipticals"
+                                    />
+                                </div>
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="description">Description (Optional)</Label>
-                                <Input
-                                    id="description"
-                                    value={editingCategory.description || ''}
-                                    onChange={(e) => setEditingCategory({ ...editingCategory, description: e.target.value })}
-                                    placeholder="e.g. Treadmills, ellipticals"
-                                />
+                            <div className="flex justify-end gap-3">
+                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSave}>Save</Button>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3">
-                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                            <Button onClick={handleSave}>Save</Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
+                )}
             </div>
 
             <Card>
@@ -161,12 +165,16 @@ export function InventoryCategories() {
                                     <TableCell className="font-medium">{category.name}</TableCell>
                                     <TableCell>{category.description || '-'}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => openDialog(category)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(category.id)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {hasPermission('edit_inventory') && (
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(category)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {hasPermission('delete_inventory') && (
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(category.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))}

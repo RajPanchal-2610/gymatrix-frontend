@@ -7,8 +7,24 @@ import { InventoryVendors } from "@/components/inventory/InventoryVendors";
 import { InventoryTransactions } from "@/components/inventory/InventoryTransactions";
 import { InventoryMaintenance } from "@/components/inventory/InventoryMaintenance";
 
+import { usePermissions } from "@/contexts/PermissionsContext";
+
 export default function Inventory() {
+    const { hasPermission } = usePermissions();
     const [activeSection, setActiveSection] = useState("items");
+
+    if (!hasPermission('view_inventory')) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
+                <Package className="h-16 w-16 text-muted-foreground opacity-20" />
+                <h2 className="text-xl font-semibold">Access Denied</h2>
+                <p className="text-muted-foreground text-center max-w-md">
+                    You do not have permission to view the inventory management section. 
+                    Please contact your administrator if you believe this is an error.
+                </p>
+            </div>
+        );
+    }
 
     const flowSteps = [
         { id: "vendors", icon: Building2, title: "1. Supply Chain", desc: "Manage vendors & suppliers" },

@@ -36,23 +36,34 @@ export default function GymLogin() {
       if (data.user) {
         // Check if user is a gym admin
         // Check if user is a gym owner
-        const { data: gym, error: gymError } = await supabase
+        const { data: gymOwner, error: ownerError } = await supabase
           .from('gyms')
           .select('id')
           .eq('owner_id', data.user.id)
           .limit(1)
           .maybeSingle();
 
-        if (gymError) {
-          console.error("Gym check error:", gymError);
+        // Check if user is a gym staff member
+        const { data: gymStaff, error: staffError } = await supabase
+          .from('gym_staff')
+          .select('gym_id')
+          .eq('user_id', data.user.id)
+          .eq('is_deleted', false)
+          .ilike('status', 'active')
+          .eq('allow_login', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (ownerError || staffError) {
+          console.error("Access check error:", ownerError || staffError);
           toast.error("Error verifying access");
           setLoading(false);
           await supabase.auth.signOut();
           return;
         }
 
-        if (!gym) {
-          toast.error("Access denied. Not a registered gym owner.");
+        if (!gymOwner && !gymStaff) {
+          toast.error("Access denied. Not a registered gym owner or staff member.");
           await supabase.auth.signOut();
           setLoading(false);
           return;

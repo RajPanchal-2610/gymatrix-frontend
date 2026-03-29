@@ -25,9 +25,11 @@ import { useGym } from "@/hooks/useGym";
 import { GymMembershipPlan } from "@/types/gym";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { usePermissions } from "@/contexts/PermissionsContext";
 
 export default function MembershipPlans() {
     const { gymId, loading: gymLoading } = useGym();
+    const { hasPermission } = usePermissions();
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -169,89 +171,93 @@ export default function MembershipPlans() {
                         <p className="text-muted-foreground">
                             Manage your gym's membership plans
                         </p>
-                        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Create Plan
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[500px]">
-                                <DialogHeader>
-                                    <DialogTitle>{editingPlan ? "Edit Plan" : "Create New Plan"}</DialogTitle>
-                                </DialogHeader>
-                                <div className="space-y-4 mt-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="planName">Plan Name</Label>
-                                        <Input
-                                            id="planName"
-                                            placeholder="e.g., Monthly Silver"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                        {hasPermission('add_membership_plans') && (
+                            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Create Plan
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[500px]">
+                                    <DialogHeader>
+                                        <DialogTitle>{editingPlan ? "Edit Plan" : "Create New Plan"}</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="space-y-4 mt-4">
                                         <div className="space-y-2">
-                                            <Label htmlFor="price">Price</Label>
+                                            <Label htmlFor="planName">Plan Name</Label>
                                             <Input
-                                                id="price"
-                                                type="number"
-                                                placeholder="0.00"
-                                                value={formData.price}
-                                                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                                id="planName"
+                                                placeholder="e.g., Monthly Silver"
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Duration</Label>
-                                            <div className="flex gap-2">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="price">Price</Label>
                                                 <Input
+                                                    id="price"
                                                     type="number"
-                                                    value={formData.duration_value}
-                                                    onChange={(e) => setFormData({ ...formData, duration_value: e.target.value })}
-                                                    className="w-20"
+                                                    placeholder="0.00"
+                                                    value={formData.price}
+                                                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                                                 />
-                                                <Select
-                                                    value={formData.duration_unit}
-                                                    onValueChange={(val) => setFormData({ ...formData, duration_unit: val })}
-                                                >
-                                                    <SelectTrigger className="flex-1">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="day">Days</SelectItem>
-                                                        <SelectItem value="month">Months</SelectItem>
-                                                        <SelectItem value="year">Years</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Duration</Label>
+                                                <div className="flex gap-2">
+                                                    <Input
+                                                        type="number"
+                                                        value={formData.duration_value}
+                                                        onChange={(e) => setFormData({ ...formData, duration_value: e.target.value })}
+                                                        className="w-20"
+                                                    />
+                                                    <Select
+                                                        value={formData.duration_unit}
+                                                        onValueChange={(val) => setFormData({ ...formData, duration_unit: val })}
+                                                    >
+                                                        <SelectTrigger className="flex-1">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="day">Days</SelectItem>
+                                                            <SelectItem value="month">Months</SelectItem>
+                                                            <SelectItem value="year">Years</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </div>
                                         </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="description">Description</Label>
+                                            <Textarea
+                                                id="description"
+                                                placeholder="Plan details..."
+                                                value={formData.description}
+                                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                            />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="description">Description</Label>
-                                        <Textarea
-                                            id="description"
-                                            placeholder="Plan details..."
-                                            value={formData.description}
-                                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        />
+                                    <div className="flex justify-end gap-3 mt-6">
+                                        <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                            Cancel
+                                        </Button>
+                                        <Button className="gradient-primary" onClick={handleSubmit}>
+                                            {editingPlan ? "Update Plan" : "Create Plan"}
+                                        </Button>
                                     </div>
-                                </div>
-                                <div className="flex justify-end gap-3 mt-6">
-                                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                                        Cancel
-                                    </Button>
-                                    <Button className="gradient-primary" onClick={handleSubmit}>
-                                        {editingPlan ? "Update Plan" : "Create Plan"}
-                                    </Button>
-                                </div>
-                            </DialogContent>
-                        </Dialog>
+                                </DialogContent>
+                            </Dialog>
+                        )}
                     </div>
 
                     {plans.length === 0 ? (
                         <div className="text-center py-12 border-2 border-dashed border-border rounded-lg bg-muted/20">
                             <p className="text-muted-foreground mb-4">No membership plans found.</p>
-                            <Button onClick={() => handleOpenDialog()}>Create First Plan</Button>
+                            {hasPermission('add_membership_plans') && (
+                                <Button onClick={() => handleOpenDialog()}>Create First Plan</Button>
+                            )}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -282,18 +288,22 @@ export default function MembershipPlans() {
                                         </p>
 
                                         <div className="flex gap-2 pt-4">
-                                            <Button variant="outline" className="flex-1" onClick={() => handleOpenDialog(plan)}>
-                                                <Edit className="h-4 w-4 mr-2" />
-                                                Edit
-                                            </Button>
-                                            <Button
-                                                variant="outline"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                                                onClick={() => handleDelete(plan.id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            {hasPermission('edit_membership_plans') && (
+                                                <Button variant="outline" className="flex-1" onClick={() => handleOpenDialog(plan)}>
+                                                    <Edit className="h-4 w-4 mr-2" />
+                                                    Edit
+                                                </Button>
+                                            )}
+                                            {hasPermission('delete_membership_plans') && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                                    onClick={() => handleDelete(plan.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
                                         </div>
                                     </CardContent>
                                 </Card>

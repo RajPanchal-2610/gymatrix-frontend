@@ -20,7 +20,9 @@ import {
   Check,
   PlusCircle,
   ChevronsUpDown,
-  Pencil
+  Pencil,
+  Shield,
+  Apple
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useGym } from "@/hooks/useGym";
+import { usePermissions } from "@/contexts/PermissionsContext";
 import { CreateGymDialog } from "@/components/gym/CreateGymDialog";
 import { EditGymDialog } from "@/components/gym/EditGymDialog";
 import {
@@ -55,7 +58,9 @@ const navItems = [
   { title: "Payments", url: "/payments", icon: Receipt },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Staff & Trainers", url: "/staff", icon: UserCog },
+  { title: "Diet & Workout", url: "/diet-workout", icon: Apple },
   { title: "Roles", url: "/roles", icon: Users },
+  { title: "Permissions", url: "/permissions", icon: Shield },
   { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
@@ -73,6 +78,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith("/admin");
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
+  const { hasPermission } = usePermissions();
   const { gyms, gymId, switchGym, refreshGyms } = useGym();
   const [createGymOpen, setCreateGymOpen] = useState(false);
   const [editingGym, setEditingGym] = useState<{ id: number; name: string } | null>(null);
@@ -116,9 +122,10 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     }
   };
 
-  const NavItem = ({ item }: { item: typeof navItems[0] }) => {
-    // Hide Attendance, Staff, Pricing, and Inventory for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.title === "Inventory")) {
+    const NavItem = ({ item }: { item: typeof navItems[0] }) => {
+      const { role } = usePermissions();
+    // Hide Attendance, Staff, Pricing, Roles, Permissions, and Inventory for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/permissions" || item.title === "Inventory")) {
       return null;
     }
 
@@ -131,10 +138,22 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     if (!isAdmin) {
       // Inventory module check
       if (item.title === "Inventory") {
-        // If loading, we could show a skeleton, but for now let's hide to prevent flashing unauthorized content
         if (subscriptionLoading) return null;
         if (!hasFeature("Inventory")) return null;
       }
+
+      // Permission checks
+      if (item.title === "Members" && !hasPermission('view_members')) return null;
+      if (item.title === "Membership Plans" && !hasPermission('view_membership_plans')) return null;
+      if (item.title === "Attendance" && !hasPermission('view_attendance')) return null;
+      if (item.title === "Payments" && !hasPermission('view_payments')) return null;
+      if (item.title === "Staff & Trainers" && !hasPermission('view_staff')) return null;
+      if (item.title === "Roles" && !hasPermission('view_roles')) return null;
+      if (item.title === "Permissions" && !hasPermission('view_permissions')) return null;
+      if (item.title === "Reports" && !hasPermission('view_reports')) return null;
+      if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
+      if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
+
     }
 
     let url = item.url;

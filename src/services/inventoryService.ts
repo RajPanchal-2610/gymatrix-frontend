@@ -13,7 +13,7 @@ export const inventoryService = {
     // --- CATEGORIES ---
     async getCategories(gymId: number): Promise<InventoryCategory[]> {
         const { data, error } = await supabase
-            .from('inventory_categories')
+            .from('gym_inventory_categories')
             .select('*')
             .eq('gym_id', gymId)
             .order('name');
@@ -23,7 +23,7 @@ export const inventoryService = {
 
     async createCategory(category: Partial<InventoryCategory>): Promise<InventoryCategory> {
         const { data, error } = await supabase
-            .from('inventory_categories')
+            .from('gym_inventory_categories')
             .insert(category)
             .select()
             .single();
@@ -33,7 +33,7 @@ export const inventoryService = {
 
     async updateCategory(id: number, category: Partial<InventoryCategory>): Promise<InventoryCategory> {
         const { data, error } = await supabase
-            .from('inventory_categories')
+            .from('gym_inventory_categories')
             .update(category)
             .eq('id', id)
             .select()
@@ -44,7 +44,7 @@ export const inventoryService = {
 
     async deleteCategory(id: number): Promise<void> {
         const { error } = await supabase
-            .from('inventory_categories')
+            .from('gym_inventory_categories')
             .delete()
             .eq('id', id);
         if (error) throw error;
@@ -53,7 +53,7 @@ export const inventoryService = {
     // --- VENDORS ---
     async getVendors(gymId: number): Promise<InventoryVendor[]> {
         const { data, error } = await supabase
-            .from('inventory_vendors')
+            .from('gym_inventory_vendors')
             .select('*')
             .eq('gym_id', gymId)
             .order('name');
@@ -63,7 +63,7 @@ export const inventoryService = {
 
     async createVendor(vendor: Partial<InventoryVendor>): Promise<InventoryVendor> {
         const { data, error } = await supabase
-            .from('inventory_vendors')
+            .from('gym_inventory_vendors')
             .insert(vendor)
             .select()
             .single();
@@ -73,7 +73,7 @@ export const inventoryService = {
 
     async updateVendor(id: number, vendor: Partial<InventoryVendor>): Promise<InventoryVendor> {
         const { data, error } = await supabase
-            .from('inventory_vendors')
+            .from('gym_inventory_vendors')
             .update(vendor)
             .eq('id', id)
             .select()
@@ -84,20 +84,20 @@ export const inventoryService = {
 
     async deleteVendor(id: number): Promise<void> {
         const { error } = await supabase
-            .from('inventory_vendors')
+            .from('gym_inventory_vendors')
             .delete()
             .eq('id', id);
         if (error) throw error;
     },
 
     // --- ITEMS & STOCK ---
-    async getItems(gymId: number): Promise<(InventoryItem & { inventory_stock?: InventoryStock, inventory_categories?: InventoryCategory })[]> {
+    async getItems(gymId: number): Promise<(InventoryItem & { gym_inventory_stock?: InventoryStock, gym_inventory_categories?: InventoryCategory })[]> {
         const { data, error } = await supabase
-            .from('inventory_items')
+            .from('gym_inventory_items')
             .select(`
         *,
-        inventory_stock(*),
-        inventory_categories(*)
+        gym_inventory_stock(*),
+        gym_inventory_categories(*)
       `)
             .eq('gym_id', gymId)
             .order('name');
@@ -107,7 +107,7 @@ export const inventoryService = {
 
     async createItem(item: Partial<InventoryItem>): Promise<InventoryItem> {
         const { data, error } = await supabase
-            .from('inventory_items')
+            .from('gym_inventory_items')
             .insert(item)
             .select()
             .single();
@@ -116,7 +116,7 @@ export const inventoryService = {
         // Also initialize stock record
         if (data) {
             const { error: stockError } = await supabase
-                .from('inventory_stock')
+                .from('gym_inventory_stock')
                 .insert({
                     gym_id: data.gym_id,
                     item_id: data.id,
@@ -132,7 +132,7 @@ export const inventoryService = {
 
     async updateItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem> {
         const { data, error } = await supabase
-            .from('inventory_items')
+            .from('gym_inventory_items')
             .update(item)
             .eq('id', id)
             .select()
@@ -143,19 +143,19 @@ export const inventoryService = {
 
     async deleteItem(id: number): Promise<void> {
         const { error } = await supabase
-            .from('inventory_items')
+            .from('gym_inventory_items')
             .delete()
             .eq('id', id);
         if (error) throw error;
     },
 
     // --- PURCHASES & TRANSACTIONS ---
-    async getPurchases(gymId: number): Promise<(InventoryPurchase & { inventory_vendors?: InventoryVendor })[]> {
+    async getPurchases(gymId: number): Promise<(InventoryPurchase & { gym_inventory_vendors?: InventoryVendor })[]> {
         const { data, error } = await supabase
-            .from('inventory_purchases')
+            .from('gym_inventory_purchases')
             .select(`
         *,
-        inventory_vendors(*)
+        gym_inventory_vendors(*)
       `)
             .eq('gym_id', gymId)
             .order('purchase_date', { ascending: false });
@@ -165,7 +165,7 @@ export const inventoryService = {
 
     async createPurchase(purchase: Partial<InventoryPurchase>): Promise<InventoryPurchase> {
         const { data, error } = await supabase
-            .from('inventory_purchases')
+            .from('gym_inventory_purchases')
             .insert(purchase)
             .select()
             .single();
@@ -173,13 +173,13 @@ export const inventoryService = {
         return data;
     },
 
-    async getTransactions(gymId: number): Promise<(InventoryTransaction & { inventory_items?: InventoryItem, inventory_purchases?: InventoryPurchase })[]> {
+    async getTransactions(gymId: number): Promise<(InventoryTransaction & { gym_inventory_items?: InventoryItem, gym_inventory_purchases?: InventoryPurchase })[]> {
         const { data, error } = await supabase
-            .from('inventory_transactions')
+            .from('gym_inventory_transactions')
             .select(`
         *,
-        inventory_items(name, brand, model),
-        inventory_purchases(purchase_date, vendor_id)
+        gym_inventory_items(name, brand, model),
+        gym_inventory_purchases(purchase_date, vendor_id)
       `)
             .eq('gym_id', gymId)
             .order('created_at', { ascending: false });
@@ -189,7 +189,7 @@ export const inventoryService = {
 
     async getItemTransactions(gymId: number, itemId: number): Promise<InventoryTransaction[]> {
         const { data, error } = await supabase
-            .from('inventory_transactions')
+            .from('gym_inventory_transactions')
             .select('*')
             .eq('gym_id', gymId)
             .eq('item_id', itemId)
@@ -201,7 +201,7 @@ export const inventoryService = {
     async handleTransaction(transaction: Partial<InventoryTransaction>): Promise<InventoryTransaction> {
         // 1. Insert Transaction
         const { data, error } = await supabase
-            .from('inventory_transactions')
+            .from('gym_inventory_transactions')
             .insert(transaction)
             .select()
             .single();
@@ -209,7 +209,7 @@ export const inventoryService = {
 
         // 2. Fetch current stock
         const { data: stockData, error: stockFetchError } = await supabase
-            .from('inventory_stock')
+            .from('gym_inventory_stock')
             .select('*')
             .eq('item_id', transaction.item_id)
             .single();
@@ -246,7 +246,7 @@ export const inventoryService = {
 
         // 4. Update Stock
         const { error: stockUpdateError } = await supabase
-            .from('inventory_stock')
+            .from('gym_inventory_stock')
             .update({
                 total_quantity: Math.max(0, updates.total_quantity),
                 available_quantity: Math.max(0, updates.available_quantity),
@@ -261,12 +261,12 @@ export const inventoryService = {
     },
 
     // --- MAINTENANCE ---
-    async getMaintenance(gymId: number): Promise<(InventoryMaintenance & { inventory_items?: InventoryItem })[]> {
+    async getMaintenance(gymId: number): Promise<(InventoryMaintenance & { gym_inventory_items?: InventoryItem })[]> {
         const { data, error } = await supabase
-            .from('inventory_maintenance')
+            .from('gym_inventory_maintenance')
             .select(`
         *,
-        inventory_items(name, brand, model)
+        gym_inventory_items(name, brand, model)
       `)
             .eq('gym_id', gymId)
             .order('created_at', { ascending: false });
@@ -276,7 +276,7 @@ export const inventoryService = {
 
     async createMaintenance(maintenance: Partial<InventoryMaintenance>): Promise<InventoryMaintenance> {
         const { data, error } = await supabase
-            .from('inventory_maintenance')
+            .from('gym_inventory_maintenance')
             .insert(maintenance)
             .select()
             .single();
@@ -286,7 +286,7 @@ export const inventoryService = {
 
     async updateMaintenance(id: number, maintenance: Partial<InventoryMaintenance>): Promise<InventoryMaintenance> {
         const { data, error } = await supabase
-            .from('inventory_maintenance')
+            .from('gym_inventory_maintenance')
             .update(maintenance)
             .eq('id', id)
             .select()
@@ -297,7 +297,7 @@ export const inventoryService = {
 
     async deleteMaintenance(id: number): Promise<void> {
         const { error } = await supabase
-            .from('inventory_maintenance')
+            .from('gym_inventory_maintenance')
             .delete()
             .eq('id', id);
         if (error) throw error;

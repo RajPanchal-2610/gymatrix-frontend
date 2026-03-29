@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Calendar, Clock, UserCheck, Search, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,31 +13,67 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { StatCard } from "@/components/dashboard/StatCard";
-
-const attendanceRecords = [
-  { id: 1, name: "Mike Johnson", checkIn: "6:30 AM", checkOut: "8:15 AM", duration: "1h 45m", avatar: "MJ" },
-  { id: 2, name: "Sarah Wilson", checkIn: "7:15 AM", checkOut: "9:00 AM", duration: "1h 45m", avatar: "SW" },
-  { id: 3, name: "Emily Brown", checkIn: "8:00 AM", checkOut: null, duration: null, avatar: "EB" },
-  { id: 4, name: "David Lee", checkIn: "8:45 AM", checkOut: "10:30 AM", duration: "1h 45m", avatar: "DL" },
-  { id: 5, name: "Anna Chen", checkIn: "9:30 AM", checkOut: null, duration: null, avatar: "AC" },
-  { id: 6, name: "James Wilson", checkIn: "10:00 AM", checkOut: "11:45 AM", duration: "1h 45m", avatar: "JW" },
-  { id: 7, name: "Lisa Park", checkIn: "10:30 AM", checkOut: null, duration: null, avatar: "LP" },
-  { id: 8, name: "Tom Brown", checkIn: "11:00 AM", checkOut: "12:30 PM", duration: "1h 30m", avatar: "TB" },
-];
-
+import { usePermissions } from "@/contexts/PermissionsContext";
+import { useGym } from "@/hooks/useGym";
+import { attendanceService } from "@/services/attendanceService";
+import { toast } from "sonner";
+import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { Loader2 } from "lucide-react";
 export default function Attendance() {
+  const { hasPermission } = usePermissions();
+  const { gymId } = useGym();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("today");
+  
+  const [records, setRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const currentlyIn = attendanceRecords.filter((r) => !r.checkOut).length;
+  useEffect(() => {
+    if (gymId) fetchAttendance();
+  }, [gymId, selectedDate]);
+
+  const fetchAttendance = async () => {
+    setLoading(true);
+    try {
+      const today = new Date();
+      let date: string | undefined = undefined;
+      let startDate: string | undefined = undefined;
+      let endDate: string | undefined = undefined;
+
+      if (selectedDate === "today") {
+        date = format(today, "yyyy-MM-dd");
+      } else if (selectedDate === "yesterday") {
+        date = format(subDays(today, 1), "yyyy-MM-dd");
+      } else if (selectedDate === "week") {
+        startDate = format(startOfWeek(today), "yyyy-MM-dd");
+        endDate = format(endOfWeek(today), "yyyy-MM-dd");
+      } else if (selectedDate === "month") {
+        startDate = format(startOfMonth(today), "yyyy-MM-dd");
+        endDate = format(endOfMonth(today), "yyyy-MM-dd");
+      }
+
+      const data = await attendanceService.getMemberAttendance(date, startDate, endDate);
+      setRecords(data || []);
+    } catch (error: any) {
+      toast.error("Failed to load attendance: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredRecords = records.filter(r => 
+    r.member?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const currentlyIn = records.filter((r) => !r.check_out_time).length;
 
   return (
     <>
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <StatCard
-          title="Total Check-ins Today"
-          value={attendanceRecords.length}
+          title={`Total Check-ins ${selectedDate.charAt(0).toUpperCase() + selectedDate.slice(1)}`}
+          value={records.length}
           icon={UserCheck}
           iconClassName="gradient-primary"
         />
@@ -51,9 +87,9 @@ export default function Attendance() {
         />
         <StatCard
           title="Average Session"
-          value="1h 38m"
-          change="+5 min from yesterday"
-          changeType="positive"
+          value="1h 15m"
+          change="Estimate"
+          changeType="neutral"
           icon={Calendar}
           iconClassName="bg-primary"
         />
@@ -82,10 +118,12 @@ export default function Attendance() {
             <SelectItem value="month">This Month</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          Export
-        </Button>
+        {hasPermission('manage_attendance') && (
+          <Button variant="outline">
+            <Filter className="h-4 w-4 mr-2" />
+            Export
+          </Button>
+        )}
       </div>
 
       {/* Attendance Table */}
@@ -106,49 +144,63 @@ export default function Attendance() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {attendanceRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src="/placeholder.svg" />
-                          <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-                            {record.avatar}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{record.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Clock className="h-3.5 w-3.5 text-success" />
-                        {record.checkIn}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {record.checkOut ? (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {record.checkOut}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {record.duration || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {record.checkOut ? (
-                        <Badge variant="secondary">Completed</Badge>
-                      ) : (
-                        <Badge className="bg-success/10 text-success hover:bg-success/20">
-                          In Gym
-                        </Badge>
-                      )}
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center">
+                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
                     </td>
                   </tr>
-                ))}
+                ) : filteredRecords.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      No attendance records found.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-muted/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarImage src={record.member?.image_url || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                              {record.member?.full_name?.substring(0, 2).toUpperCase() || "M"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">{record.member?.full_name || "Unknown"}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Clock className="h-3.5 w-3.5 text-success" />
+                          {record.check_in_time}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {record.check_out_time ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            {record.check_out_time}
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {record.duration || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {record.check_out_time ? (
+                          <Badge variant="secondary">Completed</Badge>
+                        ) : (
+                          <Badge className="bg-success/10 text-success hover:bg-success/20">
+                            In Gym
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
