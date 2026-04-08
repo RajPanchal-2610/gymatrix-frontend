@@ -23,6 +23,8 @@ export interface Subscription {
     end_date: string;
     max_gyms: number;
     max_members: number;
+    extra_gyms?: number;
+    extra_members?: number;
     created_at?: string;
 }
 
@@ -56,7 +58,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
                 .from('subscriptions')
                 .select('*')
                 .eq('user_id', user.id)
-                .in('status', ['active', 'trial'])
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
@@ -78,7 +79,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
                         .from('subscriptions')
                         .select('*')
                         .eq('user_id', ownerId)
-                        .in('status', ['active', 'trial'])
                         .order('created_at', { ascending: false })
                         .limit(1)
                         .maybeSingle();

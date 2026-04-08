@@ -136,7 +136,8 @@ export default function GymRegister() {
                         max_members: selectedPlan.max_members,
                         status: 'trial',
                         start_date: startDate.toISOString(),
-                        end_date: endDate.toISOString()
+                        end_date: endDate.toISOString(),
+                        amount: 0
                     })
                     .select()
                     .single();

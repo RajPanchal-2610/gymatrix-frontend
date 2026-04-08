@@ -72,22 +72,42 @@ export const PrivateRoute = ({ allowedRoles }: { allowedRoles?: string[] }) => {
                     // If staff, we check the owner's subscription
                     const targetUserId = gymStaff ? (gymStaff.gyms as any).owner_id : session.user.id;
 
-                    const { data: sub } = await supabase
+                    // 1. Try to find an ACTIVE or TRIAL subscription first
+                    let { data: subs, error: subError } = await supabase
                         .from('subscriptions')
                         .select('status, end_date')
                         .eq('user_id', targetUserId)
-                        .maybeSingle();
+                        .in('status', ['active', 'trial', 'Active', 'Trial'])
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    // 2. Fallback to the latest record if no active/trial found (to check for actual expiration)
+                    if (!subs || subs.length === 0) {
+                        const { data: fallbackSubs } = await supabase
+                            .from('subscriptions')
+                            .select('status, end_date')
+                            .eq('user_id', targetUserId)
+                            .order('created_at', { ascending: false })
+                            .limit(1);
+                        subs = fallbackSubs;
+                    }
+
+                    const sub = subs && subs.length > 0 ? subs[0] : null;
 
                     let isExpired = false;
-                    if (!sub) isExpired = true;
-                    else {
-                        const isActive = sub.status === 'active';
-                        const isTrial = sub.status === 'trial';
+                    if (!sub) {
+                        isExpired = true; 
+                    } else {
+                        const statusLower = (sub.status || '').toLowerCase();
+                        const isActive = statusLower === 'active';
+                        const isTrial = statusLower === 'trial';
+                        
                         if (!isActive) {
                             if (isTrial && sub.end_date) {
                                 const endDate = new Date(sub.end_date);
                                 if (endDate < new Date()) isExpired = true;
                             } else {
+                                // If status is 'expired' or anything else that isn't active/trial
                                 isExpired = true;
                             }
                         }

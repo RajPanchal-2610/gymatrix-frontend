@@ -1,12 +1,20 @@
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { parseISO } from "date-fns";
-import { Check, Loader2, Building2, Users } from "lucide-react";
+import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useSubscription } from "@/contexts/SubscriptionContext";
+import { Zap } from "lucide-react";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 interface PlanPrice {
     id: number;
@@ -17,6 +25,21 @@ interface PlanPrice {
     is_active: boolean;
 }
 
+interface Feature {
+    id: number;
+    name: string;
+    description: string | null;
+    feature_type: 'MODULE' | 'LIMIT' | 'ACTION';
+}
+
+interface PlanFeature {
+    id: number;
+    plan_id: number;
+    feature_id: number;
+    value: string;
+    features: Feature;
+}
+
 interface Plan {
     id: number;
     name: string;
@@ -25,6 +48,30 @@ interface Plan {
     max_members: number;
     is_active: boolean;
     plan_prices: PlanPrice[];
+    plan_features: PlanFeature[];
+}
+
+interface SubscriptionHistoryRecord {
+    id: number | string;
+    isAddon: boolean;
+    name: string;
+    amount: number;
+    status: string;
+    created_at: string;
+    duration: string;
+    start_date?: string;
+    end_date?: string;
+    max_gyms?: number;
+    max_members?: number;
+    addons?: {
+        id: string | number;
+        name: string;
+        amount: number;
+        created_at: string;
+        duration: string;
+        quantity?: number;
+        type?: string;
+    }[];
 }
 
 export default function Pricing() {
@@ -32,14 +79,95 @@ export default function Pricing() {
     const [loading, setLoading] = useState(true);
     const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
     const [isExpired, setIsExpired] = useState(false);
+    const [history, setHistory] = useState<SubscriptionHistoryRecord[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const { subscription, refreshSubscription } = useSubscription();
+
+    // Purchase Dialog States
+    const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<{ plan: Plan, price: PlanPrice } | null>(null);
+    const [purchaseExtraGyms, setPurchaseExtraGyms] = useState<number>(0);
+    const [purchaseExtraMembers, setPurchaseExtraMembers] = useState<number>(0);
+    const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
+
+    // Extensions State
+    const [extensionPricing, setExtensionPricing] = useState<any[]>([]);
+    const [extensionQtys, setExtensionQtys] = useState<Record<number, number>>({});
+    const [isExtending, setIsExtending] = useState(false);
+
+    const setQty = (id: number, val: number) => {
+        setExtensionQtys(prev => ({ ...prev, [id]: val }));
+    };
+
+    // Helper to load Razorpay script dynamically
+    const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+            const script = document.createElement("script");
+            script.src = "https://checkout.razorpay.com/v1/checkout.js";
+            script.onload = () => resolve(true);
+            script.onerror = () => resolve(false);
+            document.body.appendChild(script);
+        });
+    };
 
     useEffect(() => {
         const init = async () => {
             await checkSubscription();
             fetchPlans();
+            fetchHistory();
         };
         init();
+        fetchExtensionPricing();
     }, []);
+
+    const fetchExtensionPricing = async () => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/payments/extensions/prices`);
+            if (response.ok) {
+                const data = await response.json();
+                setExtensionPricing(data);
+            }
+        } catch (error) {
+            console.error("Error fetching extension prices:", error);
+        }
+    };
+
+    const fetchHistory = async () => {
+        try {
+            setHistoryLoading(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const response = await fetch(`${BACKEND_URL}/api/payments/history/${user.id}`);
+            if (!response.ok) throw new Error("Failed to fetch history");
+
+            const data = await response.json();
+            setHistory(data);
+        } catch (error) {
+            console.error("Error fetching history:", error);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    // Helper: Calculate credit from current active subscription
+    const getCarryOverCredit = () => {
+        if (!subscription || subscription.status?.toLowerCase() === 'trial') return 0;
+        if (!subscription.amount || subscription.amount <= 0) return 0;
+
+        const now = new Date();
+        const start = new Date(subscription.start_date);
+        const end = new Date(subscription.end_date);
+
+        if (end <= now) return 0;
+
+        const msInDay = 24 * 60 * 60 * 1000;
+        const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msInDay));
+        const remainingDays = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / msInDay));
+
+        return Math.floor((subscription.amount / totalDays) * remainingDays);
+    };
+
+    const carryOverCredit = getCarryOverCredit();
 
     const checkSubscription = async () => {
         try {
@@ -57,8 +185,8 @@ export default function Pricing() {
                 return;
             }
 
-            const isTrial = data.status === 'trial';
-            const isActive = data.status === 'active';
+            const isTrial = data.status.toLowerCase() === 'trial';
+            const isActive = data.status.toLowerCase() === 'active';
 
             if (isActive) {
                 setIsExpired(false);
@@ -86,8 +214,10 @@ export default function Pricing() {
                 .from('plans')
                 .select(`
                     *,
-                    plan_prices (
-                        *
+                    plan_prices (*),
+                    plan_features (
+                        *,
+                        features (*)
                     )
                 `)
                 .eq('is_active', true)
@@ -104,9 +234,211 @@ export default function Pricing() {
         }
     };
 
-    const handleSubscribe = async (planId: number, priceId: number) => {
-        // Placeholder for subscription logic
-        toast.info("Subscription integration coming soon!");
+    // Core Checkout Execution
+    const performCheckout = async (plan: Plan, price: PlanPrice, extraGyms: number, extraMembers: number) => {
+        if (!subscription) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            toast.error("User not found.");
+            return;
+        }
+
+        const res = await loadRazorpayScript();
+        if (!res) {
+            toast.error("Failed to load Razorpay SDK. Please check your connection.");
+            return;
+        }
+
+        try {
+            const loadingToast = toast.loading("Initiating purchase...");
+
+            // 1. Create Order in Backend with bundled extensions
+            const response = await fetch(`${BACKEND_URL}/api/payments/create-subscription-order`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    userId: user.id,
+                    planPriceId: price.id,
+                    subscriptionId: subscription.id,
+                    extra_gyms: extraGyms,
+                    extra_members: extraMembers
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                toast.dismiss(loadingToast);
+                throw new Error(err.error || "Failed to create order");
+            }
+
+            const data = await response.json();
+            toast.dismiss(loadingToast);
+
+            // 2. Open Razorpay Checkout
+            const options = {
+                key: data.keyId,
+                amount: data.amount,
+                currency: data.currency,
+                name: "FitFlow",
+                description: `Upgrade to ${plan.name} Plan`,
+                order_id: data.orderId,
+                handler: async function (paymentResponse: any) {
+                    toast.loading("Verifying payment...", { id: "payment-verify" });
+                    try {
+                        const verifyRes = await fetch(`${BACKEND_URL}/api/payments/verify-subscription-payment`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                                razorpay_order_id: paymentResponse.razorpay_order_id,
+                                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                                razorpay_signature: paymentResponse.razorpay_signature,
+                                transactionId: data.transactionId,
+                                subscriptionId: subscription.id,
+                                planPriceId: price.id,
+                                userId: user.id
+                            }),
+                        });
+
+                        if (!verifyRes.ok) throw new Error("Verification failed");
+
+                        toast.success(`Plan upgraded to ${plan.name} successfully!`, { id: "payment-verify" });
+
+                        await refreshSubscription();
+                        await fetchHistory();
+                    } catch (error: any) {
+                        toast.error(error.message, { id: "payment-verify" });
+                    }
+                },
+                prefill: { email: user.email },
+                theme: { color: "#0f172a" },
+            };
+
+            const paymentObject = new (window as any).Razorpay(options);
+            paymentObject.on('payment.failed', (resp: any) => toast.error(resp.error.description));
+            paymentObject.open();
+
+        } catch (error: any) {
+            toast.error(error.message);
+        }
+    };
+
+    // Trigger for plan purchase button
+    const handleSubscribe = async (plan: Plan, price: PlanPrice) => {
+        if (!subscription) {
+            toast.error("Subscription details not found. Please log in again.");
+            return;
+        }
+
+        const hasExtensions = (subscription.extra_gyms || 0) > 0 || (subscription.extra_members || 0) > 0;
+
+        // Set state for dialog (incase it opens)
+        const extraG = subscription.extra_gyms || 0;
+        const extraM = subscription.extra_members || 0;
+
+        setSelectedPlanForPurchase({ plan, price });
+        setPurchaseExtraGyms(extraG);
+        setPurchaseExtraMembers(extraM);
+
+        if (hasExtensions) {
+            // Show dialog only if user has extensions to carry over/adjust
+            setIsPurchaseDialogOpen(true);
+        } else {
+            // No extensions - skip dialog and proceed to checkout
+            await performCheckout(plan, price, extraG, extraM);
+        }
+    };
+
+    // Actual Checkout (called from Confirmation Dialog)
+    const handleCheckout = async () => {
+        if (!selectedPlanForPurchase) return;
+        setIsPurchaseDialogOpen(false);
+        await performCheckout(
+            selectedPlanForPurchase.plan,
+            selectedPlanForPurchase.price,
+            purchaseExtraGyms,
+            purchaseExtraMembers
+        );
+    };
+
+    const handleExtendLimit = async (type: 'gym' | 'member', quantity: number) => {
+        if (!subscription) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const res = await loadRazorpayScript();
+        if (!res) {
+            toast.error("Failed to load Razorpay SDK");
+            return;
+        }
+
+        try {
+            setIsExtending(true);
+            const loadingToast = toast.loading("Creating extension order...");
+
+            const response = await fetch(`${BACKEND_URL}/api/payments/extensions/create-order`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: user.id,
+                    subscriptionId: subscription.id,
+                    type,
+                    quantity
+                }),
+            });
+
+            if (!response.ok) throw new Error("Order creation failed");
+            const data = await response.json();
+            toast.dismiss(loadingToast);
+
+            const options = {
+                key: data.keyId,
+                amount: data.amount,
+                currency: data.currency,
+                name: "FitFlow",
+                description: `Extend ${type === 'gym' ? 'Gyms' : 'Members'} Limit`,
+                order_id: data.orderId,
+                handler: async function (paymentResponse: any) {
+                    toast.loading("Activating extension...", { id: "ext-verify" });
+                    try {
+                        const verifyRes = await fetch(`${BACKEND_URL}/api/payments/extensions/verify-payment`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                razorpay_order_id: paymentResponse.razorpay_order_id,
+                                razorpay_payment_id: paymentResponse.razorpay_payment_id,
+                                razorpay_signature: paymentResponse.razorpay_signature,
+                                transactionId: data.transactionId,
+                                subscriptionId: subscription.id,
+                                extensionType: type,
+                                quantity
+                            }),
+                        });
+
+                        if (!verifyRes.ok) throw new Error("Verification failed");
+                        toast.success("Extension activated! Limits increased.", { id: "ext-verify" });
+                        await refreshSubscription();
+                        await fetchHistory();
+                    } catch (error: any) {
+                        toast.error(error.message, { id: "ext-verify" });
+                    }
+                },
+                prefill: { email: user.email },
+                theme: { color: "#0f172a" }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.open();
+
+        } catch (error: any) {
+            toast.error(error.message);
+        } finally {
+            setIsExtending(false);
+        }
     };
 
     return (
@@ -116,7 +448,6 @@ export default function Pricing() {
                 <p className="text-muted-foreground max-w-2xl">
                     Choose the perfect plan for your gym business. Scale as you grow.
                 </p>
-
                 <div className="flex items-center space-x-4 mt-6 bg-secondary/50 p-1 rounded-full border border-border">
                     <button
                         onClick={() => setBillingInterval('month')}
@@ -138,6 +469,160 @@ export default function Pricing() {
                     </button>
                 </div>
             </div>
+
+            {/* Extend Limits Section */}
+            {subscription && subscription.status?.toLowerCase() !== 'trial' && extensionPricing.length > 0 && (
+                <div className="max-w-7xl mx-auto mb-16 px-4">
+                    <div className="flex items-center gap-2 mb-6">
+                        <Plus className="h-6 w-6 text-primary" />
+                        <h3 className="text-2xl font-bold tracking-tight">Extend Your Limits</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {extensionPricing.map((price) => {
+                            const isGym = price.type === 'gym';
+                            const currentQty = extensionQtys[price.id] !== undefined ? extensionQtys[price.id] : price.unit_quantity;
+
+                            // Human-friendly pro-rating based on days (100% on first day)
+                            const now = new Date();
+                            const startDate = subscription?.start_date ? new Date(subscription.start_date) : null;
+                            const endDate = subscription?.end_date ? new Date(subscription.end_date) : null;
+
+                            let durationRatio = 1;
+                            let diffDays = 0;
+                            if (startDate && endDate && endDate > now) {
+                                // Calculate total days in the plan period
+                                const totalDays = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+                                // Calculate how many full days have passed
+                                const daysPassed = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                                // Ratio based on days (if 0 days passed, ratio is 1)
+                                durationRatio = Math.max(0, Math.min(1, (totalDays - daysPassed) / totalDays));
+
+                                // Actual remaining days for display
+                                const remainMs = endDate.getTime() - now.getTime();
+                                diffDays = Math.ceil(remainMs / (1000 * 60 * 60 * 24));
+                            }
+
+                            const baseAmount = (Number(currentQty || 0) / price.unit_quantity) * price.unit_price;
+                            const totalPrice = Number(currentQty || 0) === 0 ? 0 : Math.max(1, Math.round(baseAmount * durationRatio));
+
+                            return (
+                                <Card key={price.id} className="border-primary/20 bg-background hover:border-primary/40 transition-colors">
+                                    <CardHeader>
+                                        <CardTitle className="flex items-center gap-2 text-xl capitalize">
+                                            {isGym ? <Building2 className="h-5 w-5 text-primary" /> : <Users className="h-5 w-5 text-primary" />}
+                                            {price.type}
+                                        </CardTitle>
+                                        <CardDescription className="flex flex-col gap-1">
+                                            <span>₹{price.unit_price} / {price.unit_quantity} {price.type}{price.unit_quantity > 1 ? 's' : ''}</span>
+                                            {subscription?.end_date && (
+                                                <Badge variant="secondary" className="w-fit text-[10px] py-0 px-1 border-primary/20 bg-primary/10 text-primary">
+                                                    Pro-rated for remaining plan duration
+                                                </Badge>
+                                            )}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-6">
+                                        <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+                                            <div className="space-y-1">
+                                                <Label className="text-sm font-medium capitalize">Quantity ({price.type})</Label>
+                                                <div className="flex items-center gap-3">
+                                                    {isGym ? (
+                                                        <div className="flex items-center border border-input rounded-md bg-background overflow-hidden">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-9 w-9 rounded-none border-r"
+                                                                onClick={() => setQty(price.id, Math.max(1, (currentQty as number) - 1))}
+                                                            >
+                                                                <Minus className="h-4 w-4" />
+                                                            </Button>
+                                                            <Input
+                                                                type="number"
+                                                                className="flex-1 w-12 border-none text-center focus-visible:ring-0 p-0 h-9"
+                                                                value={currentQty}
+                                                                onChange={(e) => setQty(price.id, e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
+                                                            />
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-9 w-9 rounded-none border-l"
+                                                                onClick={() => setQty(price.id, (Number(currentQty) || 0) + 1)}
+                                                            >
+                                                                <Plus className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Input
+                                                            type="number"
+                                                            className="w-32"
+                                                            placeholder="Qty"
+                                                            value={currentQty}
+                                                            onChange={(e) => setQty(price.id, e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total for current plan</p>
+                                                <p className="text-2xl font-bold text-foreground">₹{totalPrice.toLocaleString()}</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {diffDays} days left ({(durationRatio * 100).toFixed(1)}% of plan)
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                    <CardFooter>
+                                        <Button
+                                            className="w-full h-11 gradient-primary shadow-glow transition-transform hover:scale-[1.02] active:scale-95"
+                                            disabled={isExtending || currentQty <= 0}
+                                            onClick={() => handleExtendLimit(price.type, currentQty)}
+                                        >
+                                            {isExtending ? (
+                                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                            ) : (
+                                                <CreditCard className="h-4 w-4 mr-2" />
+                                            )}
+                                            Pay ₹{totalPrice.toLocaleString()} Now
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                    <Separator className="mt-16" />
+                </div>
+            )}
+
+            {subscription && (
+                <div className="max-w-4xl mx-auto mb-10 w-full">
+                    <Card className="border-primary/50 bg-primary/5">
+                        <CardHeader className="pb-3 text-center sm:text-left">
+                            <CardTitle className="flex flex-col sm:flex-row items-center gap-2">
+                                Your Current Subscription
+                                <Badge
+                                    variant={subscription.status.toLowerCase() === 'expired' ? "destructive" :
+                                        subscription.status.toLowerCase() === 'trial' ? "secondary" : "default"}
+                                    className={subscription.status.toLowerCase() === 'active' ? 'bg-primary text-primary-foreground text-xs' : ''}
+                                >
+                                    {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
+                                </Badge>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex flex-col sm:flex-row justify-between items-center text-sm">
+                            <div className="space-y-1 text-center sm:text-left mb-4 sm:mb-0">
+                                <div><span className="font-semibold text-muted-foreground">Current Plan:</span> {plans.find(p => p.id === subscription.plan_id)?.name || 'Free Tier'}</div>
+                                <div><span className="font-semibold text-muted-foreground">Max Members:</span> {subscription.max_members}</div>
+                                <div><span className="font-semibold text-muted-foreground">Max Gyms:</span> {subscription.max_gyms}</div>
+                            </div>
+                            <div className="text-center sm:text-right space-y-1">
+                                <div><span className="font-semibold text-muted-foreground">Started:</span> {new Date(subscription.start_date).toLocaleDateString()}</div>
+                                <div className={isExpired ? 'text-destructive font-bold' : ''}><span className="font-semibold text-muted-foreground">Ends:</span> {new Date(subscription.end_date).toLocaleDateString()}</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {loading ? (
                 <div className="flex justify-center items-center h-64">
@@ -211,19 +696,28 @@ export default function Pricing() {
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                <Check className="h-4 w-4 text-primary" />
-                                            </div>
-                                            <p className="font-medium text-foreground">Basic Reporting & Analytics</p>
-                                        </div>
-
-                                        <div className="flex items-center gap-3 text-sm">
-                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                                <Check className="h-4 w-4 text-primary" />
-                                            </div>
-                                            <p className="font-medium text-foreground">Inventory Management</p>
-                                        </div>
+                                        {plan.plan_features
+                                            ?.filter(pf => pf.value !== 'false')
+                                            .map((pf) => (
+                                                <div key={pf.id} className="flex flex-col gap-1 text-sm pt-2">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                                            <Check className="h-4 w-4 text-primary" />
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <p className="font-medium text-foreground">
+                                                                {pf.features.name}
+                                                                {pf.features.feature_type === 'LIMIT' && pf.value !== 'true' && (
+                                                                    <span className="text-primary font-bold ml-1">({pf.value})</span>
+                                                                )}
+                                                            </p>
+                                                            {pf.features.description && (
+                                                                <p className="text-xs text-muted-foreground">{pf.features.description}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
                                     </div>
                                 </CardContent>
 
@@ -231,9 +725,10 @@ export default function Pricing() {
                                     <Button
                                         className={`w-full ${plan.name.toLowerCase().includes('pro') ? 'gradient-primary shadow-glow' : ''}`}
                                         variant={plan.name.toLowerCase().includes('pro') ? 'default' : 'outline'}
-                                        onClick={() => handleSubscribe(plan.id, price.id)}
+                                        onClick={() => handleSubscribe(plan, price)}
+                                        disabled={subscription?.plan_id === plan.id && subscription.status?.toLowerCase() === 'active'}
                                     >
-                                        {plan.name.toLowerCase().includes('free') ? 'Current Plan' : 'Upgrade Now'}
+                                        {subscription?.plan_id === plan.id ? 'Current Plan' : 'Purchase Plan'}
                                     </Button>
                                 </CardFooter>
                             </Card>
@@ -241,6 +736,305 @@ export default function Pricing() {
                     })}
                 </div>
             )}
+
+            {/* Purchase Confirmation & Extension Dialog */}
+            <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
+                <DialogContent className="sm:max-w-[480px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Zap className="h-5 w-5 text-primary" />
+                            Confirm Your Selection
+                        </DialogTitle>
+                        <DialogDescription>
+                            Customize your limits and review the total before payment.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-4">
+                        {/* Plan Summary */}
+                        <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 flex justify-between items-center">
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-primary">Target Plan</p>
+                                <p className="font-bold text-lg">{selectedPlanForPurchase?.plan.name}</p>
+                                <p className="text-xs text-muted-foreground">{selectedPlanForPurchase?.price.duration_value} {selectedPlanForPurchase?.price.duration_unit}(s)</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xl font-bold">₹{selectedPlanForPurchase?.price.price.toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        {/* Extensions Management */}
+                        <div className="space-y-4">
+                            <div className="px-1">
+                                <h4 className="text-sm font-semibold mb-1">Carryover & Adjust Limits</h4>
+                                <p className="text-xs text-muted-foreground">Modify active extensions for your new plan period.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3">
+                                {/* Extra Gyms */}
+                                <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <Building2 className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">Extra Gyms</p>
+                                            <p className="text-[10px] text-muted-foreground">₹{(extensionPricing.find(p => p.type.toLowerCase().startsWith('gym'))?.unit_price || 0)} / unit</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-none border-r"
+                                            onClick={() => setPurchaseExtraGyms(Math.max(0, purchaseExtraGyms - 1))}
+                                        >
+                                            <Minus className="h-3 w-3" />
+                                        </Button>
+                                        <Input
+                                            type="number"
+                                            className="w-12 h-8 border-none text-center focus-visible:ring-0 p-0"
+                                            value={purchaseExtraGyms}
+                                            onChange={(e) => setPurchaseExtraGyms(e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-none border-l"
+                                            onClick={() => setPurchaseExtraGyms(purchaseExtraGyms + 1)}
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Extra Members */}
+                                <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                            <Users className="h-4 w-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-medium">Extra Members</p>
+                                            <p className="text-[10px] text-muted-foreground">₹{(extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0)} / {(extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-none border-r"
+                                            onClick={() => setPurchaseExtraMembers(Math.max(0, purchaseExtraMembers - (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)))}
+                                        >
+                                            <Minus className="h-3 w-3" />
+                                        </Button>
+                                        <Input
+                                            type="number"
+                                            className="w-16 h-8 border-none text-center focus-visible:ring-0 p-0"
+                                            value={purchaseExtraMembers}
+                                            onChange={(e) => setPurchaseExtraMembers(e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-none border-l"
+                                            onClick={() => setPurchaseExtraMembers(purchaseExtraMembers + (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100))}
+                                        >
+                                            <Plus className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Final Total */}
+                        <div className="pt-4 border-t space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Plan Base Price ({selectedPlanForPurchase?.price.duration_unit})</span>
+                                <span>₹{selectedPlanForPurchase?.price.price.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Extensions Cost</span>
+                                <span className="text-emerald-600 font-medium">₹{(
+                                    (purchaseExtraGyms * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_quantity || 1)) +
+                                    (purchaseExtraMembers * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100))
+                                ).toLocaleString()}</span>
+                            </div>
+
+                            {carryOverCredit > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Carry-over Credit</span>
+                                    <span className="text-orange-600 font-medium">-₹{carryOverCredit.toLocaleString()}</span>
+                                </div>
+                            )}
+
+                            <div className="flex justify-between items-center pt-2 border-t mt-2">
+                                <span className="font-bold text-lg">Grand Total</span>
+                                <span className="text-3xl font-black text-primary">
+                                    ₹{Math.max(1, (
+                                        (selectedPlanForPurchase?.price.price || 0) +
+                                        (Number(purchaseExtraGyms || 0) * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_quantity || 1)) +
+                                        (Number(purchaseExtraMembers || 0) * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)) - 
+                                        carryOverCredit
+                                    )).toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-row items-center justify-between gap-3 w-full">
+                        <Button variant="ghost" onClick={() => setIsPurchaseDialogOpen(false)} className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button className="gradient-primary flex-[2]" onClick={handleCheckout}>
+                            Purchase & Pay Now
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Subscription History Section */}
+            <div className="max-w-7xl mx-auto mt-20 mb-10">
+                <div className="flex items-center gap-2 mb-6">
+                    <Calendar className="h-6 w-6 text-primary" />
+                    <h3 className="text-2xl font-bold tracking-tight">Subscription History</h3>
+                </div>
+
+                <Card className="border-border/50 overflow-hidden shadow-sm">
+                    <CardContent className="p-0">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
+                                    <tr>
+                                        <th className="px-6 py-4">Plan</th>
+                                        <th className="px-6 py-4 text-center">Limits</th>
+                                        <th className="px-6 py-4">Duration</th>
+                                        <th className="px-6 py-4">Amount</th>
+                                        <th className="px-6 py-4">Period</th>
+                                        <th className="px-6 py-4">Status</th>
+                                        <th className="px-6 py-4">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {historyLoading ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-10 text-center">
+                                                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Loading history...
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ) : history.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
+                                                No subscription history found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        history.map((record) => (
+                                            <React.Fragment key={record.id}>
+                                                <tr className="hover:bg-muted/30 transition-colors border-b border-border/50">
+                                                    <td className="px-6 py-4 font-semibold text-foreground">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span>{record.name}</span>
+                                                            {!record.isAddon && (
+                                                                <span className="text-[10px] text-muted-foreground font-normal">
+                                                                    Primary Subscription
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <div className="flex flex-col items-center gap-1.5 group cursor-default">
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/5 border border-primary/10">
+                                                                <Building2 className="h-3 w-3 text-primary/70" />
+                                                                <span className="text-xs font-bold text-foreground">{record.max_gyms || 0}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50/50 border border-amber-200/30">
+                                                                <Users className="h-3 w-3 text-amber-600/70" />
+                                                                <span className="text-xs font-bold text-foreground">{record.max_members || 0}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 capitalize">
+                                                        {record.duration}
+                                                    </td>
+                                                    <td className="px-6 py-4 flex items-center gap-1 font-medium">
+                                                        <Banknote className="h-3 w-3 text-emerald-600" />
+                                                        ₹{record.amount.toLocaleString()}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-muted-foreground whitespace-nowrap">
+                                                        <div className="flex items-center gap-1">
+                                                            <span>{record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A'}</span>
+                                                            <span className="text-border">→</span>
+                                                            <span>{record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A'}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <Badge
+                                                            variant={record.status.toLowerCase() === 'active' ? 'default' :
+                                                                record.status.toLowerCase() === 'expired' ? 'destructive' : 'secondary'}
+                                                            className={record.status.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-800 border-none hover:bg-emerald-200' : ''}
+                                                        >
+                                                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-muted-foreground">
+                                                        {new Date(record.created_at).toLocaleDateString()}
+                                                    </td>
+                                                </tr>
+
+                                                {/* Nested Add-ons */}
+                                                {record.addons && record.addons.length > 0 && record.addons.map((addon) => (
+                                                    <tr key={addon.id} className="bg-muted/5 hover:bg-muted/10 transition-colors border-b border-border/20">
+                                                        <td className="px-6 py-4 pl-12">
+                                                            <div className="flex items-center gap-2 group">
+                                                                <CornerDownRight className="h-3 w-3 text-muted-foreground/50 group-hover:text-primary transition-colors" />
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-sm font-medium text-muted-foreground">{addon.name}</span>
+                                                                    <Badge variant="outline" className="w-fit text-[9px] py-0 px-1 bg-amber-50/50 text-amber-700/70 border-amber-200/50">
+                                                                        Extension
+                                                                    </Badge>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-center">
+                                                            <div className="flex flex-col items-center group">
+                                                                <span className="text-[10px] font-bold text-emerald-600/70">
+                                                                    +{(addon as any).quantity || 0}
+                                                                </span>
+                                                                <span className="text-[8px] uppercase tracking-tighter text-muted-foreground/50">
+                                                                    {(addon as any).type || 'Units'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-xs text-muted-foreground/70">
+                                                            {addon.duration}
+                                                        </td>
+                                                        <td className="px-6 py-3 text-xs font-medium text-emerald-600/80">
+                                                            ₹{addon.amount.toLocaleString()}
+                                                        </td>
+                                                        <td className="px-6 py-3 text-xs text-muted-foreground/60 italic">
+                                                            Added to plan
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500/50 ml-3" />
+                                                        </td>
+                                                        <td className="px-6 py-3 text-xs text-muted-foreground/60">
+                                                            {new Date(addon.created_at).toLocaleDateString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </>
     );
 }

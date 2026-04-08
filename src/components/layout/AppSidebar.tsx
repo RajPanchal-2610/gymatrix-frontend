@@ -136,13 +136,22 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
 
     // Feature checks for Gym Admins (non-super-admin)
     if (!isAdmin) {
-      // Inventory module check
-      if (item.title === "Inventory") {
-        if (subscriptionLoading) return null;
-        if (!hasFeature("Inventory")) return null;
-      }
+      if (subscriptionLoading) return null;
 
-      // Permission checks
+      // 1. Module Feature Checks
+      if (item.title === "Members" && !hasFeature("Member Management")) return null;
+      if (item.title === "Membership Plans" && !hasFeature("Membership Plans")) return null;
+      if (item.title === "Attendance" && !hasFeature("Access Control")) return null;
+      if (item.title === "Payments" && !hasFeature("Payments & Billing")) return null;
+      if (item.title === "Inventory" && !hasFeature("Inventory Control")) return null;
+      if (item.title === "Staff & Trainers" && !hasFeature("Staff & HR")) return null;
+      if (item.title === "Diet & Workout" && !hasFeature("Diet & Workout Plans")) return null;
+      if (item.title === "Reports" && !hasFeature("Reports & Analytics")) return null;
+      if (item.title === "Roles" && !hasFeature("Access Control")) return null;
+      if (item.title === "Permissions" && !hasFeature("Access Control")) return null;
+      if (item.title === "Settings" && !hasFeature("Gym Settings")) return null;
+
+      // 2. Permission checks (Secondary layer)
       if (item.title === "Members" && !hasPermission('view_members')) return null;
       if (item.title === "Membership Plans" && !hasPermission('view_membership_plans')) return null;
       if (item.title === "Attendance" && !hasPermission('view_attendance')) return null;
@@ -153,7 +162,6 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Reports" && !hasPermission('view_reports')) return null;
       if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
-
     }
 
     let url = item.url;

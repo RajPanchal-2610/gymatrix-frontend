@@ -15,7 +15,8 @@ import MembershipPlans from "./pages/super-admin/MembershipPlans";
 import Features from "./pages/super-admin/Features";
 import Payments from "./pages/super-admin/Payments";
 import Reports from "./pages/super-admin/Reports";
-import Settings from "./pages/super-admin/Settings";
+import SuperAdminSettings from "./pages/super-admin/Settings";
+import GymSettings from "./pages/gym/Settings";
 import Login from "./pages/super-admin/Login";
 import ForgotPassword from "./pages/super-admin/ForgotPassword";
 import NotFound from "./pages/super-admin/NotFound";
@@ -56,65 +57,87 @@ const App = () => (
                     <Route path="/" element={<GymDashboard />} />
                     <Route path="/dashboard" element={<GymDashboard />} />
                     <Route path="/members" element={
-                      <PermissionGuard permission="view_members">
-                        <GymMembers />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Member Management">
+                        <PermissionGuard permission="view_members">
+                          <GymMembers />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/members/:id" element={
-                      <PermissionGuard permission="view_members">
-                        <MemberView />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Member Management">
+                        <PermissionGuard permission="view_members">
+                          <MemberView />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/plans" element={
-                      <PermissionGuard permission="view_membership_plans">
-                        <GymMembershipPlans />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Membership Plans">
+                        <PermissionGuard permission="view_membership_plans">
+                          <GymMembershipPlans />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/pricing" element={<Pricing />} />
                     <Route path="/attendance" element={
-                      <PermissionGuard permission="view_attendance">
-                        <GymAttendance />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Access Control">
+                        <PermissionGuard permission="view_attendance">
+                          <GymAttendance />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/payments" element={
-                      <PermissionGuard permission="view_payments">
-                        <GymPayments />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Payments & Billing">
+                        <PermissionGuard permission="view_payments">
+                          <GymPayments />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/inventory" element={
-                      <FeatureGuard feature="Inventory">
+                      <FeatureGuard feature="Inventory Control">
                         <GymInventory />
                       </FeatureGuard>
                     } />
                     <Route path="/staff" element={
-                      <PermissionGuard permission="view_staff">
-                        <GymStaff />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Staff & HR">
+                        <PermissionGuard permission="view_staff">
+                          <GymStaff />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/diet-workout" element={
-                      <PermissionGuard permission="view_diet_workout_plans">
-                        <GymDietWorkoutPlans />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Diet & Workout Plans">
+                        <PermissionGuard permission="view_diet_workout_plans">
+                          <GymDietWorkoutPlans />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/roles" element={
-                      <PermissionGuard permission="view_roles">
-                        <GymRoles />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Access Control">
+                        <PermissionGuard permission="view_roles">
+                          <GymRoles />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/permissions" element={
-                      <PermissionGuard permission="view_permissions">
-                        <GymPermissions />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Access Control">
+                        <PermissionGuard permission="view_permissions">
+                          <GymPermissions />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/reports" element={
-                      <PermissionGuard permission="view_reports">
-                        <Reports />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Reports & Analytics">
+                        <PermissionGuard permission="view_reports">
+                          <Reports />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                     <Route path="/settings" element={
-                      <PermissionGuard permission="view_gym_settings">
-                        <Settings />
-                      </PermissionGuard>
+                      <FeatureGuard feature="Gym Settings">
+                        <PermissionGuard permission="view_gym_settings">
+                          <GymSettings />
+                        </PermissionGuard>
+                      </FeatureGuard>
                     } />
                   </Route>
                 </Route>
@@ -132,7 +155,7 @@ const App = () => (
                     <Route path="/admin/features" element={<Features />} />
                     <Route path="/admin/payments" element={<Payments />} />
                     <Route path="/admin/reports" element={<Reports />} />
-                    <Route path="/admin/settings" element={<Settings />} />
+                    <Route path="/admin/settings" element={<SuperAdminSettings />} />
                   </Route>
                 </Route>
 

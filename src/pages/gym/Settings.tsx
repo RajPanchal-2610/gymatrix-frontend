@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Building2, Bell, Shield, CreditCard, Palette, Loader2, Trash2, Plus } from "lucide-react";
+import { User, Building2, Bell, Shield, CreditCard, Palette, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,77 +13,11 @@ import { toast } from "sonner";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useGym } from "@/hooks/useGym";
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
-
 export default function Settings() {
   const { theme, setTheme } = useTheme();
   const { hasPermission, role } = usePermissions();
   const { gymId } = useGym();
   const isOwner = role?.isOwner;
-  const isSuperAdmin = true; // Since this page is only accessible via /admin/settings for Super Admins
-
-  const [extensionPrices, setExtensionPrices] = useState<any[]>([]);
-  const [loadingPrices, setLoadingPrices] = useState(false);
-
-  const fetchExtensionPrices = async () => {
-    try {
-      setLoadingPrices(true);
-      const response = await fetch(`${BACKEND_URL}/api/payments/extensions/prices`);
-      if (!response.ok) throw new Error("Failed to fetch extension prices");
-      const data = await response.json();
-      setExtensionPrices(data);
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to load extension prices");
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
-  const handleUpdatePrice = async (id: number, type: string, unit_price: number, unit_quantity: number) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/payments/extensions/prices`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, type, unit_price, unit_quantity })
-      });
-      if (!response.ok) throw new Error("Update failed");
-      toast.success(`${type} price updated successfully`);
-      fetchExtensionPrices();
-    } catch (error) {
-      toast.error("Failed to update price");
-    }
-  };
-
-  const handleDeletePrice = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this pricing?")) return;
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/payments/extensions/prices/${id}`, {
-        method: "DELETE"
-      });
-      if (!response.ok) throw new Error("Delete failed");
-      toast.success("Price deleted successfully");
-      fetchExtensionPrices();
-    } catch (error) {
-      toast.error("Failed to delete price");
-    }
-  };
-
-  const [newPrice, setNewPrice] = useState({ type: '', unit_price: 0, unit_quantity: 0 });
-  const handleCreatePrice = async () => {
-    if (!newPrice.type || newPrice.unit_price <= 0 || newPrice.unit_quantity <= 0) {
-      toast.error("Please fill all fields with valid values");
-      return;
-    }
-    await handleUpdatePrice(0, newPrice.type, newPrice.unit_price, newPrice.unit_quantity);
-    setNewPrice({ type: '', unit_price: 0, unit_quantity: 0 });
-  };
-
-  useEffect(() => {
-    if (isSuperAdmin) {
-      fetchExtensionPrices();
-    }
-  }, [isSuperAdmin]);
 
   return (
     <>
@@ -111,12 +45,6 @@ export default function Settings() {
             <TabsTrigger value="billing" className="gap-2">
               <CreditCard className="h-4 w-4" />
               Billing
-            </TabsTrigger>
-          )}
-          {isSuperAdmin && (
-            <TabsTrigger value="extensions" className="gap-2">
-              <CreditCard className="h-4 w-4" />
-              Extension Pricing
             </TabsTrigger>
           )}
         </TabsList>
@@ -305,117 +233,6 @@ export default function Settings() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Extension Pricing (Super Admin Only) */}
-        {isSuperAdmin && (
-          <TabsContent value="extensions">
-            <Card>
-              <CardHeader>
-                <CardTitle>Extension Pricing Management</CardTitle>
-                <CardDescription>Set the pricing for extending gyms and members</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {extensionPrices.map((price) => (
-                    <Card key={price.id} className="border-border/50 relative group">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="absolute top-2 right-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        onClick={() => handleDeletePrice(price.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg capitalize">{price.type} Extension</CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Metric Type</Label>
-                          <Input
-                            type="text"
-                            defaultValue={price.type}
-                            onBlur={(e) => price.type = e.target.value}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Unit Price (₹)</Label>
-                          <Input
-                            type="number"
-                            defaultValue={price.unit_price}
-                            onBlur={(e) => price.unit_price = Number(e.target.value)}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Unit Quantity</Label>
-                          <Input
-                            type="number"
-                            defaultValue={price.unit_quantity}
-                            onBlur={(e) => price.unit_quantity = Number(e.target.value)}
-                          />
-                        </div>
-                        <Button
-                          className="w-full gradient-primary"
-                          onClick={() => handleUpdatePrice(price.id, price.type, price.unit_price, price.unit_quantity)}
-                        >
-                          Update {price.type} Price
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-
-                  {/* Add New Pricing Form */}
-                  <Card className="border-dashed border-primary/40 bg-primary/5">
-                    <CardHeader className="pb-2 text-center">
-                      <CardTitle className="text-lg">Add New Metric</CardTitle>
-                      <CardDescription>Extend a new system metric</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Metric Type (e.g. staff)</Label>
-                        <Input
-                          placeholder="e.g. trainer"
-                          value={newPrice.type}
-                          onChange={(e) => setNewPrice({ ...newPrice, type: e.target.value })}
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Price (₹)</Label>
-                          <Input
-                            type="number"
-                            value={newPrice.unit_price}
-                            onChange={(e) => setNewPrice({ ...newPrice, unit_price: Number(e.target.value) })}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Quantity</Label>
-                          <Input
-                            type="number"
-                            value={newPrice.unit_quantity}
-                            onChange={(e) => setNewPrice({ ...newPrice, unit_quantity: Number(e.target.value) })}
-                          />
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="w-full border-primary/50 hover:bg-primary/10"
-                        onClick={handleCreatePrice}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Pricing Option
-                      </Button>
-                    </CardContent>
-                  </Card>
-                  {extensionPrices.length === 0 && !loadingPrices && (
-                    <p className="text-muted-foreground col-span-2 text-center py-10">No pricing data found. Please run the database migration.</p>
-                  )}
-                  {loadingPrices && <Loader2 className="h-8 w-8 animate-spin mx-auto col-span-2" />}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
       </Tabs>
     </>
   );

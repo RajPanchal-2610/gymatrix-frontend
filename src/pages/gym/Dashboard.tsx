@@ -63,7 +63,7 @@ export default function GymDashboard() {
                         )
                     `)
                     .eq('user_id', user.id)
-                    .in('status', ['trial', 'active'])
+                    .in('status', ['trial', 'active', 'Trial', 'Active'])
                     .maybeSingle();
 
                 if (error) console.error("Error fetching subscription:", error);
@@ -378,7 +378,7 @@ export default function GymDashboard() {
     return (
         <>
             {/* Subscription Banner */}
-            {!loading && subscription && subscription.status === 'trial' && (
+            {!loading && subscription && subscription.status.toLowerCase() === 'trial' && (
                 <div className="mb-8 animate-fade-in">
                     <Alert className="border-primary/50 bg-primary/5 shadow-lg relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
