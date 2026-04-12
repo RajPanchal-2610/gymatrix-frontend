@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { parseISO } from "date-fns";
 import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -82,6 +82,8 @@ export default function Pricing() {
     const [history, setHistory] = useState<SubscriptionHistoryRecord[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const { subscription, refreshSubscription } = useSubscription();
+    const [carryOverCredit, setCarryOverCredit] = useState<number>(0);
+    const [extensionCarryOverCredit, setExtensionCarryOverCredit] = useState<number>(0);
 
     // Purchase Dialog States
     const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<{ plan: Plan, price: PlanPrice } | null>(null);
@@ -93,6 +95,14 @@ export default function Pricing() {
     const [extensionPricing, setExtensionPricing] = useState<any[]>([]);
     const [extensionQtys, setExtensionQtys] = useState<Record<number, number>>({});
     const [isExtending, setIsExtending] = useState(false);
+
+    // Memoized pricing lookups
+    const gymExtensionPrice = useMemo(() => extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym')), [extensionPricing]);
+    const memberExtensionPrice = useMemo(() => extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member')), [extensionPricing]);
+    const gymUnitPrice = gymExtensionPrice?.unit_price || 0;
+    const gymUnitQty = gymExtensionPrice?.unit_quantity || 1;
+    const memberUnitPrice = memberExtensionPrice?.unit_price || 0;
+    const memberUnitQty = memberExtensionPrice?.unit_quantity || 100;
 
     const setQty = (id: number, val: number) => {
         setExtensionQtys(prev => ({ ...prev, [id]: val }));
@@ -150,9 +160,9 @@ export default function Pricing() {
     };
 
     // Helper: Calculate credit from current active subscription
-    const getCarryOverCredit = () => {
+    const getCarryOverCredit = async () => {
         if (!subscription || subscription.status?.toLowerCase() === 'trial') return 0;
-        if (!subscription.amount || subscription.amount <= 0) return 0;
+        if (!subscription.plan_price_id) return 0;
 
         const now = new Date();
         const start = new Date(subscription.start_date);
@@ -160,14 +170,71 @@ export default function Pricing() {
 
         if (end <= now) return 0;
 
-        const msInDay = 24 * 60 * 60 * 1000;
-        const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msInDay));
-        const remainingDays = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / msInDay));
+        try {
+            // Fetch the PREVIOUS plan's base price (without extensions)
+            const { data: previousPlanPrice, error } = await supabase
+                .from('plan_prices')
+                .select('price')
+                .eq('id', subscription.plan_price_id)
+                .maybeSingle();
 
-        return Math.floor((subscription.amount / totalDays) * remainingDays);
+            if (error || !previousPlanPrice || previousPlanPrice.price <= 0) return 0;
+
+            const msInDay = 24 * 60 * 60 * 1000;
+            const totalDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / msInDay));
+            const remainingDays = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / msInDay));
+
+            // Calculate credit based on PREVIOUS PLAN'S base price and remaining days
+            return Math.floor((previousPlanPrice.price / totalDays) * remainingDays);
+        } catch (error) {
+            console.error("Error calculating carry over credit:", error);
+            return 0;
+        }
     };
 
-    const carryOverCredit = getCarryOverCredit();
+    // Helper: Calculate pro-rated extension carry-over credit
+    const getExtensionCarryOverCredit = async () => {
+        if (!subscription || subscription.status?.toLowerCase() !== 'active') return 0;
+
+        const now = new Date();
+        const end = new Date(subscription.end_date);
+        if (end <= now) return 0;
+
+        try {
+            const msInDay = 24 * 60 * 60 * 1000;
+
+            // Fetch extension addons for the current subscription
+            const { data: addons, error } = await supabase
+                .from('subscription_addons')
+                .select('*')
+                .eq('subscription_id', subscription.id);
+
+            if (error || !addons || addons.length === 0) return 0;
+
+            let totalCredit = 0;
+            for (const addon of addons) {
+                const addonPurchaseDate = new Date(addon.created_at);
+                const addonTotalDays = Math.max(1, Math.ceil((end.getTime() - addonPurchaseDate.getTime()) / msInDay));
+                const addonRemainingDays = Math.max(0, Math.ceil((end.getTime() - now.getTime()) / msInDay));
+
+                if (addonRemainingDays > 0 && addonTotalDays > 0) {
+                    const proRateRatio = addonRemainingDays / addonTotalDays;
+                    totalCredit += Math.floor(addon.amount_paid * proRateRatio);
+                }
+            }
+
+            return totalCredit;
+        } catch (error) {
+            console.error("Error calculating extension carry over credit:", error);
+            return 0;
+        }
+    };
+
+    // Update carry over credits when subscription changes
+    useEffect(() => {
+        getCarryOverCredit().then(credit => setCarryOverCredit(credit));
+        getExtensionCarryOverCredit().then(credit => setExtensionCarryOverCredit(credit));
+    }, [subscription]);
 
     const checkSubscription = async () => {
         try {
@@ -327,6 +394,18 @@ export default function Pricing() {
         }
     };
 
+    // Helper: Check if a plan is a downgrade compared to current active subscription
+    const isPlanDowngrade = (plan: Plan): boolean => {
+        if (!subscription || subscription.status?.toLowerCase() !== 'active') return false;
+        if (new Date(subscription.end_date) <= new Date()) return false;
+
+        const currentPlan = plans.find(p => p.id === subscription.plan_id);
+        if (!currentPlan) return false;
+
+        // A plan is considered "lower" if it has fewer max_gyms OR fewer max_members
+        return plan.max_gyms < currentPlan.max_gyms || plan.max_members < currentPlan.max_members;
+    };
+
     // Trigger for plan purchase button
     const handleSubscribe = async (plan: Plan, price: PlanPrice) => {
         if (!subscription) {
@@ -334,7 +413,13 @@ export default function Pricing() {
             return;
         }
 
+        if (isPlanDowngrade(plan)) {
+            toast.error("Cannot downgrade your plan while your current subscription is active. Please wait until your current plan expires or contact support.");
+            return;
+        }
+
         const hasExtensions = (subscription.extra_gyms || 0) > 0 || (subscription.extra_members || 0) > 0;
+        const hasCarryOver = carryOverCredit > 0;
 
         // Set state for dialog (incase it opens)
         const extraG = subscription.extra_gyms || 0;
@@ -344,11 +429,11 @@ export default function Pricing() {
         setPurchaseExtraGyms(extraG);
         setPurchaseExtraMembers(extraM);
 
-        if (hasExtensions) {
-            // Show dialog only if user has extensions to carry over/adjust
+        if (hasExtensions || hasCarryOver) {
+            // Show dialog if user has extensions to adjust OR has carry over credit to display
             setIsPurchaseDialogOpen(true);
         } else {
-            // No extensions - skip dialog and proceed to checkout
+            // No extensions or carry over - skip dialog and proceed to checkout
             await performCheckout(plan, price, extraG, extraM);
         }
     };
@@ -479,7 +564,7 @@ export default function Pricing() {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {extensionPricing.map((price) => {
-                            const isGym = price.type === 'gym';
+                            const isGym = (price.type || '').toLowerCase().startsWith('gym');
                             const currentQty = extensionQtys[price.id] !== undefined ? extensionQtys[price.id] : price.unit_quantity;
 
                             // Human-friendly pro-rating based on days (100% on first day)
@@ -514,7 +599,7 @@ export default function Pricing() {
                                             {price.type}
                                         </CardTitle>
                                         <CardDescription className="flex flex-col gap-1">
-                                            <span>₹{price.unit_price} / {price.unit_quantity} {price.type}{price.unit_quantity > 1 ? 's' : ''}</span>
+                                            <span>₹{price.unit_price} / {price.unit_quantity} {isGym ? 'gym' : 'member'}{price.unit_quantity > 1 ? 's' : ''}</span>
                                             {subscription?.end_date && (
                                                 <Badge variant="secondary" className="w-fit text-[10px] py-0 px-1 border-primary/20 bg-primary/10 text-primary">
                                                     Pro-rated for remaining plan duration
@@ -553,13 +638,30 @@ export default function Pricing() {
                                                             </Button>
                                                         </div>
                                                     ) : (
-                                                        <Input
-                                                            type="number"
-                                                            className="w-32"
-                                                            placeholder="Qty"
-                                                            value={currentQty}
-                                                            onChange={(e) => setQty(price.id, e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
-                                                        />
+                                                        <div className="flex items-center border border-input rounded-md bg-background overflow-hidden">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-9 w-9 rounded-none border-r"
+                                                                onClick={() => setQty(price.id, Math.max(1, (currentQty as number) - price.unit_quantity))}
+                                                            >
+                                                                <Minus className="h-4 w-4" />
+                                                            </Button>
+                                                            <Input
+                                                                type="number"
+                                                                className="flex-1 w-12 border-none text-center focus-visible:ring-0 p-0 h-9"
+                                                                value={currentQty}
+                                                                onChange={(e) => setQty(price.id, e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
+                                                            />
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-9 w-9 rounded-none border-l"
+                                                                onClick={() => setQty(price.id, (Number(currentQty) || 0) + price.unit_quantity)}
+                                                            >
+                                                                <Plus className="h-4 w-4" />
+                                                            </Button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -601,9 +703,9 @@ export default function Pricing() {
                             <CardTitle className="flex flex-col sm:flex-row items-center gap-2">
                                 Your Current Subscription
                                 <Badge
-                                    variant={subscription.status.toLowerCase() === 'expired' ? "destructive" :
-                                        subscription.status.toLowerCase() === 'trial' ? "secondary" : "default"}
-                                    className={subscription.status.toLowerCase() === 'active' ? 'bg-primary text-primary-foreground text-xs' : ''}
+                                    variant={subscription.status.toLowerCase() === 'expired' ? "destructive" : "default"}
+                                    className={subscription.status.toLowerCase() === 'active' ? 'bg-primary text-primary-foreground text-xs' :
+                                        subscription.status.toLowerCase() === 'trial' ? 'bg-blue-500 text-white text-xs' : ''}
                                 >
                                     {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
                                 </Badge>
@@ -649,13 +751,21 @@ export default function Pricing() {
                         return (
                             <Card
                                 key={plan.id}
-                                className={`relative flex flex-col hover:shadow-xl transition-all duration-300 border-border/50 ${plan.name.toLowerCase().includes('pro') ? 'border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20' : ''
-                                    }`}
+                                className={`relative flex flex-col hover:shadow-xl transition-all duration-300 border-border/50 ${
+                                    plan.name.toLowerCase().includes('pro') ? 'border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20' : ''
+                                } ${isPlanDowngrade(plan) ? 'opacity-60 border-destructive/30' : ''}`}
                             >
                                 {plan.name.toLowerCase().includes('pro') && (
                                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                                         <Badge className="gradient-primary text-primary-foreground px-4 py-1 text-xs">
                                             Most Popular
+                                        </Badge>
+                                    </div>
+                                )}
+                                {isPlanDowngrade(plan) && (
+                                    <div className="absolute -top-4 right-4">
+                                        <Badge variant="destructive" className="text-xs">
+                                            Lower Tier
                                         </Badge>
                                     </div>
                                 )}
@@ -722,14 +832,31 @@ export default function Pricing() {
                                 </CardContent>
 
                                 <CardFooter className="pt-4">
-                                    <Button
-                                        className={`w-full ${plan.name.toLowerCase().includes('pro') ? 'gradient-primary shadow-glow' : ''}`}
-                                        variant={plan.name.toLowerCase().includes('pro') ? 'default' : 'outline'}
-                                        onClick={() => handleSubscribe(plan, price)}
-                                        disabled={subscription?.plan_id === plan.id && subscription.status?.toLowerCase() === 'active'}
-                                    >
-                                        {subscription?.plan_id === plan.id ? 'Current Plan' : 'Purchase Plan'}
-                                    </Button>
+                                    {(() => {
+                                        const isDowngrade = isPlanDowngrade(plan);
+                                        const isCurrentPlan = subscription?.plan_id === plan.id && subscription.status?.toLowerCase() === 'active';
+                                        const isDisabled = isCurrentPlan || isDowngrade;
+
+                                        return (
+                                            <div className="w-full relative group">
+                                                <Button
+                                                    className={`w-full ${plan.name.toLowerCase().includes('pro') && !isDowngrade ? 'gradient-primary shadow-glow' : ''}`}
+                                                    variant={plan.name.toLowerCase().includes('pro') && !isDowngrade ? 'default' : 'outline'}
+                                                    onClick={() => handleSubscribe(plan, price)}
+                                                    disabled={isDisabled}
+                                                >
+                                                    {isCurrentPlan ? 'Current Plan' : isDowngrade ? 'Downgrade Not Allowed' : 'Purchase Plan'}
+                                                </Button>
+                                                {isDowngrade && (
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                                                        <div className="bg-destructive text-destructive-foreground text-xs px-3 py-2 rounded shadow-lg whitespace-nowrap">
+                                                            Cannot downgrade while current plan is active
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </CardFooter>
                             </Card>
                         );
@@ -739,7 +866,7 @@ export default function Pricing() {
 
             {/* Purchase Confirmation & Extension Dialog */}
             <Dialog open={isPurchaseDialogOpen} onOpenChange={setIsPurchaseDialogOpen}>
-                <DialogContent className="sm:max-w-[480px]">
+                <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Zap className="h-5 w-5 text-primary" />
@@ -750,7 +877,7 @@ export default function Pricing() {
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-5 py-4">
                         {/* Plan Summary */}
                         <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 flex justify-between items-center">
                             <div className="space-y-1">
@@ -770,80 +897,142 @@ export default function Pricing() {
                                 <p className="text-xs text-muted-foreground">Modify active extensions for your new plan period.</p>
                             </div>
 
+                            {/* Carry Over Credit Info */}
+                            {(carryOverCredit > 0 || extensionCarryOverCredit > 0) && subscription && (
+                                <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <CornerDownRight className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                                        <p className="text-sm font-semibold text-orange-800">Carry-Over Credit</p>
+                                    </div>
+
+                                    <div className="space-y-2 pl-6">
+                                        {/* Plan Credit */}
+                                        {carryOverCredit > 0 && (
+                                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                                                <span className="text-muted-foreground col-span-1">Previous Plan:</span>
+                                                <p className="font-medium text-foreground truncate">{subscription.plan_id ? plans.find(p => p.id === subscription.plan_id)?.name || 'Unknown' : 'N/A'}</p>
+                                                <span className="text-muted-foreground">Remaining Days:</span>
+                                                <p className="font-medium text-foreground">{Math.max(0, Math.ceil((new Date(subscription.end_date).getTime() - new Date().getTime()) / (24 * 60 * 60 * 1000)))} days</p>
+                                                <span className="text-muted-foreground">Plan Credit:</span>
+                                                <p className="font-bold text-orange-600">₹{carryOverCredit.toLocaleString()}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Extension Credit */}
+                                        {extensionCarryOverCredit > 0 && (
+                                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                                                {subscription && (subscription.extra_gyms || 0) > 0 && (
+                                                    <>
+                                                        <span className="text-muted-foreground">Extra Gyms:</span>
+                                                        <p className="font-medium text-foreground">{subscription.extra_gyms}</p>
+                                                    </>
+                                                )}
+                                                {subscription && (subscription.extra_members || 0) > 0 && (
+                                                    <>
+                                                        <span className="text-muted-foreground">Extra Members:</span>
+                                                        <p className="font-medium text-foreground">{subscription.extra_members}</p>
+                                                    </>
+                                                )}
+                                                <span className="text-muted-foreground">Extension Credit:</span>
+                                                <p className="font-bold text-orange-600">₹{extensionCarryOverCredit.toLocaleString()}</p>
+                                            </div>
+                                        )}
+
+                                        {/* Total Credit */}
+                                        <div className="pt-2 border-t border-orange-200 flex justify-between items-center">
+                                            <span className="text-xs font-semibold text-orange-800">Total Credit:</span>
+                                            <span className="text-base font-bold text-orange-600">₹{(carryOverCredit + extensionCarryOverCredit).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 gap-3">
                                 {/* Extra Gyms */}
-                                <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                            <Building2 className="h-4 w-4 text-primary" />
+                                {subscription && (subscription.extra_gyms || 0) > 0 && (
+                                    <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                <Building2 className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium">Extra Gyms</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    ₹{gymUnitPrice} / {gymUnitQty} gym{gymUnitQty > 1 ? 's' : ''}
+                                                    <span className="ml-1 text-primary font-semibold">(Current: {subscription.extra_gyms})</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium">Extra Gyms</p>
-                                            <p className="text-[10px] text-muted-foreground">₹{(extensionPricing.find(p => p.type.toLowerCase().startsWith('gym'))?.unit_price || 0)} / unit</p>
+                                        <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-none border-r"
+                                                disabled={purchaseExtraGyms <= (subscription?.extra_gyms || 0)}
+                                                onClick={() => setPurchaseExtraGyms(Math.max(subscription?.extra_gyms || 0, purchaseExtraGyms - 1))}
+                                            >
+                                                <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <Input
+                                                type="number"
+                                                className="w-12 h-8 border-none text-center focus-visible:ring-0 p-0"
+                                                value={purchaseExtraGyms}
+                                                onChange={(e) => setPurchaseExtraGyms(e.target.value === '' ? '' as any : Math.max(subscription?.extra_gyms || 0, parseInt(e.target.value) || 0))}
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-none border-l"
+                                                onClick={() => setPurchaseExtraGyms(purchaseExtraGyms + 1)}
+                                            >
+                                                <Plus className="h-3 w-3" />
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-none border-r"
-                                            onClick={() => setPurchaseExtraGyms(Math.max(0, purchaseExtraGyms - 1))}
-                                        >
-                                            <Minus className="h-3 w-3" />
-                                        </Button>
-                                        <Input
-                                            type="number"
-                                            className="w-12 h-8 border-none text-center focus-visible:ring-0 p-0"
-                                            value={purchaseExtraGyms}
-                                            onChange={(e) => setPurchaseExtraGyms(e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
-                                        />
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-none border-l"
-                                            onClick={() => setPurchaseExtraGyms(purchaseExtraGyms + 1)}
-                                        >
-                                            <Plus className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Extra Members */}
-                                <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                            <Users className="h-4 w-4 text-primary" />
+                                {subscription && (subscription.extra_members || 0) > 0 && (
+                                    <div className="flex items-center justify-between p-3 rounded-md border border-border bg-muted/30">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                                <Users className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div>
+                                                <p className="text-sm font-medium">Extra Members</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    ₹{memberUnitPrice} / {memberUnitQty} member{memberUnitQty > 1 ? 's' : ''}
+                                                    <span className="ml-1 text-primary font-semibold">(Current: {subscription.extra_members})</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-sm font-medium">Extra Members</p>
-                                            <p className="text-[10px] text-muted-foreground">₹{(extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0)} / {(extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)}</p>
+                                        <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-none border-r"
+                                                disabled={purchaseExtraMembers <= (subscription?.extra_members || 0)}
+                                                onClick={() => setPurchaseExtraMembers(Math.max(subscription?.extra_members || 0, purchaseExtraMembers - memberUnitQty))}
+                                            >
+                                                <Minus className="h-3 w-3" />
+                                            </Button>
+                                            <Input
+                                                type="number"
+                                                className="w-16 h-8 border-none text-center focus-visible:ring-0 p-0"
+                                                value={purchaseExtraMembers}
+                                                onChange={(e) => setPurchaseExtraMembers(e.target.value === '' ? '' as any : Math.max(subscription?.extra_members || 0, parseInt(e.target.value) || 0))}
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 rounded-none border-l"
+                                                onClick={() => setPurchaseExtraMembers(purchaseExtraMembers + memberUnitQty)}
+                                            >
+                                                <Plus className="h-3 w-3" />
+                                            </Button>
                                         </div>
                                     </div>
-                                    <div className="flex items-center border border-input rounded-md bg-background h-9 overflow-hidden">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-none border-r"
-                                            onClick={() => setPurchaseExtraMembers(Math.max(0, purchaseExtraMembers - (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)))}
-                                        >
-                                            <Minus className="h-3 w-3" />
-                                        </Button>
-                                        <Input
-                                            type="number"
-                                            className="w-16 h-8 border-none text-center focus-visible:ring-0 p-0"
-                                            value={purchaseExtraMembers}
-                                            onChange={(e) => setPurchaseExtraMembers(e.target.value === '' ? '' as any : Math.max(0, parseInt(e.target.value) || 0))}
-                                        />
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-none border-l"
-                                            onClick={() => setPurchaseExtraMembers(purchaseExtraMembers + (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100))}
-                                        >
-                                            <Plus className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
 
@@ -856,15 +1045,21 @@ export default function Pricing() {
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Extensions Cost</span>
                                 <span className="text-emerald-600 font-medium">₹{(
-                                    (purchaseExtraGyms * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_quantity || 1)) +
-                                    (purchaseExtraMembers * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100))
+                                    (purchaseExtraGyms * gymUnitPrice / gymUnitQty) +
+                                    (purchaseExtraMembers * memberUnitPrice / memberUnitQty)
                                 ).toLocaleString()}</span>
                             </div>
 
                             {carryOverCredit > 0 && (
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-muted-foreground">Carry-over Credit</span>
+                                    <span className="text-muted-foreground">Plan Carry-Over Credit</span>
                                     <span className="text-orange-600 font-medium">-₹{carryOverCredit.toLocaleString()}</span>
+                                </div>
+                            )}
+                            {extensionCarryOverCredit > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Extension Carry-Over Credit</span>
+                                    <span className="text-orange-600 font-medium">-₹{extensionCarryOverCredit.toLocaleString()}</span>
                                 </div>
                             )}
 
@@ -873,9 +1068,10 @@ export default function Pricing() {
                                 <span className="text-3xl font-black text-primary">
                                     ₹{Math.max(1, (
                                         (selectedPlanForPurchase?.price.price || 0) +
-                                        (Number(purchaseExtraGyms || 0) * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym'))?.unit_quantity || 1)) +
-                                        (Number(purchaseExtraMembers || 0) * (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_price || 0) / (extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('member'))?.unit_quantity || 100)) - 
-                                        carryOverCredit
+                                        (Number(purchaseExtraGyms || 0) * gymUnitPrice / gymUnitQty) +
+                                        (Number(purchaseExtraMembers || 0) * memberUnitPrice / memberUnitQty) -
+                                        carryOverCredit -
+                                        extensionCarryOverCredit
                                     )).toLocaleString()}
                                 </span>
                             </div>
