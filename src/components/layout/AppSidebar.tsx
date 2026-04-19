@@ -17,6 +17,7 @@ import {
   Package,
   Wallet,
   List,
+  Mail,
   Check,
   PlusCircle,
   ChevronsUpDown,
@@ -62,6 +63,7 @@ const navItems = [
   { title: "Roles", url: "/roles", icon: Users },
   { title: "Permissions", url: "/permissions", icon: Shield },
   { title: "Reports", url: "/reports", icon: BarChart3 },
+  { title: "Contact Messages", url: "/contact-messages", icon: Mail },
 ];
 
 const bottomItems = [
@@ -162,6 +164,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Reports" && !hasPermission('view_reports')) return null;
       if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
+      if (item.title === "Contact Messages") return null;
     }
 
     let url = item.url;

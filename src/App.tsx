@@ -16,6 +16,7 @@ import Features from "./pages/super-admin/Features";
 import Payments from "./pages/super-admin/Payments";
 import Reports from "./pages/super-admin/Reports";
 import SuperAdminSettings from "./pages/super-admin/Settings";
+import ContactMessages from "./pages/super-admin/ContactMessages";
 import GymSettings from "./pages/gym/Settings";
 import Login from "./pages/super-admin/Login";
 import ForgotPassword from "./pages/super-admin/ForgotPassword";
@@ -156,6 +157,7 @@ const App = () => (
                     <Route path="/admin/payments" element={<Payments />} />
                     <Route path="/admin/reports" element={<Reports />} />
                     <Route path="/admin/settings" element={<SuperAdminSettings />} />
+                    <Route path="/admin/contact-messages" element={<ContactMessages />} />
                   </Route>
                 </Route>
 
