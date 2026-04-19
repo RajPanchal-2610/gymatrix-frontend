@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { parseISO } from "date-fns";
-import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight } from "lucide-react";
+import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight, Download, Eye, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { Zap } from "lucide-react";
+import { pdfExportService } from "@/services/pdfExportService";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
@@ -59,6 +60,8 @@ interface SubscriptionHistoryRecord {
     status: string;
     created_at: string;
     duration: string;
+    tx_id?: number | null;
+    invoice_number?: string;
     start_date?: string;
     end_date?: string;
     max_gyms?: number;
@@ -68,9 +71,11 @@ interface SubscriptionHistoryRecord {
         name: string;
         amount: number;
         created_at: string;
-        duration: string;
+        duration?: string;
         quantity?: number;
         type?: string;
+        tx_id?: number | null;
+        invoice_number?: string;
     }[];
 }
 
@@ -95,6 +100,7 @@ export default function Pricing() {
     const [extensionPricing, setExtensionPricing] = useState<any[]>([]);
     const [extensionQtys, setExtensionQtys] = useState<Record<number, number>>({});
     const [isExtending, setIsExtending] = useState(false);
+    const [downloadingInvoice, setDownloadingInvoice] = useState<string | number | null>(null);
 
     // Memoized pricing lookups
     const gymExtensionPrice = useMemo(() => extensionPricing.find(p => (p.type || '').toLowerCase().startsWith('gym')), [extensionPricing]);
@@ -523,6 +529,32 @@ export default function Pricing() {
             toast.error(error.message);
         } finally {
             setIsExtending(false);
+        }
+    };
+
+    const handleDownloadInvoice = async (record: SubscriptionHistoryRecord | any) => {
+        if (!record.tx_id) {
+            toast.error("Invoice details not available.");
+            return;
+        }
+
+        try {
+            setDownloadingInvoice(record.id);
+            const response = await fetch(`${BACKEND_URL}/api/payments/invoice/${record.tx_id}`);
+            if (!response.ok) throw new Error("Failed to fetch invoice details");
+
+            const data = await response.json();
+            
+            // Branding
+            const gymBranding = "FitFlow Membership"; 
+            
+            await pdfExportService.exportInvoice(data, gymBranding);
+            toast.success("Invoice downloaded!");
+        } catch (error: any) {
+            console.error("Download invoice error:", error);
+            toast.error(error.message || "Failed to download invoice");
+        } finally {
+            setDownloadingInvoice(null);
         }
     };
 
@@ -1109,6 +1141,7 @@ export default function Pricing() {
                                         <th className="px-6 py-4">Period</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4">Date</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
@@ -1179,6 +1212,26 @@ export default function Pricing() {
                                                     <td className="px-6 py-4 text-muted-foreground">
                                                         {new Date(record.created_at).toLocaleDateString()}
                                                     </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {record.tx_id ? (
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                className="h-8 gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                                                                onClick={() => handleDownloadInvoice(record)}
+                                                                disabled={downloadingInvoice === record.id}
+                                                            >
+                                                                {downloadingInvoice === record.id ? (
+                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                ) : (
+                                                                    <Download className="h-3.5 w-3.5" />
+                                                                )}
+                                                                Download Invoice
+                                                            </Button>
+                                                        ) : (
+                                                            <span className="text-[10px] text-muted-foreground italic px-2">N/A</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
 
                                                 {/* Nested Add-ons */}
@@ -1198,10 +1251,10 @@ export default function Pricing() {
                                                         <td className="px-6 py-3 text-center">
                                                             <div className="flex flex-col items-center group">
                                                                 <span className="text-[10px] font-bold text-emerald-600/70">
-                                                                    +{(addon as any).quantity || 0}
+                                                                    +{addon.quantity || 0}
                                                                 </span>
                                                                 <span className="text-[8px] uppercase tracking-tighter text-muted-foreground/50">
-                                                                    {(addon as any).type || 'Units'}
+                                                                    {addon.type || 'Units'}
                                                                 </span>
                                                             </div>
                                                         </td>
@@ -1215,10 +1268,28 @@ export default function Pricing() {
                                                             Added to plan
                                                         </td>
                                                         <td className="px-6 py-3">
-                                                            <div className="h-1.5 w-1.5 rounded-full bg-emerald-500/50 ml-3" />
+                                                                <span className="text-muted-foreground/40 ml-4">—</span>
                                                         </td>
                                                         <td className="px-6 py-3 text-xs text-muted-foreground/60">
                                                             {new Date(addon.created_at).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-6 py-3 text-right">
+                                                            {(addon as any).tx_id ? (
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    className="h-8 gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+                                                                    onClick={() => handleDownloadInvoice(addon)}
+                                                                    disabled={downloadingInvoice === addon.id}
+                                                                >
+                                                                    {downloadingInvoice === addon.id ? (
+                                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                                    ) : (
+                                                                        <Download className="h-3.5 w-3.5" />
+                                                                    )}
+                                                                    Download Invoice
+                                                                </Button>
+                                                            ) : null}
                                                         </td>
                                                     </tr>
                                                 ))}

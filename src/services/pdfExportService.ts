@@ -195,5 +195,107 @@ export const pdfExportService = {
         }
 
         doc.save(`${plan.gym_members?.full_name}_Workout_Plan_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    },
+
+    /**
+     * Export a Subscription Invoice to PDF
+     */
+    async exportInvoice(data: any, gymName: string) {
+        const { invoice, customer, items } = data;
+        const doc = new jsPDF() as jsPDFWithAutoTable;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const primaryColor: [number, number, number] = [15, 23, 42]; // Slate-900
+
+        // 1. Header & Logo area
+        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        
+        doc.setFontSize(24);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont("helvetica", "bold");
+        doc.text("INVOICE", 14, 27);
+
+        doc.setFontSize(14);
+        doc.text(String(gymName || "FITFLOW").toUpperCase(), pageWidth - 14, 27, { align: "right" });
+
+        // 2. Invoice Details Row
+        doc.setTextColor(0);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        
+        // Left Side: Bill To
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("BILL TO:", 14, 55);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(customer.name || "Valued Customer"), 14, 62);
+        doc.setTextColor(100);
+        doc.text(String(customer.email || "N/A"), 14, 67);
+
+        // Right Side: Details
+        doc.setTextColor(0);
+        doc.setFont("helvetica", "bold");
+        doc.text("INVOICE NO:", pageWidth - 80, 55);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(invoice.number || "N/A"), pageWidth - 14, 55, { align: "right" });
+
+        doc.setFont("helvetica", "bold");
+        doc.text("DATE:", pageWidth - 80, 62);
+        doc.setFont("helvetica", "normal");
+        doc.text(format(new Date(invoice.date), "MMM d, yyyy"), pageWidth - 14, 62, { align: "right" });
+
+        doc.setFont("helvetica", "bold");
+        doc.text("PAYMENT:", pageWidth - 80, 69);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(invoice.payment_method || "N/A").toUpperCase(), pageWidth - 14, 69, { align: "right" });
+
+        // 3. Items Table
+        const tableData = items.map((item: any) => [
+            `${item.name}\n${item.description}`,
+            `INR ${item.amount.toLocaleString()}`
+        ]);
+
+        autoTable(doc, {
+            startY: 85,
+            head: [[
+                { content: 'Item / Description', styles: { halign: 'left' } },
+                { content: 'Amount', styles: { halign: 'right' } }
+            ]],
+            body: tableData,
+            theme: 'striped',
+            headStyles: { fillColor: primaryColor, textColor: [255, 255, 255] },
+            margin: { left: 14, right: 14 },
+            styles: { fontSize: 10, cellPadding: 5 },
+            columnStyles: {
+                0: { cellWidth: 'auto', halign: 'left' },
+                1: { cellWidth: 50, halign: 'right' }
+            }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 15;
+
+        // 4. Summary
+        doc.setDrawColor(200);
+        doc.line(pageWidth - 80, finalY, pageWidth - 14, finalY);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("TOTAL PAID:", pageWidth - 80, finalY + 10);
+        doc.text(`INR ${invoice.amount.toLocaleString()}`, pageWidth - 14, finalY + 10, { align: "right" });
+
+        // 5. Footer
+        doc.setTextColor(150);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.text("Thank you for your business!", pageWidth / 2, doc.internal.pageSize.getHeight() - 25, { align: "center" });
+        
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text("FitFlow - Gym Management Simplified", pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: "center" });
+
+        const fileName = (invoice.number || "0000").replace(/[/\\?%*:|"<>]/g, '-');
+        doc.save(`Invoice_${fileName}.pdf`);
     }
 };
