@@ -40,6 +40,7 @@ interface Coupon {
     total_usage_limit: number | null;
     user_usage_limit: number;
     is_active: boolean;
+    show_in_banners: boolean;
     created_at: string;
     usage_count?: number;
 }
@@ -72,6 +73,7 @@ export default function Coupons() {
         total_usage_limit: "" as string | number,
         user_usage_limit: 1,
         is_active: true,
+        show_in_banners: false,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -148,6 +150,7 @@ export default function Coupons() {
             total_usage_limit: "",
             user_usage_limit: 1,
             is_active: true,
+            show_in_banners: false,
         });
         setIsDialogOpen(true);
     };
@@ -168,6 +171,7 @@ export default function Coupons() {
             total_usage_limit: coupon.total_usage_limit || "",
             user_usage_limit: coupon.user_usage_limit,
             is_active: coupon.is_active,
+            show_in_banners: (coupon as any).show_in_banners || false,
         });
         setIsDialogOpen(true);
     };
@@ -195,6 +199,7 @@ export default function Coupons() {
                 total_usage_limit: formData.total_usage_limit ? Number(formData.total_usage_limit) : null,
                 user_usage_limit: Number(formData.user_usage_limit),
                 is_active: formData.is_active,
+                show_in_banners: formData.show_in_banners,
             };
 
             if (editingCoupon) {
@@ -593,6 +598,28 @@ export default function Coupons() {
                                 <Switch 
                                     checked={formData.is_applicable_to_extensions}
                                     onCheckedChange={(val) => handleInputChange("is_applicable_to_extensions", val)}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-t border-border">
+                                <div className="space-y-0.5">
+                                    <Label className="text-primary font-bold">Show in Banners</Label>
+                                    <p className="text-xs text-muted-foreground">Display this coupon in website and pricing page banners</p>
+                                </div>
+                                <Switch 
+                                    checked={formData.show_in_banners}
+                                    onCheckedChange={(val) => handleInputChange("show_in_banners", val)}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between py-2 border-t border-border">
+                                <div className="space-y-0.5">
+                                    <Label>Coupon Active</Label>
+                                    <p className="text-xs text-muted-foreground">Enable or disable this coupon entirely</p>
+                                </div>
+                                <Switch 
+                                    checked={formData.is_active}
+                                    onCheckedChange={(val) => handleInputChange("is_active", val)}
                                 />
                             </div>
                         </div>

@@ -631,7 +631,7 @@ export default function Pricing() {
                 .eq('is_active', true)
                 .order('created_at', { ascending: false });
             
-            const valid = data?.find((c: any) => (c.usage?.[0]?.count || 0) < 20);
+            const valid = data?.find((c: any) => c.show_in_banners && (c.usage?.[0]?.count || 0) < 20);
             if (valid) setPromoCoupon({ ...valid, count: valid.usage?.[0]?.count || 0 });
         };
         fetchPromo();
