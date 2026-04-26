@@ -23,7 +23,8 @@ import {
   ChevronsUpDown,
   Pencil,
   Shield,
-  Apple
+  Apple,
+  TicketPercent
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,7 @@ const navItems = [
   { title: "Permissions", url: "/permissions", icon: Shield },
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Contact Messages", url: "/contact-messages", icon: Mail },
+  { title: "Coupons", url: "/coupons", icon: TicketPercent },
 ];
 
 const bottomItems = [

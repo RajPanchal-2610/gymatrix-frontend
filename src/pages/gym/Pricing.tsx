@@ -96,6 +96,12 @@ export default function Pricing() {
     const [purchaseExtraMembers, setPurchaseExtraMembers] = useState<number>(0);
     const [isPurchaseDialogOpen, setIsPurchaseDialogOpen] = useState(false);
 
+    // Coupon States
+    const [couponInput, setCouponInput] = useState("");
+    const [appliedCoupon, setAppliedCoupon] = useState<{ id: string, code: string, discount: number } | null>(null);
+    const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+    const [couponError, setCouponError] = useState<string | null>(null);
+
     // Extensions State
     const [extensionPricing, setExtensionPricing] = useState<any[]>([]);
     const [extensionQtys, setExtensionQtys] = useState<Record<number, number>>({});
@@ -307,8 +313,50 @@ export default function Pricing() {
         }
     };
 
+    const handleApplyCoupon = async () => {
+        if (!couponInput || !selectedPlanForPurchase) return;
+
+        try {
+            setIsValidatingCoupon(true);
+            setCouponError(null);
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Please log in to apply coupon");
+
+            const response = await fetch(`${BACKEND_URL}/api/coupons/validate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    code: couponInput,
+                    userId: user.id,
+                    planId: selectedPlanForPurchase.plan.id,
+                    duration: selectedPlanForPurchase.price.duration_unit,
+                    amount: selectedPlanForPurchase.price.price +
+                        (purchaseExtraGyms * gymUnitPrice / gymUnitQty) +
+                        (purchaseExtraMembers * memberUnitPrice / memberUnitQty),
+                    type: 'subscription'
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Invalid coupon");
+
+            setAppliedCoupon({
+                id: data.couponId,
+                code: couponInput.toUpperCase(),
+                discount: data.discount
+            });
+            toast.success(`Coupon "${couponInput.toUpperCase()}" applied!`);
+        } catch (error: any) {
+            setCouponError(error.message);
+            setAppliedCoupon(null);
+        } finally {
+            setIsValidatingCoupon(false);
+        }
+    };
+
     // Core Checkout Execution
-    const performCheckout = async (plan: Plan, price: PlanPrice, extraGyms: number, extraMembers: number) => {
+    const performCheckout = async (plan: Plan, price: PlanPrice, extraGyms: number, extraMembers: number, couponCode?: string) => {
         if (!subscription) return;
 
         const { data: { user } } = await supabase.auth.getUser();
@@ -337,7 +385,8 @@ export default function Pricing() {
                     planPriceId: price.id,
                     subscriptionId: subscription.id,
                     extra_gyms: extraGyms,
-                    extra_members: extraMembers
+                    extra_members: extraMembers,
+                    couponCode: couponCode
                 }),
             });
 
@@ -350,7 +399,15 @@ export default function Pricing() {
             const data = await response.json();
             toast.dismiss(loadingToast);
 
-            // 2. Open Razorpay Checkout
+            // 2. Handle FREE Purchase (100% Discount)
+            if (data.isFree) {
+                toast.success(`Plan upgraded to ${plan.name} successfully! (100% Discount Applied)`);
+                await refreshSubscription();
+                await fetchHistory();
+                return;
+            }
+
+            // 3. Open Razorpay Checkout for Paid Orders
             const options = {
                 key: data.keyId,
                 amount: data.amount,
@@ -428,31 +485,36 @@ export default function Pricing() {
         const hasCarryOver = carryOverCredit > 0;
 
         // Set state for dialog (incase it opens)
-        const extraG = subscription.extra_gyms || 0;
-        const extraM = subscription.extra_members || 0;
+        // Reset coupon state for new selection
+        setCouponInput("");
+        setAppliedCoupon(null);
+        setCouponError(null);
 
         setSelectedPlanForPurchase({ plan, price });
-        setPurchaseExtraGyms(extraG);
-        setPurchaseExtraMembers(extraM);
+        setPurchaseExtraGyms(subscription.extra_gyms || 0);
+        setPurchaseExtraMembers(subscription.extra_members || 0);
 
-        if (hasExtensions || hasCarryOver) {
-            // Show dialog if user has extensions to adjust OR has carry over credit to display
-            setIsPurchaseDialogOpen(true);
-        } else {
-            // No extensions or carry over - skip dialog and proceed to checkout
-            await performCheckout(plan, price, extraG, extraM);
-        }
+        // Always show the dialog so users can apply coupons or see the breakdown
+        setIsPurchaseDialogOpen(true);
     };
 
     // Actual Checkout (called from Confirmation Dialog)
     const handleCheckout = async () => {
         if (!selectedPlanForPurchase) return;
+        
+        // Capture properties before closing dialog/resetting state
+        const plan = selectedPlanForPurchase.plan;
+        const price = selectedPlanForPurchase.price;
+        const code = appliedCoupon?.code;
+
         setIsPurchaseDialogOpen(false);
+        
         await performCheckout(
-            selectedPlanForPurchase.plan,
-            selectedPlanForPurchase.price,
+            plan,
+            price,
             purchaseExtraGyms,
-            purchaseExtraMembers
+            purchaseExtraMembers,
+            code
         );
     };
 
@@ -544,10 +606,10 @@ export default function Pricing() {
             if (!response.ok) throw new Error("Failed to fetch invoice details");
 
             const data = await response.json();
-            
+
             // Branding
-            const gymBranding = "FitFlow Membership"; 
-            
+            const gymBranding = "FitFlow Membership";
+
             await pdfExportService.exportInvoice(data, gymBranding);
             toast.success("Invoice downloaded!");
         } catch (error: any) {
@@ -558,8 +620,58 @@ export default function Pricing() {
         }
     };
 
+    // State for promo banner
+    const [promoCoupon, setPromoCoupon] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchPromo = async () => {
+            const { data } = await supabase
+                .from('coupons')
+                .select('*, usage:coupon_usage(count)')
+                .eq('is_active', true)
+                .order('created_at', { ascending: false });
+            
+            const valid = data?.find((c: any) => (c.usage?.[0]?.count || 0) < 20);
+            if (valid) setPromoCoupon({ ...valid, count: valid.usage?.[0]?.count || 0 });
+        };
+        fetchPromo();
+    }, []);
+
     return (
-        <>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {promoCoupon && (
+                <div className="mb-10 relative overflow-hidden rounded-2xl p-1 gradient-primary shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-top duration-700">
+                    <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl pointer-events-none"></div>
+                    <div className="relative flex flex-col md:flex-row items-center justify-between gap-4 bg-card rounded-xl px-6 py-5">
+                        <div className="flex items-center gap-5 text-center md:text-left">
+                            <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+                                <Zap className="h-7 w-7 text-white" />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-extrabold text-foreground flex items-center gap-2 justify-center md:justify-start">
+                                    Launch Celebration Offer!
+                                    <Badge variant="outline" className="bg-success/10 border-success/20 text-success text-[10px] h-5 px-2 font-bold tracking-normal">
+                                        {20 - promoCoupon.count} SPOTS LEFT
+                                    </Badge>
+                                </h4>
+                                <p className="text-sm text-muted-foreground mt-1">
+                                    Unlock <span className="font-bold text-primary">{promoCoupon.discount_type === 'PERCENTAGE' ? `${promoCoupon.discount_value}%` : `₹${promoCoupon.discount_value}`} OFF</span> your premium plan. Use code: 
+                                    <code className="ml-2 inline-block px-3 py-0.5 bg-primary/5 text-primary font-black rounded-lg border border-primary/20 tracking-widest text-sm">
+                                        {promoCoupon.code}
+                                    </code>
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto pr-4">
+                            <div className="text-center md:text-right">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ending Soon</p>
+                                <p className="text-xs font-medium text-foreground">First 20 Users Only</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="flex flex-col items-center justify-center mb-10 text-center space-y-4">
                 <h2 className="text-3xl font-bold tracking-tight">Simple, transparent pricing</h2>
                 <p className="text-muted-foreground max-w-2xl">
@@ -783,9 +895,8 @@ export default function Pricing() {
                         return (
                             <Card
                                 key={plan.id}
-                                className={`relative flex flex-col hover:shadow-xl transition-all duration-300 border-border/50 ${
-                                    plan.name.toLowerCase().includes('pro') ? 'border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20' : ''
-                                } ${isPlanDowngrade(plan) ? 'opacity-60 border-destructive/30' : ''}`}
+                                className={`relative flex flex-col hover:shadow-xl transition-all duration-300 border-border/50 ${plan.name.toLowerCase().includes('pro') ? 'border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20' : ''
+                                    } ${isPlanDowngrade(plan) ? 'opacity-60 border-destructive/30' : ''}`}
                             >
                                 {plan.name.toLowerCase().includes('pro') && (
                                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
@@ -909,6 +1020,15 @@ export default function Pricing() {
                         </DialogDescription>
                     </DialogHeader>
 
+                    {/* Reset applied coupon when closed */}
+                    {useEffect(() => {
+                        if (!isPurchaseDialogOpen) {
+                            setAppliedCoupon(null);
+                            setCouponInput("");
+                            setCouponError(null);
+                        }
+                    }, [isPurchaseDialogOpen]) as any}
+
                     <div className="space-y-5 py-4">
                         {/* Plan Summary */}
                         <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 flex justify-between items-center">
@@ -924,10 +1044,12 @@ export default function Pricing() {
 
                         {/* Extensions Management */}
                         <div className="space-y-4">
-                            <div className="px-1">
-                                <h4 className="text-sm font-semibold mb-1">Carryover & Adjust Limits</h4>
-                                <p className="text-xs text-muted-foreground">Modify active extensions for your new plan period.</p>
-                            </div>
+                            {((subscription?.extra_gyms || 0) > 0 || (subscription?.extra_members || 0) > 0) && (
+                                <div className="px-1">
+                                    <h4 className="text-sm font-semibold mb-1">Carryover & Adjust Limits</h4>
+                                    <p className="text-xs text-muted-foreground">Modify active extensions for your new plan period.</p>
+                                </div>
+                            )}
 
                             {/* Carry Over Credit Info */}
                             {(carryOverCredit > 0 || extensionCarryOverCredit > 0) && subscription && (
@@ -1066,6 +1188,49 @@ export default function Pricing() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Coupon Input Area */}
+                            <div className="pt-2">
+                                <Label className="text-xs mb-1.5 block">Discount Coupon</Label>
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1">
+                                        <Input
+                                            placeholder="Enter coupon code"
+                                            className={`uppercase font-bold tracking-wider h-9 ${appliedCoupon ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : ''}`}
+                                            value={couponInput}
+                                            onChange={(e) => {
+                                                setCouponInput(e.target.value.toUpperCase());
+                                                if (appliedCoupon) setAppliedCoupon(null);
+                                            }}
+                                            disabled={isValidatingCoupon}
+                                        />
+                                        {appliedCoupon && (
+                                            <CheckCircle2 className="absolute right-2.5 top-2.5 h-4 w-4 text-emerald-600" />
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant={appliedCoupon ? "ghost" : "outline"}
+                                        size="sm"
+                                        className={`h-9 px-4 ${appliedCoupon ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : ''}`}
+                                        onClick={appliedCoupon ? () => {
+                                            setAppliedCoupon(null);
+                                            setCouponInput("");
+                                            setCouponError(null);
+                                        } : handleApplyCoupon}
+                                        disabled={(!couponInput && !appliedCoupon) || isValidatingCoupon}
+                                    >
+                                        {isValidatingCoupon ? <Loader2 className="h-4 w-4 animate-spin" /> : (appliedCoupon ? 'Remove' : 'Apply')}
+                                    </Button>
+                                </div>
+                                {couponError && (
+                                    <p className="text-[10px] text-red-500 mt-1 pl-1">{couponError}</p>
+                                )}
+                                {appliedCoupon && (
+                                    <p className="text-[10px] text-emerald-600 mt-1 pl-1 font-medium italic">
+                                        Coupon applied successfully!
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         {/* Final Total */}
@@ -1074,13 +1239,27 @@ export default function Pricing() {
                                 <span className="text-muted-foreground">Plan Base Price ({selectedPlanForPurchase?.price.duration_unit})</span>
                                 <span>₹{selectedPlanForPurchase?.price.price.toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Extensions Cost</span>
-                                <span className="text-emerald-600 font-medium">₹{(
-                                    (purchaseExtraGyms * gymUnitPrice / gymUnitQty) +
-                                    (purchaseExtraMembers * memberUnitPrice / memberUnitQty)
-                                ).toLocaleString()}</span>
-                            </div>
+                            {((purchaseExtraGyms * (gymUnitPrice || 0) / (gymUnitQty || 1)) + (purchaseExtraMembers * (memberUnitPrice || 0) / (memberUnitQty || 1))) > 0 && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">Extensions Cost</span>
+                                    <span className="text-emerald-600 font-medium">₹{(
+                                        (purchaseExtraGyms * gymUnitPrice / gymUnitQty) +
+                                        (purchaseExtraMembers * memberUnitPrice / memberUnitQty)
+                                    ).toLocaleString()}</span>
+                                </div>
+                            )}
+
+                            {appliedCoupon && (
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground flex items-center gap-1.5">
+                                        Coupon Discount
+                                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-none text-[9px] h-4 py-0">
+                                            {appliedCoupon.code}
+                                        </Badge>
+                                    </span>
+                                    <span className="text-emerald-600 font-bold">-₹{appliedCoupon.discount.toLocaleString()}</span>
+                                </div>
+                            )}
 
                             {carryOverCredit > 0 && (
                                 <div className="flex justify-between text-sm">
@@ -1098,10 +1277,11 @@ export default function Pricing() {
                             <div className="flex justify-between items-center pt-2 border-t mt-2">
                                 <span className="font-bold text-lg">Grand Total</span>
                                 <span className="text-3xl font-black text-primary">
-                                    ₹{Math.max(1, (
+                                    ₹{Math.max(0, (
                                         (selectedPlanForPurchase?.price.price || 0) +
-                                        (Number(purchaseExtraGyms || 0) * gymUnitPrice / gymUnitQty) +
-                                        (Number(purchaseExtraMembers || 0) * memberUnitPrice / memberUnitQty) -
+                                        (purchaseExtraGyms * gymUnitPrice / gymUnitQty) +
+                                        (purchaseExtraMembers * memberUnitPrice / memberUnitQty) -
+                                        (appliedCoupon?.discount || 0) -
                                         carryOverCredit -
                                         extensionCarryOverCredit
                                     )).toLocaleString()}
@@ -1214,9 +1394,9 @@ export default function Pricing() {
                                                     </td>
                                                     <td className="px-6 py-4 text-right">
                                                         {record.tx_id ? (
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="sm" 
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
                                                                 className="h-8 gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
                                                                 onClick={() => handleDownloadInvoice(record)}
                                                                 disabled={downloadingInvoice === record.id}
@@ -1268,16 +1448,16 @@ export default function Pricing() {
                                                             Added to plan
                                                         </td>
                                                         <td className="px-6 py-3">
-                                                                <span className="text-muted-foreground/40 ml-4">—</span>
+                                                            <span className="text-muted-foreground/40 ml-4">—</span>
                                                         </td>
                                                         <td className="px-6 py-3 text-xs text-muted-foreground/60">
                                                             {new Date(addon.created_at).toLocaleDateString()}
                                                         </td>
                                                         <td className="px-6 py-3 text-right">
                                                             {(addon as any).tx_id ? (
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="sm" 
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
                                                                     className="h-8 gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
                                                                     onClick={() => handleDownloadInvoice(addon)}
                                                                     disabled={downloadingInvoice === addon.id}
@@ -1302,6 +1482,26 @@ export default function Pricing() {
                     </CardContent>
                 </Card>
             </div>
-        </>
+        </div>
     );
+}
+
+function CheckCircle2(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="m9 12 2 2 4-4" />
+        </svg>
+    )
 }
