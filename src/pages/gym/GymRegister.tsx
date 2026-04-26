@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, User, Loader2 } from "lucide-react";
+import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, User, Loader2, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ export default function GymRegister() {
         gymName: "",
         adminName: "",
         email: "",
+        phone: "",
         password: "",
         confirmPassword: "",
     });
@@ -31,6 +32,14 @@ export default function GymRegister() {
         e.preventDefault();
         if (formData.password !== formData.confirmPassword) {
             toast.error("Passwords do not match");
+            return;
+        }
+
+        // Phone validation (strictly 10 digits for India)
+        const phoneRegex = /^[0-9]{10}$/;
+        const cleanPhone = formData.phone.replace(/[\s-]/g, '');
+        if (!phoneRegex.test(cleanPhone)) {
+            toast.error("Please enter a valid 10-digit mobile number");
             return;
         }
 
@@ -53,6 +62,8 @@ export default function GymRegister() {
                 .insert({
                     user_id: userId,
                     full_name: formData.adminName,
+                    phone: formData.phone,
+                    email: formData.email,
                 });
             if (profileError) {
                 // detailed error logging
@@ -228,19 +239,39 @@ export default function GymRegister() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email Address</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="admin@gym.com"
-                                    className="pl-10"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email Address</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="admin@gym.com"
+                                        className="pl-10"
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Phone Number</Label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        placeholder="9876543210"
+                                        className="pl-10"
+                                        value={formData.phone}
+                                        onChange={handleChange}
+                                        pattern="[0-9]{10}"
+                                        title="Please enter a 10-digit mobile number"
+                                        maxLength={10}
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
 
