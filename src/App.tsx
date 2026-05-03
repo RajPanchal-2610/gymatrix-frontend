@@ -37,7 +37,10 @@ import GymPermissions from "./pages/gym/Permissions";
 import GymMembershipPlans from "./pages/gym/MembershipPlans";
 import GymPayments from "./pages/gym/Payments";
 import GymDietWorkoutPlans from "./pages/gym/DietWorkoutPlans";
-
+import GymReports from "./pages/gym/Reports";
+import RevenueCollectionReport from "./pages/gym/reports/RevenueCollectionReport";
+import PlanAnalysisReport from "./pages/gym/reports/PlanAnalysisReport";
+import MembershipLifecycleReport from "./pages/gym/reports/MembershipLifecycleReport";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -130,7 +133,28 @@ const App = () => (
                     <Route path="/reports" element={
                       <FeatureGuard feature="Reports & Analytics">
                         <PermissionGuard permission="view_reports">
-                          <Reports />
+                          <GymReports />
+                        </PermissionGuard>
+                      </FeatureGuard>
+                    } />
+                    <Route path="/reports/collection" element={
+                      <FeatureGuard feature="Reports & Analytics">
+                        <PermissionGuard permission="view_reports">
+                          <RevenueCollectionReport />
+                        </PermissionGuard>
+                      </FeatureGuard>
+                    } />
+                    <Route path="/reports/plans" element={
+                      <FeatureGuard feature="Reports & Analytics">
+                        <PermissionGuard permission="view_reports">
+                          <PlanAnalysisReport />
+                        </PermissionGuard>
+                      </FeatureGuard>
+                    } />
+                    <Route path="/reports/lifecycle" element={
+                      <FeatureGuard feature="Reports & Analytics">
+                        <PermissionGuard permission="view_reports">
+                          <MembershipLifecycleReport />
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
