@@ -10,6 +10,9 @@ import { supabase } from '@/lib/supabase';
 import { DateRangePicker } from '@/components/reports/DateRangePicker';
 import { DateRange } from "react-day-picker";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { useGym } from "@/hooks/useGym";
+import { pdfExportService } from '@/services/pdfExportService';
+import { toast } from 'sonner';
 
 const COLORS = [
   '#0ea5e9', // Vibrant Electric Blue
@@ -23,6 +26,10 @@ const COLORS = [
 
 const MembershipLifecycleReport = () => {
   const navigate = useNavigate();
+  const { gymId, gyms } = useGym();
+  const currentGym = gyms.find(g => g.id === gymId);
+  const gymName = currentGym?.name || "FitFlow Gym";
+
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -48,6 +55,68 @@ const MembershipLifecycleReport = () => {
 
   const getCount = (name: string) => lifecycleData?.summary?.find((d: any) => d.name === name)?.count || 0;
 
+  const handleExport = () => {
+    if (!lifecycleData?.details?.length) return;
+    
+    const headers = ["Date", "Member", "Event Type"];
+    const csvRows = lifecycleData.details.map((event: any) => {
+      return [
+        new Date(event.date).toLocaleDateString('en-IN'),
+        `"${event.member}"`,
+        `"${event.type}"`
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `membership_lifecycle_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = async () => {
+    if (!lifecycleData?.details?.length) return;
+
+    try {
+      toast.loading("Generating PDF...", { id: "export-pdf" });
+      
+      const summaryRows = (lifecycleData.summary || []).map((d: any) => [
+        d.name,
+        d.count
+      ]);
+
+      const detailsRows = (lifecycleData.details || []).map((event: any) => [
+        new Date(event.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        event.member,
+        event.type
+      ]);
+
+      await pdfExportService.exportReport({
+        title: "Membership Lifecycle Report",
+        subtitle: `Period: ${date?.from ? new Date(date.from).toLocaleDateString('en-IN') : 'N/A'} - ${date?.to ? new Date(date.to).toLocaleDateString('en-IN') : 'N/A'}`,
+        summary: {
+          title: "Movement Summary",
+          headers: ["Event Type", "Count"],
+          rows: summaryRows
+        },
+        details: {
+          title: "Detailed Lifecycle Events",
+          headers: ["Date", "Member", "Event Type"],
+          rows: detailsRows
+        }
+      }, gymName);
+
+      toast.success("PDF exported successfully", { id: "export-pdf" });
+    } catch (error) {
+      console.error("PDF Export Error:", error);
+      toast.error("Failed to export PDF", { id: "export-pdf" });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,9 +131,21 @@ const MembershipLifecycleReport = () => {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DateRangePicker date={date} setDate={setDate} />
-          <Button className="gradient-primary shadow-glow h-10">
+          <Button 
+            className="gradient-primary shadow-glow h-10"
+            onClick={handleExportPDF}
+            disabled={!lifecycleData?.details?.length}
+          >
             <Download className="h-4 w-4 mr-2" />
             PDF Report
+          </Button>
+          <Button 
+            className="gradient-primary shadow-glow h-10"
+            onClick={handleExport}
+            disabled={!lifecycleData?.details?.length}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
           </Button>
         </div>
       </div>
@@ -74,8 +155,8 @@ const MembershipLifecycleReport = () => {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">New Admissions</p>
-                <p className="text-3xl font-bold">{getCount('New Admissions')}</p>
+                <p className="text-sm font-medium text-muted-foreground">New Members</p>
+                <p className="text-3xl font-bold">{getCount('New Members')}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <UserPlus className="h-6 w-6 text-primary" />
@@ -202,7 +283,7 @@ const MembershipLifecycleReport = () => {
                       <td className="p-4 align-middle text-right">
                         <span className={cn(
                           "px-2 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider",
-                          event.type === 'New Admission' ? "bg-emerald-500/10 text-emerald-500" :
+                          event.type === 'New Member' ? "bg-emerald-500/10 text-emerald-500" :
                           event.type === 'Renewal' ? "bg-blue-500/10 text-blue-500" :
                           "bg-rose-500/10 text-rose-500"
                         )}>

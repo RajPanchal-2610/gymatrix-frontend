@@ -3,15 +3,49 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Download, Filter, TrendingUp, Users, CreditCard, ChevronRight, BarChart3, PieChart as PieChartIcon, Activity } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
 
 const GymReports = () => {
   const navigate = useNavigate();
 
+  const { data: overview, isLoading } = useQuery({
+    queryKey: ['reportsOverview'],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/overview`, {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      });
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.json();
+    }
+  });
+
   // Quick stats for the overview
   const stats = [
-    { title: 'Total Collection', value: '₹1,24,500', icon: CreditCard, trend: '+12.5%', color: 'text-primary' },
-    { title: 'Active Members', value: '450', icon: Users, trend: '+3.2%', color: 'text-purple-500' },
-    { title: 'Retention Rate', value: '92%', icon: TrendingUp, trend: '+1.5%', color: 'text-emerald-500' },
+    { 
+      title: 'Total Collection', 
+      value: isLoading ? '...' : `₹${Number(overview?.totalCollection || 0).toLocaleString()}`, 
+      icon: CreditCard, 
+      trend: overview?.collectionTrend >= 0 ? `+${overview?.collectionTrend}%` : `${overview?.collectionTrend}%`, 
+      color: 'text-primary' 
+    },
+    { 
+      title: 'Active Members', 
+      value: isLoading ? '...' : (overview?.activeMembers || 0).toString(), 
+      icon: Users, 
+      trend: overview?.growth >= 0 ? `+${overview?.growth}%` : `${overview?.growth}%`, 
+      color: 'text-purple-500' 
+    },
+    { 
+      title: 'Retention Rate', 
+      value: isLoading ? '...' : `${overview?.retention || 0}%`, 
+      icon: TrendingUp, 
+      trend: '+0%', // Can be enhanced later with MoM retention trend
+      color: 'text-emerald-500' 
+    },
   ];
 
   const reportCards = [
@@ -47,16 +81,6 @@ const GymReports = () => {
           <p className="text-muted-foreground mt-1">
             Comprehensive insights into your gym's financial and operational performance.
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" className="h-10">
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
-          <Button className="gradient-primary shadow-glow h-10">
-            <Download className="h-4 w-4 mr-2" />
-            Export All Data
-          </Button>
         </div>
       </div>
 
