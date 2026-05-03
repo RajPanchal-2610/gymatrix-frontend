@@ -64,6 +64,7 @@ import { staffService } from "@/services/staffService";
 import { toast } from "sonner";
 import { format, addMonths, addDays, addYears, differenceInCalendarDays } from "date-fns";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 
 export default function Members() {
@@ -770,138 +771,51 @@ export default function Members() {
                                             Add Member
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[500px]">
-                                        <DialogHeader>
+                                    <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
+                                        <DialogHeader className="p-6 pb-2">
                                             <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
                                         </DialogHeader>
-                                        <div className="space-y-4 mt-4">
-                                            <div className="flex justify-center">
-                                                <Avatar className="h-20 w-20">
-                                                    <AvatarImage src={formData.image_url} />
-                                                    <AvatarFallback className="bg-primary/10 text-primary text-2xl font-semibold">
-                                                        {formData.full_name ? formData.full_name.substring(0, 2).toUpperCase() : "M"}
-                                                    </AvatarFallback>
-                                                </Avatar>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="imageUpload">Profile Image</Label>
-                                                <div className="flex gap-2">
-                                                    <Input
-                                                        id="imageUpload"
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={handleFileUpload}
-                                                        disabled={uploading}
-                                                        className="cursor-pointer"
-                                                    />
-                                                    {uploading && (
-                                                        <div className="flex items-center px-3 border rounded-md bg-muted">
-                                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
-                                                <Input
-                                                    id="fullName"
-                                                    placeholder="John Doe"
-                                                    value={formData.full_name}
-                                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="email">Email</Label>
-                                                    <Input
-                                                        id="email"
-                                                        type="email"
-                                                        placeholder="john@email.com"
-                                                        value={formData.email}
-                                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="phone">Phone</Label>
-                                                    <Input
-                                                        id="phone"
-                                                        placeholder="+1 234 567 890"
-                                                        value={formData.phone}
-                                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="device_user_id">Biometric ID (Device Assigned)</Label>
-                                                    <Input
-                                                        id="device_user_id"
-                                                        placeholder="e.g. 1001"
-                                                        value={formData.device_user_id}
-                                                        onChange={(e) => setFormData({ ...formData, device_user_id: e.target.value })}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label>Subscription Plan <span className="text-destructive">*</span></Label>
-                                                <Select
-                                                    value={formData.membership_plan_id}
-                                                    onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
-                                                >
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select plan" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {plans.map((plan) => (
-                                                            <SelectItem key={plan.id} value={plan.id.toString()}>
-                                                                {plan.name} - ₹{plan.price}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="joinDate">Join Date</Label>
-                                                    <Input
-                                                        id="joinDate"
-                                                        type="date"
-                                                        value={formData.join_date}
-                                                        onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
-                                                    />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <Label>Assigned Personal Trainer</Label>
-                                                    <Select
-                                                        value={formData.trainer_id}
-                                                        onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select Personal Trainer (optional)" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="none">No Personal Trainer</SelectItem>
-                                                            {trainers.map((trainer) => (
-                                                                <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                                                    {trainer.full_name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="ptFee">Personal Training Fee (Monthly)</Label>
-                                                        <div className="relative">
-                                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        
+                                        <ScrollArea className="max-h-[80vh] px-6 pb-6">
+                                            <div className="space-y-6 mt-4">
+                                                {/* Profile Image Section */}
+                                                <div className="flex flex-col items-center gap-4 p-4 rounded-xl bg-muted/30 border border-dashed border-muted-foreground/20">
+                                                    <Avatar className="h-24 w-24 border-2 border-background shadow-md">
+                                                        <AvatarImage src={formData.image_url} />
+                                                        <AvatarFallback className="bg-primary/10 text-primary text-3xl font-bold uppercase">
+                                                            {formData.full_name ? formData.full_name.substring(0, 2) : "M"}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="w-full space-y-2">
+                                                        <Label htmlFor="imageUpload" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Profile Image</Label>
+                                                        <div className="flex gap-2">
                                                             <Input
-                                                                id="ptFee"
-                                                                type="number"
-                                                                className="pl-9"
-                                                                value={formData.pt_fee}
-                                                                onChange={(e) => setFormData({ ...formData, pt_fee: e.target.value })}
-                                                                placeholder="0.00"
+                                                                id="imageUpload"
+                                                                type="file"
+                                                                accept="image/*"
+                                                                onChange={handleFileUpload}
+                                                                disabled={uploading}
+                                                                className="cursor-pointer h-9 text-sm"
                                                             />
+                                                            {uploading && (
+                                                                <div className="flex items-center px-3 border rounded-md bg-muted">
+                                                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4 mt-4">
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="fullName">Full Name <span className="text-destructive">*</span></Label>
+                                                        <Input
+                                                            id="fullName"
+                                                            placeholder="John Doe"
+                                                            value={formData.full_name}
+                                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                                        />
+                                                    </div>
                                                     <div className="space-y-2">
                                                         <Label>Gender</Label>
                                                         <Select
@@ -917,6 +831,106 @@ export default function Members() {
                                                                 <SelectItem value="Other">Other</SelectItem>
                                                             </SelectContent>
                                                         </Select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="email">Email Address</Label>
+                                                        <Input
+                                                            id="email"
+                                                            type="email"
+                                                            placeholder="john@email.com"
+                                                            value={formData.email}
+                                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="phone">Phone Number</Label>
+                                                        <Input
+                                                            id="phone"
+                                                            placeholder="+91 98765 43210"
+                                                            value={formData.phone}
+                                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                    <div className="space-y-2">
+                                                        <Label>Subscription Plan <span className="text-destructive">*</span></Label>
+                                                        <Select
+                                                            value={formData.membership_plan_id}
+                                                            onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
+                                                        >
+                                                            <SelectTrigger className="w-full">
+                                                                <SelectValue placeholder="Select plan" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {plans.map((plan) => (
+                                                                    <SelectItem key={plan.id} value={plan.id.toString()}>
+                                                                        {plan.name} - ₹{plan.price}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="joinDate">Join Date</Label>
+                                                        <Input
+                                                            id="joinDate"
+                                                            type="date"
+                                                            value={formData.join_date}
+                                                            onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                    <div className="space-y-2">
+                                                        <Label>Assigned Personal Trainer</Label>
+                                                        <Select
+                                                            value={formData.trainer_id}
+                                                            onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                                        >
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Select Trainer" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="none">No Personal Trainer</SelectItem>
+                                                                {trainers.map((trainer) => (
+                                                                    <SelectItem key={trainer.id} value={trainer.id.toString()}>
+                                                                        {trainer.full_name}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="ptFee">PT Fee (Monthly)</Label>
+                                                        <div className="relative">
+                                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                            <Input
+                                                                id="ptFee"
+                                                                type="number"
+                                                                className="pl-9"
+                                                                value={formData.pt_fee}
+                                                                onChange={(e) => setFormData({ ...formData, pt_fee: e.target.value })}
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor="device_user_id">Biometric ID (Device)</Label>
+                                                        <Input
+                                                            id="device_user_id"
+                                                            placeholder="e.g. 1001"
+                                                            value={formData.device_user_id}
+                                                            onChange={(e) => setFormData({ ...formData, device_user_id: e.target.value })}
+                                                        />
                                                     </div>
                                                     <div className="space-y-2">
                                                         <Label>Status</Label>
@@ -937,8 +951,9 @@ export default function Members() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="flex justify-end gap-3 mt-6">
+                                        </ScrollArea>
+
+                                        <div className="flex justify-end gap-3 p-6 border-t bg-muted/50">
                                             <Button variant="outline" onClick={() => setDialogOpen(false)}>
                                                 Cancel
                                             </Button>

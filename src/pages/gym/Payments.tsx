@@ -7,7 +7,6 @@ import {
     AlertCircle,
     CheckCircle,
     Clock,
-    MoreHorizontal,
     PlusCircle,
     Eye,
     Edit,
@@ -25,12 +24,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useGym } from "@/hooks/useGym";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -259,39 +252,47 @@ export default function GymPayments() {
                                                         </Button>
                                                     )}
 
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                                <MoreHorizontal className="h-4 w-4" />
-                                                            </Button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => {
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                            onClick={() => {
                                                                 setSelectedPayment(payment);
                                                                 setViewPaymentOpen(true);
-                                                            }}>
-                                                                <Eye className="h-4 w-4 mr-2" />
-                                                                View Details
-                                                            </DropdownMenuItem>
+                                                            }}
+                                                            title="View Details"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
 
-                                                            {hasPermission('manage_payments') && (
-                                                                <>
-                                                                    <DropdownMenuItem onClick={() => {
+                                                        {hasPermission('manage_payments') && (
+                                                            <>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                    onClick={() => {
                                                                         setSelectedPayment(payment);
                                                                         setEditPaymentOpen(true);
-                                                                    }}>
-                                                                        <Edit className="h-4 w-4 mr-2" />
-                                                                        Edit Record
-                                                                    </DropdownMenuItem>
+                                                                    }}
+                                                                    title="Edit Record"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
 
-                                                                    <DropdownMenuItem onClick={() => handleDeletePayment(payment.id)} className="text-destructive focus:text-destructive">
-                                                                        <Trash2 className="h-4 w-4 mr-2" />
-                                                                        Delete
-                                                                    </DropdownMenuItem>
-                                                                </>
-                                                            )}
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                    onClick={() => handleDeletePayment(payment.id)}
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
