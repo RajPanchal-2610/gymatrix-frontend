@@ -24,7 +24,8 @@ import {
   Pencil,
   Shield,
   Apple,
-  TicketPercent
+  TicketPercent,
+  Trophy
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,7 @@ const navItems = [
   { title: "Reports", url: "/reports", icon: BarChart3 },
   { title: "Contact Messages", url: "/contact-messages", icon: Mail },
   { title: "Coupons", url: "/coupons", icon: TicketPercent },
+  { title: "Tournaments", url: "/tournaments", icon: Trophy },
 ];
 
 const bottomItems = [
@@ -128,8 +130,8 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
 
     const NavItem = ({ item }: { item: typeof navItems[0] }) => {
       const { role } = usePermissions();
-    // Hide Attendance, Staff, Pricing, Roles, Permissions, and Inventory for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/permissions" || item.title === "Inventory")) {
+    // Hide Attendance, Staff, Pricing, Roles, Permissions, Inventory, and Tournaments for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/permissions" || item.title === "Inventory" || item.title === "Tournaments")) {
       return null;
     }
 

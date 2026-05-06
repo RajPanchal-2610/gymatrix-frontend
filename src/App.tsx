@@ -41,6 +41,8 @@ import GymReports from "./pages/gym/Reports";
 import RevenueCollectionReport from "./pages/gym/reports/RevenueCollectionReport";
 import PlanAnalysisReport from "./pages/gym/reports/PlanAnalysisReport";
 import MembershipLifecycleReport from "./pages/gym/reports/MembershipLifecycleReport";
+import GymTournaments from "./pages/gym/Tournaments";
+import GymTournamentDetail from "./pages/gym/TournamentDetail";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -165,6 +167,8 @@ const App = () => (
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
+                    <Route path="/tournaments" element={<GymTournaments />} />
+                    <Route path="/tournaments/:id" element={<GymTournamentDetail />} />
                   </Route>
                 </Route>
 
