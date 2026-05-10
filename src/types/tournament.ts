@@ -54,8 +54,11 @@ export interface Tournament {
 export interface TournamentParticipant {
   id: string;
   tournament_id: string;
-  member_id: number;
+  member_id: number | null;
+  external_name: string | null;
+  external_contact: string | null;
   seed_number: number | null;
+  group_label: string | null;
   joined_at: string;
   member?: {
     id: number;
@@ -77,9 +80,11 @@ export interface TournamentMatch {
   participant2_score: number | null;
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   next_match_id: string | null;
-  participant1?: { id: string; member?: { id: number; full_name: string } } | null;
-  participant2?: { id: string; member?: { id: number; full_name: string } } | null;
-  winner?: { id: string; member?: { id: number; full_name: string } } | null;
+  phase: 'GROUP' | 'KNOCKOUT' | 'TIE_BREAKER';
+  group_label: string | null;
+  participant1?: { id: string; external_name?: string | null; member?: { id: number; full_name: string } } | null;
+  participant2?: { id: string; external_name?: string | null; member?: { id: number; full_name: string } } | null;
+  winner?: { id: string; external_name?: string | null; member?: { id: number; full_name: string } } | null;
 }
 
 export interface TournamentAttempt {
@@ -89,7 +94,7 @@ export interface TournamentAttempt {
   attempt_number: number;
   score: number | null;
   status: 'PENDING' | 'VALID' | 'INVALID';
-  participant?: { id: string; member?: { id: number; member_name: string } };
+  participant?: { id: string; external_name?: string | null; member?: { id: number; full_name: string } };
 }
 
 export interface LeaderboardEntry {

@@ -34,8 +34,17 @@ import {
   ChevronRight,
   Trash2,
   Loader2,
+  MoreVertical,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { tournamentService } from '@/services/tournamentService';
 import type { Tournament, TournamentMasterData, TournamentFormat } from '@/types/tournament';
 
@@ -57,6 +66,9 @@ const Tournaments = () => {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   // Fetch tournaments
   const { data: tournaments = [], isLoading } = useQuery({
@@ -76,6 +88,21 @@ const Tournaments = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
       toast.success('Tournament deleted');
+      setDeleteConfirmOpen(false);
+      setSelectedTournament(null);
+    },
+    onError: (err: any) => toast.error(err.message),
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: any }) => 
+      tournamentService.updateTournament(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+      toast.success('Tournament updated');
+      setEditOpen(false);
+      setSelectedTournament(null);
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -209,7 +236,7 @@ const Tournaments = () => {
                         <FormatIcon className="h-5 w-5 text-amber-500" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-base truncate max-w-[180px]">
+                        <h3 className="font-semibold text-base truncate max-w-[150px]">
                           {tournament.name}
                         </h3>
                         <p className="text-xs text-muted-foreground">
@@ -217,7 +244,43 @@ const Tournaments = () => {
                         </p>
                       </div>
                     </div>
-                    <Badge variant={config?.variant}>{config?.label}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={config?.variant}>{config?.label}</Badge>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem 
+                            disabled={tournament.status !== 'DRAFT'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTournament(tournament);
+                              setEditOpen(true);
+                            }}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedTournament(tournament);
+                              setDeleteConfirmOpen(true);
+                            }}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   {tournament.description && (
@@ -260,6 +323,50 @@ const Tournaments = () => {
         onOpenChange={setCreateOpen}
         masterData={masterData}
       />
+
+      {/* Edit Tournament Dialog */}
+      {selectedTournament && (
+        <EditTournamentDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          tournament={selectedTournament}
+          masterData={masterData}
+          onConfirm={(updates) => updateMutation.mutate({ id: selectedTournament.id, updates })}
+          isPending={updateMutation.isPending}
+        />
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {selectedTournament && (
+        <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <DialogContent className="sm:max-w-[400px]">
+            <DialogHeader>
+              <div className="flex items-center gap-3 text-destructive mb-2">
+                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <DialogTitle>Delete Tournament</DialogTitle>
+              </div>
+              <DialogDescription className="pt-2">
+                Are you sure you want to delete <span className="font-bold text-foreground">"{selectedTournament.name}"</span>? 
+                This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-6 gap-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="flex-1">Cancel</Button>
+              <Button 
+                variant="destructive" 
+                onClick={() => deleteMutation.mutate(selectedTournament.id)} 
+                disabled={deleteMutation.isPending}
+                className="flex-1"
+              >
+                {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
@@ -288,6 +395,8 @@ function CreateTournamentDialog({
     unit: 'kg',
     time_limit_seconds: 60,
     measurement: 'time',
+    group_size: 4,
+    matches_per_player: 3,
   });
 
   const selectedFormat = masterData?.formats.find((f) => f.id === formData.format_id);
@@ -307,7 +416,10 @@ function CreateTournamentDialog({
         rules.time_limit_seconds = formData.time_limit_seconds;
         rules.measurement = formData.measurement;
       } else if (selectedFormat?.type === 'KNOCKOUT') {
-        // Knockout doesn't need extra rules; bracket is auto-generated
+        if (selectedFormat.name === 'Group Stage + Knockout') {
+          rules.group_size = formData.group_size;
+          rules.matches_per_player = formData.matches_per_player;
+        }
       }
       return tournamentService.createTournament({
         name: formData.name,
@@ -332,7 +444,7 @@ function CreateTournamentDialog({
     setFormData({
       name: '', description: '', start_date: '', end_date: '',
       category_id: '', format_id: '', attempts: 3, unit: 'kg',
-      time_limit_seconds: 60, measurement: 'time',
+      time_limit_seconds: 60, measurement: 'time', group_size: 4, matches_per_player: 3,
     });
   };
 
@@ -445,6 +557,64 @@ function CreateTournamentDialog({
               </Select>
             </div>
 
+            {/* Group Stage Settings */}
+            {selectedFormat?.name === 'Group Stage + Knockout' && (
+              <div className="space-y-2 p-3 border border-sidebar-border/50 rounded-lg bg-sidebar/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <Swords className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Group Stage Settings</Label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="group-size" className="text-xs text-muted-foreground">Players / Group</Label>
+                    <Select
+                      value={formData.group_size.toString()}
+                      onValueChange={(val) => {
+                        const size = parseInt(val);
+                        setFormData({ 
+                          ...formData, 
+                          group_size: size,
+                          matches_per_player: Math.min(formData.matches_per_player, size - 1)
+                        });
+                      }}
+                    >
+                      <SelectTrigger id="group-size" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="4">4 Players</SelectItem>
+                        <SelectItem value="6">6 Players</SelectItem>
+                        <SelectItem value="8">8 Players</SelectItem>
+                        <SelectItem value="10">10 Players</SelectItem>
+                        <SelectItem value="12">12 Players</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="matches-per-player" className="text-xs text-muted-foreground">Matches / Player</Label>
+                    <Select
+                      value={formData.matches_per_player.toString()}
+                      onValueChange={(val) => setFormData({ ...formData, matches_per_player: parseInt(val) })}
+                    >
+                      <SelectTrigger id="matches-per-player" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: formData.group_size - 1 }, (_, i) => i + 1).map(num => (
+                          <SelectItem key={num} value={num.toString()}>
+                            {num} Match{num > 1 ? 'es' : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground italic leading-tight">
+                  * Each player will play {formData.matches_per_player} match{formData.matches_per_player > 1 ? 'es' : ''} in the group phase.
+                </p>
+              </div>
+            )}
+
             {/* Dynamic Rules */}
             {selectedFormat?.type === 'SCORE_BASED' && (
               <Card className="border-dashed">
@@ -543,6 +713,237 @@ function CreateTournamentDialog({
           >
             {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Create Tournament
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditTournamentDialog({ 
+  open, 
+  onOpenChange, 
+  tournament, 
+  masterData,
+  onConfirm, 
+  isPending 
+}: { 
+  open: boolean; 
+  onOpenChange: (v: boolean) => void; 
+  tournament: any; 
+  masterData?: TournamentMasterData;
+  onConfirm: (updates: any) => void; 
+  isPending: boolean 
+}) {
+  const [formData, setFormData] = useState({
+    name: tournament.name,
+    description: tournament.description || '',
+    start_date: tournament.start_date.split('T')[0],
+    end_date: tournament.end_date.split('T')[0],
+    category_id: tournament.category_id,
+    format_id: tournament.format_id,
+    attempts: tournament.rules?.attempts || 3,
+    unit: tournament.rules?.unit || 'kg',
+    time_limit_seconds: tournament.rules?.time_limit_seconds || 60,
+    measurement: tournament.rules?.measurement || 'time',
+    group_size: tournament.rules?.group_size || 4,
+    matches_per_player: tournament.rules?.matches_per_player || 3,
+  });
+
+  const selectedFormat = masterData?.formats.find((f) => f.id === formData.format_id);
+  const allowedFormatIds = formData.category_id
+    ? masterData?.categoryFormats[formData.category_id] || []
+    : [];
+  const allowedFormats = masterData?.formats.filter((f) => allowedFormatIds.includes(f.id)) || [];
+
+  React.useEffect(() => {
+    if (open) {
+      setFormData({
+        name: tournament.name,
+        description: tournament.description || '',
+        start_date: tournament.start_date.split('T')[0],
+        end_date: tournament.end_date.split('T')[0],
+        category_id: tournament.category_id,
+        format_id: tournament.format_id,
+        attempts: tournament.rules?.attempts || 3,
+        unit: tournament.rules?.unit || 'kg',
+        time_limit_seconds: tournament.rules?.time_limit_seconds || 60,
+        measurement: tournament.rules?.measurement || 'time',
+        group_size: tournament.rules?.group_size || 4,
+        matches_per_player: tournament.rules?.matches_per_player || 3,
+      });
+    }
+  }, [open, tournament]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const rules: Record<string, any> = {};
+    if (selectedFormat?.type === 'SCORE_BASED') {
+      rules.attempts = formData.attempts;
+      rules.unit = formData.unit;
+    } else if (selectedFormat?.type === 'TIME_BASED') {
+      rules.attempts = formData.attempts;
+      rules.time_limit_seconds = formData.time_limit_seconds;
+      rules.measurement = formData.measurement;
+    } else if (selectedFormat?.type === 'KNOCKOUT') {
+      if (selectedFormat.name === 'Group Stage + Knockout') {
+        rules.group_size = formData.group_size;
+        rules.matches_per_player = formData.matches_per_player;
+      }
+    }
+
+    onConfirm({
+      name: formData.name,
+      description: formData.description || undefined,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      category_id: formData.category_id,
+      format_id: formData.format_id,
+      rules,
+    });
+  };
+
+  const canSubmit = formData.name && formData.start_date && formData.end_date && formData.category_id && formData.format_id;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Pencil className="h-5 w-5 text-primary" />
+            Edit Tournament
+          </DialogTitle>
+          <DialogDescription>Update the details and rules for this tournament.</DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Tournament Name *</Label>
+              <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date *</Label>
+                <Input type="date" value={formData.start_date} onChange={(e) => setFormData({ ...formData, start_date: e.target.value })} required />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date *</Label>
+                <Input type="date" value={formData.end_date} onChange={(e) => setFormData({ ...formData, end_date: e.target.value })} required />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Category *</Label>
+              <Select value={formData.category_id} onValueChange={(val) => setFormData({ ...formData, category_id: val, format_id: '' })}>
+                <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectContent>
+                  {masterData?.categories.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Format *</Label>
+              <Select value={formData.format_id} onValueChange={(val) => setFormData({ ...formData, format_id: val })} disabled={!formData.category_id}>
+                <SelectTrigger><SelectValue placeholder={formData.category_id ? 'Select format' : 'Select category first'} /></SelectTrigger>
+                <SelectContent>
+                  {allowedFormats.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedFormat?.name === 'Group Stage + Knockout' && (
+              <div className="space-y-2 p-3 border border-sidebar-border/50 rounded-lg bg-sidebar/10">
+                <div className="flex items-center gap-2 mb-1">
+                  <Swords className="h-4 w-4 text-primary" />
+                  <Label className="text-sm font-semibold">Group Stage Settings</Label>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Players / Group</Label>
+                    <Select value={formData.group_size.toString()} onValueChange={(val) => setFormData({ ...formData, group_size: parseInt(val) })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[4, 6, 8, 10, 12].map(n => <SelectItem key={n} value={n.toString()}>{n} Players</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Matches / Player</Label>
+                    <Select value={formData.matches_per_player.toString()} onValueChange={(val) => setFormData({ ...formData, matches_per_player: parseInt(val) })}>
+                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: formData.group_size - 1 }, (_, i) => i + 1).map(num => (
+                          <SelectItem key={num} value={num.toString()}>{num} Match{num > 1 ? 'es' : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedFormat?.type === 'SCORE_BASED' && (
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Score-Based Rules</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Attempts</Label>
+                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: parseInt(e.target.value) || 3 })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Unit</Label>
+                      <Select value={formData.unit} onValueChange={(val) => setFormData({ ...formData, unit: val })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kg">Kilograms (kg)</SelectItem>
+                          <SelectItem value="reps">Reps</SelectItem>
+                          <SelectItem value="lbs">Pounds (lbs)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedFormat?.type === 'TIME_BASED' && (
+              <Card className="border-dashed">
+                <CardContent className="p-4 space-y-3">
+                  <p className="text-sm font-medium text-muted-foreground">Time-Based Rules</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Time Limit (seconds)</Label>
+                      <Input type="number" min={10} value={formData.time_limit_seconds} onChange={(e) => setFormData({ ...formData, time_limit_seconds: parseInt(e.target.value) || 60 })} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Attempts</Label>
+                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: parseInt(e.target.value) || 1 })} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </ScrollArea>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit || isPending} className="gradient-primary">
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Save Changes
           </Button>
         </DialogFooter>
       </DialogContent>
