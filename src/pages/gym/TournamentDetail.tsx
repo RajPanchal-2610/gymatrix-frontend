@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { Trophy, ArrowLeft, Users, Play, CheckCircle2, Loader2, UserPlus, Trash2, Swords, Target, Timer, Crown, Medal, ArrowUp, ArrowDown, Shuffle, Settings2 } from 'lucide-react';
+import { Trophy, ArrowLeft, Users, Play, CheckCircle2, Loader2, UserPlus, Trash2, Swords, Target, Timer, Crown, Medal, ArrowUp, ArrowDown, Shuffle, Settings2, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { tournamentService } from '@/services/tournamentService';
 import { supabase } from '@/lib/supabase';
@@ -34,10 +34,12 @@ const TournamentDetailPage = () => {
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
   const [winnerId, setWinnerId] = useState('');
+  const [participant1Score, setParticipant1Score] = useState<string>('');
+  const [participant2Score, setParticipant2Score] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('bracket');
   const hasInitializedTab = React.useRef(false);
-  const [tieDetails, setTieDetails] = useState<{ groupLabel: string; tiedPlayers: { id: string; name: string }[]; playersToAdvance: number } | null>(null);
+  const [tieDetails, setTieDetails] = useState<{ groupLabel: string; tiedPlayers: { id: string; name: string }[]; playersToAdvance: number; spotsAvailable: number } | null>(null);
   const [tieBreakerDialogOpen, setTieBreakerDialogOpen] = useState(false);
 
   const { data: tournament, isLoading } = useQuery({
@@ -51,7 +53,7 @@ const TournamentDetailPage = () => {
     if (tournament && !hasInitializedTab.current) {
       const type = (tournament.format as any)?.type;
       const name = (tournament.format as any)?.name;
-      
+
       if (name === 'Group Stage + Knockout') {
         // If we have knockout matches already, maybe go to bracket, 
         // but usually people want to see groups first or where they left off.
@@ -94,12 +96,18 @@ const TournamentDetailPage = () => {
   });
 
   const submitMatchResultMutation = useMutation({
-    mutationFn: () => tournamentService.submitMatchResult(id!, selectedMatch!.id, { winner_id: winnerId }),
+    mutationFn: () => tournamentService.submitMatchResult(id!, selectedMatch!.id, {
+      winner_id: winnerId,
+      participant1_score: participant1Score ? parseFloat(participant1Score) : undefined,
+      participant2_score: participant2Score ? parseFloat(participant2Score) : undefined
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tournament', id] });
       toast.success('Match result recorded!');
       setSelectedMatch(null);
       setWinnerId('');
+      setParticipant1Score('');
+      setParticipant2Score('');
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -112,7 +120,8 @@ const TournamentDetailPage = () => {
         setTieDetails({
           groupLabel: data.groupLabel,
           tiedPlayers: data.tiedPlayers,
-          playersToAdvance: data.playersToAdvance
+          playersToAdvance: data.playersToAdvance,
+          spotsAvailable: data.spotsAvailable
         });
         setTieBreakerDialogOpen(true);
         toast.info(`Tie detected in ${data.groupLabel}. Please select a resolution strategy.`);
@@ -124,11 +133,13 @@ const TournamentDetailPage = () => {
   });
 
   const resolveTieBreakerMutation = useMutation({
-    mutationFn: (strategy: 'STEPLADDER' | 'MINI_LEAGUE') => 
+    mutationFn: ({ strategy, safeParticipantId }: { strategy: 'STEPLADDER' | 'MINI_LEAGUE', safeParticipantId?: string }) =>
       tournamentService.resolveTieBreaker(id!, {
         groupLabel: tieDetails!.groupLabel,
         participantIds: tieDetails!.tiedPlayers.map(p => p.id),
-        strategy
+        strategy,
+        safeParticipantId,
+        spotsAvailable: tieDetails!.spotsAvailable
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tournament', id] });
@@ -138,6 +149,29 @@ const TournamentDetailPage = () => {
     },
     onError: (err: any) => toast.error(err.message),
   });
+
+  // Auto-select winner based on scores
+  React.useEffect(() => {
+    if (participant1Score && participant2Score && selectedMatch) {
+      const p1 = parseFloat(participant1Score);
+      const p2 = parseFloat(participant2Score);
+      if (!isNaN(p1) && !isNaN(p2)) {
+        const isTimeBased = tournament?.rules?.knockout_type === 'time';
+        const winningCriteria = tournament?.rules?.winning_criteria || (isTimeBased ? 'lowest' : 'highest');
+
+        if (p1 === p2) {
+          // Tie
+          setWinnerId('');
+        } else if (winningCriteria === 'lowest') {
+          // Lower value wins (e.g., Speed/Racing)
+          setWinnerId(p1 < p2 ? selectedMatch.participant1?.id : selectedMatch.participant2?.id);
+        } else {
+          // Higher value wins (e.g., Reps/KG/Plank Holds)
+          setWinnerId(p1 > p2 ? selectedMatch.participant1?.id : selectedMatch.participant2?.id);
+        }
+      }
+    }
+  }, [participant1Score, participant2Score, selectedMatch, tournament?.rules?.knockout_type, tournament?.rules?.winning_criteria]);
 
   if (isLoading) {
     return (
@@ -236,7 +270,7 @@ const TournamentDetailPage = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <button 
+            <button
               onClick={() => setSearchTerm('')}
               className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground"
             >
@@ -247,8 +281,8 @@ const TournamentDetailPage = () => {
       )}
 
       {/* Tabs */}
-      <Tabs 
-        value={activeTab} 
+      <Tabs
+        value={activeTab}
         onValueChange={setActiveTab}
         className="w-full"
       >
@@ -292,20 +326,20 @@ const TournamentDetailPage = () => {
         {formatType !== 'KNOCKOUT' && (
           <>
             <TabsContent value="results">
-              <ScoreTableView 
-                attempts={tournament.attempts || []} 
-                tournamentId={id!} 
-                status={tournament.status} 
-                rules={tournament.rules} 
-                formatType={formatType} 
+              <ScoreTableView
+                attempts={tournament.attempts || []}
+                tournamentId={id!}
+                status={tournament.status}
+                rules={tournament.rules}
+                formatType={formatType}
                 searchTerm={searchTerm}
               />
             </TabsContent>
             <TabsContent value="leaderboard">
-              <LeaderboardView 
-                leaderboard={tournament.leaderboard || []} 
-                rules={tournament.rules} 
-                formatType={formatType} 
+              <LeaderboardView
+                leaderboard={tournament.leaderboard || []}
+                rules={tournament.rules}
+                formatType={formatType}
                 searchTerm={searchTerm}
               />
             </TabsContent>
@@ -353,32 +387,52 @@ const TournamentDetailPage = () => {
       />
 
       {/* Match Result Dialog */}
-      <Dialog open={!!selectedMatch} onOpenChange={() => { setSelectedMatch(null); setWinnerId(''); }}>
+      <Dialog open={!!selectedMatch} onOpenChange={() => {
+        setSelectedMatch(null);
+        setWinnerId('');
+        setParticipant1Score('');
+        setParticipant2Score('');
+      }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Record Match Result</DialogTitle>
             <DialogDescription>Select the winner of this match.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-4">
-            {[selectedMatch?.participant1, selectedMatch?.participant2].filter(Boolean).map((p: any) => (
-              <Button
-                key={p?.id}
-                variant={winnerId === p?.id ? 'default' : 'outline'}
-                className={`w-full justify-start h-12 ${winnerId === p?.id ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => setWinnerId(p?.id)}
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-2 w-2 rounded-full ${winnerId === p?.id ? 'bg-white' : 'bg-primary/40'}`} />
-                    <span className="font-medium">{p?.external_name || p?.member?.full_name}</span>
+            {[selectedMatch?.participant1, selectedMatch?.participant2].filter(Boolean).map((p: any, idx) => (
+              <div key={p?.id} className="flex items-center gap-3">
+                <Button
+                  variant={winnerId === p?.id ? 'default' : 'outline'}
+                  className={`flex-1 justify-start h-14 ${winnerId === p?.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setWinnerId(p?.id)}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-2 w-2 rounded-full ${winnerId === p?.id ? 'bg-white' : 'bg-primary/40'}`} />
+                      <span className="font-medium">{p?.external_name || p?.member?.full_name}</span>
+                    </div>
+                    {winnerId === p?.id && <CheckCircle2 className="h-4 w-4" />}
                   </div>
-                  {winnerId === p?.id && <CheckCircle2 className="h-4 w-4" />}
+                </Button>
+
+                <div className="w-24">
+                  <Input
+                    type="number"
+                    placeholder={tournament.rules?.knockout_type === 'time' ? "Time (s)" : "Score"}
+                    className="h-14 text-center font-bold"
+                    value={idx === 0 ? participant1Score : participant2Score}
+                    onChange={(e) => idx === 0 ? setParticipant1Score(e.target.value) : setParticipant2Score(e.target.value)}
+                  />
                 </div>
-              </Button>
+              </div>
             ))}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedMatch(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => {
+              setSelectedMatch(null);
+              setParticipant1Score('');
+              setParticipant2Score('');
+            }}>Cancel</Button>
             <Button
               disabled={!winnerId || submitMatchResultMutation.isPending}
               onClick={() => submitMatchResultMutation.mutate()}
@@ -398,7 +452,7 @@ const TournamentDetailPage = () => {
           onOpenChange={setTieBreakerDialogOpen}
           groupLabel={tieDetails.groupLabel}
           players={tieDetails.tiedPlayers}
-          onConfirm={(strategy) => resolveTieBreakerMutation.mutate(strategy)}
+          onConfirm={(strategy, safeParticipantId) => resolveTieBreakerMutation.mutate({ strategy, safeParticipantId })}
           isPending={resolveTieBreakerMutation.isPending}
         />
       )}
@@ -769,12 +823,41 @@ function ScoreTableView({ attempts, tournamentId, status, rules, formatType, sea
   const updateMutation = useMutation({
     mutationFn: ({ attemptId, score }: { attemptId: string; score: number }) =>
       tournamentService.updateAttempt(tournamentId, attemptId, { score, status: 'VALID' }),
+    onMutate: async ({ attemptId, score }) => {
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['tournament', tournamentId] });
+
+      // Snapshot the previous value
+      const previousTournament = queryClient.getQueryData(['tournament', tournamentId]);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(['tournament', tournamentId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          attempts: old.attempts?.map((a: any) =>
+            a.id === attemptId ? { ...a, score, status: 'VALID' } : a
+          ),
+        };
+      });
+
+      return { previousTournament };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tournament', tournamentId] });
       setEditingId(null);
       toast.success('Score saved');
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any, __, context: any) => {
+      // Rollback if something went wrong
+      if (context?.previousTournament) {
+        queryClient.setQueryData(['tournament', tournamentId], context.previousTournament);
+      }
+      toast.error(err.message);
+    },
+    onSettled: () => {
+      // Always refetch in the background to sync with server
+      queryClient.invalidateQueries({ queryKey: ['tournament', tournamentId] });
+    },
   });
 
   // Group attempts by participant
@@ -812,46 +895,69 @@ function ScoreTableView({ attempts, tournamentId, status, rules, formatType, sea
             {Array.from(grouped.entries())
               .filter(([_, { name }]) => !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase()))
               .map(([pid, { name, attempts: pAttempts }]) => {
-              const validScores = pAttempts.filter((a) => a.status === 'VALID' && a.score !== null).map((a) => a.score as number);
-              const best = validScores.length > 0 ? Math.max(...validScores) : '-';
-              return (
-                <TableRow key={pid}>
-                  <TableCell className="font-medium">{name}</TableCell>
-                  {pAttempts.sort((a, b) => a.attempt_number - b.attempt_number).map((att) => (
-                    <TableCell key={att.id} className="text-center">
-                      {editingId === att.id ? (
-                        <div className="flex items-center gap-1 justify-center">
-                          <Input
-                            type="number"
-                            className="w-20 h-7 text-center text-xs"
-                            value={editScore}
-                            onChange={(e) => setEditScore(e.target.value)}
-                            autoFocus
-                            onKeyDown={(e) => { if (e.key === 'Enter') updateMutation.mutate({ attemptId: att.id, score: parseFloat(editScore) }); }}
-                          />
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => updateMutation.mutate({ attemptId: att.id, score: parseFloat(editScore) })}>
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <span
-                          className={`cursor-pointer hover:text-primary transition-colors ${att.status === 'VALID' ? 'text-emerald-400 font-semibold' : 'text-muted-foreground'} ${status !== 'ONGOING' ? 'cursor-default' : ''}`}
-                          onClick={() => {
-                            if (status === 'ONGOING') {
-                              setEditingId(att.id);
-                              setEditScore(att.score?.toString() || '');
-                            }
-                          }}
-                        >
-                          {att.score !== null ? att.score : '—'}
-                        </span>
-                      )}
-                    </TableCell>
-                  ))}
-                  <TableCell className="text-center font-bold text-primary">{best}</TableCell>
-                </TableRow>
-              );
-            })}
+                const validScores = pAttempts.filter((a) => a.status === 'VALID' && a.score !== null).map((a) => a.score as number);
+                const winningCriteria = rules?.winning_criteria || (formatType === 'TIME_BASED' ? 'lowest' : 'highest');
+                const best = validScores.length > 0 
+                  ? (winningCriteria === 'lowest' ? Math.min(...validScores) : Math.max(...validScores)) 
+                  : '-';
+                return (
+                  <TableRow key={pid}>
+                    <TableCell className="font-medium">{name}</TableCell>
+                    {pAttempts.sort((a, b) => a.attempt_number - b.attempt_number).map((att) => (
+                      <TableCell key={att.id} className="text-center p-3">
+                        {editingId === att.id ? (
+                          <div className="flex items-center gap-3 justify-center">
+                            <Input
+                              type="number"
+                              className="w-20 h-8 text-center text-xs font-bold border-primary/50 focus-visible:ring-primary bg-background"
+                              value={editScore}
+                              onChange={(e) => setEditScore(e.target.value)}
+                              autoFocus
+                              onKeyDown={(e) => { 
+                                if (e.key === 'Enter') updateMutation.mutate({ attemptId: att.id, score: parseFloat(editScore) });
+                                if (e.key === 'Escape') setEditingId(null);
+                              }}
+                            />
+                            <Button size="sm" className="h-8 w-8 p-0 shrink-0" onClick={() => updateMutation.mutate({ attemptId: att.id, score: parseFloat(editScore) })}>
+                              <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div 
+                            className={`
+                              group relative flex items-center justify-center h-10 w-24 mx-auto rounded-xl border border-dashed transition-all cursor-pointer
+                              ${att.score !== null 
+                                ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50' 
+                                : 'bg-sidebar-accent/30 border-sidebar-border/50 hover:border-primary/50 hover:bg-primary/5 shadow-inner'
+                              }
+                              ${status !== 'ONGOING' ? 'cursor-default pointer-events-none opacity-60' : ''}
+                            `}
+                            onClick={() => {
+                              if (status === 'ONGOING') {
+                                setEditingId(att.id);
+                                setEditScore(att.score?.toString() || '');
+                              }
+                            }}
+                          >
+                            {att.score !== null ? (
+                              <div className="flex flex-col items-center">
+                                <span className="text-sm font-black text-emerald-400">{att.score}</span>
+                                <Pencil className="h-2.5 w-2.5 text-emerald-500/40 absolute top-1 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-muted-foreground group-hover:text-primary transition-colors">
+                                <Plus className="h-3 w-3" />
+                                <span className="text-[10px] font-black uppercase tracking-wider">Record</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-center font-bold text-primary">{best}</TableCell>
+                  </TableRow>
+                );
+              })}
             {searchTerm && Array.from(grouped.entries()).filter(([_, { name }]) => name.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 && (
               <TableRow><TableCell colSpan={maxAttempts + 2} className="text-center py-8 text-muted-foreground">No participants found matching "{searchTerm}"</TableCell></TableRow>
             )}
@@ -930,7 +1036,7 @@ function ParticipantsTable({ participants, isDraft, onRemove, onSelectParticipan
                 <TableRow key={p.id}>
                   <TableCell className="text-muted-foreground">{idx + 1}</TableCell>
                   <TableCell>
-                    <div 
+                    <div
                       className="flex items-center gap-2 cursor-pointer group/name"
                       onClick={() => onSelectParticipant(name)}
                     >
@@ -991,8 +1097,8 @@ function AddParticipantsDialog({ open, onOpenChange, tournamentId, gymId, existi
 
   const addMutation = useMutation({
     mutationFn: () => tournamentService.addParticipants(
-      tournamentId, 
-      selected, 
+      tournamentId,
+      selected,
       externalParticipants.length > 0 ? externalParticipants : undefined
     ),
     onSuccess: () => {
@@ -1082,9 +1188,9 @@ function AddParticipantsDialog({ open, onOpenChange, tournamentId, gymId, existi
             <div className="space-y-3 p-3 border rounded-lg bg-sidebar/10">
               <div className="space-y-2">
                 <Label className="text-xs">Full Name</Label>
-                <Input 
-                  placeholder="e.g. John Doe" 
-                  value={newExternal.name} 
+                <Input
+                  placeholder="e.g. John Doe"
+                  value={newExternal.name}
                   onChange={(e) => setNewExternal({ ...newExternal, name: e.target.value })}
                   onKeyDown={(e) => e.key === 'Enter' && addExternal()}
                 />
@@ -1092,9 +1198,9 @@ function AddParticipantsDialog({ open, onOpenChange, tournamentId, gymId, existi
               <div className="space-y-2">
                 <Label className="text-xs">Contact (Phone or Email)</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    placeholder="Optional" 
-                    value={newExternal.contact} 
+                  <Input
+                    placeholder="Optional"
+                    value={newExternal.contact}
                     onChange={(e) => setNewExternal({ ...newExternal, contact: e.target.value })}
                     onKeyDown={(e) => e.key === 'Enter' && addExternal()}
                   />
@@ -1145,15 +1251,45 @@ function AddParticipantsDialog({ open, onOpenChange, tournamentId, gymId, existi
 }
 
 // ======== TIE BREAKER DIALOG ========
-function TieBreakerDialog({ open, onOpenChange, groupLabel, players, onConfirm, isPending }: { 
-  open: boolean; 
-  onOpenChange: (v: boolean) => void; 
+function TieBreakerDialog({ open, onOpenChange, groupLabel, players, onConfirm, isPending }: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
   groupLabel: string;
   players: { id: string; name: string }[];
-  onConfirm: (strategy: 'STEPLADDER' | 'MINI_LEAGUE') => void;
+  onConfirm: (strategy: 'STEPLADDER' | 'MINI_LEAGUE', safeParticipantId?: string) => void;
   isPending: boolean;
 }) {
-  const [strategy, setStrategy] = useState<'STEPLADDER' | 'MINI_LEAGUE'>('STEPLADDER');
+  const [strategy, setStrategy] = useState<'STEPLADDER' | 'MINI_LEAGUE' | null>(null);
+  const [shuffling, setShuffling] = React.useState(false);
+  const [safeIndex, setSafeIndex] = React.useState(-1);
+
+  React.useEffect(() => {
+    if (open) {
+      setStrategy(null);
+      setShuffling(false);
+      setSafeIndex(-1);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (open && strategy === 'STEPLADDER' && players.length === 3) {
+      setShuffling(true);
+      let count = 0;
+      // Slower interval for better visibility (180ms)
+      const interval = setInterval(() => {
+        setSafeIndex(Math.floor(Math.random() * 3));
+        count++;
+        if (count > 20) {
+          clearInterval(interval);
+          setShuffling(false);
+        }
+      }, 180);
+      return () => clearInterval(interval);
+    } else {
+      setShuffling(false);
+      setSafeIndex(-1);
+    }
+  }, [open, strategy, players.length]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1172,62 +1308,157 @@ function TieBreakerDialog({ open, onOpenChange, groupLabel, players, onConfirm, 
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-6">
-          <Card 
-            className={`cursor-pointer transition-all duration-300 relative overflow-hidden group
-              ${strategy === 'STEPLADDER' ? 'border-amber-500 bg-amber-500/5 ring-1 ring-amber-500/20' : 'hover:border-amber-500/50 bg-sidebar/20'}
-            `}
-            onClick={() => setStrategy('STEPLADDER')}
-          >
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Target className={`h-6 w-6 ${strategy === 'STEPLADDER' ? 'text-amber-500' : 'text-muted-foreground'}`} />
-                {strategy === 'STEPLADDER' && <CheckCircle2 className="h-4 w-4 text-amber-500" />}
+        {!strategy ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-6">
+            <Card
+              className="cursor-pointer transition-all duration-300 relative overflow-hidden group hover:border-amber-500/50 bg-sidebar/20"
+              onClick={() => setStrategy('STEPLADDER')}
+            >
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Target className="h-6 w-6 text-muted-foreground group-hover:text-amber-500 transition-colors" />
+                </div>
+                <div>
+                  <p className="font-bold">{players.length === 3 ? "Play-in Match (1 Safe, 2 Compete)" : "Play-in Matches (Elimination)"}</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-1">
+                    {players.length === 3
+                      ? "1 player gets a BYE to knockout, other 2 play 1 match. FASTEST (1 match)."
+                      : "Multi-round elimination matches. Efficient (2+ matches)."}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-bold">Stepladder</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                  Randomly pick 2 players for Match 1. Winner faces the 3rd player in Match 2. Fast & efficient (2 matches).
+            </Card>
+
+            <Card
+              className="cursor-pointer transition-all duration-300 relative overflow-hidden group hover:border-primary/50 bg-sidebar/20"
+              onClick={() => setStrategy('MINI_LEAGUE')}
+            >
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Medal className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <div>
+                  <p className="font-bold">Mini-League</p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed mt-1">
+                    Everyone plays everyone again. Most balanced & fair result ({players.length === 3 ? '3' : '6+'} matches).
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        ) : strategy === 'STEPLADDER' && players.length === 3 ? (
+          <div className="py-6 space-y-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-amber-500/10"></div>
+              </div>
+              <div className="relative flex justify-center">
+                <span className="bg-background px-3 text-[10px] font-black uppercase tracking-widest text-amber-500/50">Random Selection Process</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              {players.map((p, i) => (
+                <div
+                  key={p.id}
+                  className={`
+                    p-3 rounded-xl border transition-all duration-500 flex flex-col items-center gap-2 text-center
+                    ${!shuffling && safeIndex === i
+                      ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.2)] scale-105'
+                      : shuffling && safeIndex === i
+                        ? 'border-amber-500 bg-amber-500/20'
+                        : 'border-sidebar-border/30 bg-sidebar/10 opacity-50'}
+                  `}
+                >
+                  <div className={`
+                    h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold
+                    ${!shuffling && safeIndex === i ? 'bg-emerald-500 text-white' : 'bg-sidebar-accent text-muted-foreground'}
+                  `}>
+                    {!shuffling && safeIndex === i ? <Crown className="h-5 w-5" /> : p.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold truncate w-full">{p.name}</p>
+                    <p className={`text-[9px] font-black uppercase mt-1 ${!shuffling && safeIndex === i ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                      {!shuffling && safeIndex === i ? 'Safe' : 'Compete'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl flex gap-3 items-start">
+              <div className="p-2 rounded-lg bg-amber-500/10">
+                <Target className="h-4 w-4 text-amber-500" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-amber-600">Quick Elimination Mode</p>
+                <p className="text-[10px] text-muted-foreground leading-relaxed">
+                  The player with the Crown moves directly to the knockout. The other two will play one elimination match.
                 </p>
               </div>
             </div>
-          </Card>
 
-          <Card 
-            className={`cursor-pointer transition-all duration-300 relative overflow-hidden group
-              ${strategy === 'MINI_LEAGUE' ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:border-primary/50 bg-sidebar/20'}
-            `}
-            onClick={() => setStrategy('MINI_LEAGUE')}
-          >
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <Medal className={`h-6 w-6 ${strategy === 'MINI_LEAGUE' ? 'text-primary' : 'text-muted-foreground'}`} />
-                {strategy === 'MINI_LEAGUE' && <CheckCircle2 className="h-4 w-4 text-primary" />}
-              </div>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[10px] h-7 text-muted-foreground hover:text-foreground"
+                onClick={() => setStrategy(null)}
+              >
+                ← Back to Options
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="py-6 space-y-4">
+            <div className={`p-4 rounded-xl border flex items-center justify-between ${strategy === 'STEPLADDER' ? 'border-amber-500/20 bg-amber-500/5' : 'border-primary/20 bg-primary/5'}`}>
               <div>
-                <p className="font-bold">Mini-League</p>
-                <p className="text-[10px] text-muted-foreground leading-relaxed mt-1">
-                  Everyone plays everyone again (A vs B, B vs C, C vs A). Most balanced & fair result (3 matches).
+                <p className="font-bold">{strategy === 'STEPLADDER' ? (players.length === 3 ? 'Play-in Match (1 Safe, 2 Compete)' : 'Play-in Matches (Elimination)') : 'Mini-League'} Selected</p>
+                <p className="text-xs text-muted-foreground">
+                  {strategy === 'STEPLADDER'
+                    ? `Elimination rounds will be created for ${players.length} players.`
+                    : `Everyone will play each other once (${players.length === 3 ? '3' : '6+'} matches total).`
+                  }
                 </p>
               </div>
+              {strategy === 'STEPLADDER' ? (
+                <Target className="h-8 w-8 text-amber-500 opacity-50" />
+              ) : (
+                <Medal className="h-8 w-8 text-primary opacity-50" />
+              )}
             </div>
-          </Card>
-        </div>
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-[10px] h-7 text-muted-foreground hover:text-foreground"
+                onClick={() => setStrategy(null)}
+              >
+                ← Back to Options
+              </Button>
+            </div>
+          </div>
+        )}
 
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="ghost" onClick={() => onOpenChange(false)} className="hover:bg-red-500/10 hover:text-red-500 transition-colors">
-            Cancel
-          </Button>
-          <Button 
-            onClick={() => onConfirm(strategy)} 
-            disabled={isPending}
-            className={`font-bold transition-all shadow-lg
-              ${strategy === 'STEPLADDER' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-primary/90'}
-            `}
-          >
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirm {strategy === 'STEPLADDER' ? 'Stepladder' : 'Mini-League'}
-          </Button>
+        <DialogFooter className="flex justify-center border-t border-sidebar-border/20 pt-4">
+          {strategy && (
+            <Button
+              onClick={() => {
+                const safeId = (strategy === 'STEPLADDER' && players.length === 3 && safeIndex !== -1)
+                  ? players[safeIndex].id
+                  : undefined;
+                onConfirm(strategy, safeId);
+              }}
+              disabled={isPending || shuffling}
+              className={`font-bold transition-all shadow-lg min-w-[200px]
+                ${strategy === 'STEPLADDER' ? 'bg-amber-500 hover:bg-amber-600' : 'bg-primary hover:bg-primary/90'}
+                ${shuffling ? 'opacity-50 grayscale' : ''}
+              `}
+            >
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {shuffling ? 'Selecting Safe Player...' : `Confirm ${strategy === 'STEPLADDER' ? (players.length === 3 ? 'Play-in Match (1 Safe, 2 Compete)' : 'Play-in Matches') : 'Mini-League'}`}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1238,6 +1469,7 @@ function TieBreakerDialog({ open, onOpenChange, groupLabel, players, onConfirm, 
 function StartTournamentDialog({ open, onOpenChange, participants, onConfirm, isPending, formatType, formatName, rules }: { open: boolean; onOpenChange: (v: boolean) => void; participants: any[]; onConfirm: (options: { seedingStrategy: 'RANDOM' | 'MANUAL'; orderedParticipantIds?: string[] }) => void; isPending: boolean; formatType: string; formatName?: string; rules?: any }) {
   const [strategy, setStrategy] = useState<'RANDOM' | 'MANUAL'>('RANDOM');
   const [ordered, setOrdered] = useState<any[]>(participants);
+  const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null);
 
   // Warning logic for Multi-Stage
   const isMultiStage = formatName === 'Group Stage + Knockout';
@@ -1341,12 +1573,39 @@ function StartTournamentDialog({ open, onOpenChange, participants, onConfirm, is
         )}
 
         {strategy === 'MANUAL' && !isMultiStage && (
-          <div className="flex-1 overflow-hidden flex flex-col">
-            <Label className="mb-3 block text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Sequence Management</Label>
-            <ScrollArea className="flex-1 pr-4 -mr-4">
-              <div className="space-y-2 pb-4">
-                {ordered.map((p, idx) => (
-                  <div key={p.id} className="flex items-center justify-between p-3 rounded-xl border border-sidebar-border/30 bg-card/40 backdrop-blur-sm group/item hover:border-primary/40 transition-all shadow-sm">
+          <div className="space-y-3">
+            <Label className="block text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Sequence Management</Label>
+            <div className="max-h-[45vh] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+              {(() => {
+                const renderDraggableParticipant = (p: any, idx: number, flex1: boolean = false) => (
+                  <div
+                    key={p.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', idx.toString());
+                      e.currentTarget.classList.add('opacity-40');
+                    }}
+                    onDragEnd={(e) => {
+                      e.currentTarget.classList.remove('opacity-40');
+                      setDraggedOverIndex(null);
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDragEnter={() => setDraggedOverIndex(idx)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                      const toIndex = idx;
+                      if (fromIndex !== toIndex) {
+                        const newOrder = [...ordered];
+                        const temp = newOrder[fromIndex];
+                        newOrder[fromIndex] = newOrder[toIndex];
+                        newOrder[toIndex] = temp;
+                        setOrdered(newOrder);
+                      }
+                      setDraggedOverIndex(null);
+                    }}
+                    className={`p-3 rounded-xl border border-sidebar-border/30 bg-card/40 backdrop-blur-sm shadow-sm transition-all flex items-center justify-between cursor-grab active:cursor-grabbing ${draggedOverIndex === idx ? 'border-primary/50 bg-primary/5 scale-[1.02] z-10' : 'hover:border-primary/40'} ${flex1 ? 'flex-1' : ''}`}
+                  >
                     <div className="flex items-center gap-3 overflow-hidden">
                       <div className="h-6 w-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <span className="text-[10px] font-black text-primary">{idx + 1}</span>
@@ -1355,28 +1614,48 @@ function StartTournamentDialog({ open, onOpenChange, participants, onConfirm, is
                         {p.external_name || p.member?.full_name || 'Guest'}
                       </span>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => moveUp(idx)} disabled={idx === 0}>
-                        <ArrowUp className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => moveDown(idx)} disabled={idx === ordered.length - 1}>
-                        <ArrowDown className="h-4 w-4" />
-                      </Button>
-                    </div>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                );
+
+                if (formatType === 'KNOCKOUT') {
+                  return (
+                    <div className="space-y-3 pb-4">
+                      {Array.from({ length: Math.ceil(ordered.length / 2) }).map((_, pairIdx) => (
+                        <div key={pairIdx} className="flex items-center gap-2 p-2 rounded-xl border border-primary/10 bg-primary/5">
+                          {renderDraggableParticipant(ordered[pairIdx * 2], pairIdx * 2, true)}
+                          
+                          <div className="flex-shrink-0 px-1 text-[9px] font-black text-muted-foreground/60 uppercase tracking-widest">VS</div>
+
+                          {pairIdx * 2 + 1 < ordered.length ? (
+                            renderDraggableParticipant(ordered[pairIdx * 2 + 1], pairIdx * 2 + 1, true)
+                          ) : (
+                            <div className="flex-1 p-3 rounded-xl border border-dashed border-sidebar-border/30 bg-card/20 flex items-center justify-center opacity-70">
+                              <span className="text-xs text-muted-foreground font-bold tracking-widest uppercase">BYE</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-2 pb-4">
+                    {ordered.map((p, idx) => renderDraggableParticipant(p, idx))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         )}
 
         <DialogFooter className="mt-6 pt-6 border-t border-sidebar-border/30">
           <Button variant="ghost" onClick={() => onOpenChange(false)} className="hover:bg-red-500/10 hover:text-red-500 transition-colors">Cancel</Button>
-          <Button 
-            disabled={isPending} 
-            onClick={() => onConfirm({ 
-              seedingStrategy: strategy, 
-              orderedParticipantIds: strategy === 'MANUAL' ? ordered.map(p => p.id) : undefined 
+          <Button
+            disabled={isPending}
+            onClick={() => onConfirm({
+              seedingStrategy: strategy,
+              orderedParticipantIds: strategy === 'MANUAL' ? ordered.map(p => p.id) : undefined
             })}
             className="bg-primary hover:bg-primary/90 font-bold shadow-lg shadow-primary/20 px-8"
           >

@@ -37,13 +37,14 @@ import {
   MoreVertical,
   Pencil,
   AlertTriangle,
+  Crown,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { tournamentService } from '@/services/tournamentService';
 import type { Tournament, TournamentMasterData, TournamentFormat } from '@/types/tournament';
@@ -96,7 +97,7 @@ const Tournaments = () => {
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: any }) => 
+    mutationFn: ({ id, updates }: { id: string; updates: any }) =>
       tournamentService.updateTournament(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
@@ -239,18 +240,27 @@ const Tournaments = () => {
                         <h3 className="font-semibold text-base truncate max-w-[150px]">
                           {tournament.name}
                         </h3>
-                        <p className="text-xs text-muted-foreground">
-                          {(tournament.category as any)?.name}
-                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-xs text-muted-foreground">
+                            {(tournament.category as any)?.name}
+                          </p>
+                          {tournament.rules?.knockout_type && (
+                            <Badge variant="outline" className={`text-[8px] h-3.5 px-1 border-primary/20 bg-primary/5 font-bold uppercase
+                              ${tournament.rules.knockout_type === 'score' ? 'text-primary' : 'text-amber-500 border-amber-500/20 bg-amber-500/5'}
+                            `}>
+                              {tournament.rules.knockout_type === 'score' ? 'Score' : 'Time'}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={config?.variant}>{config?.label}</Badge>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-foreground"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -258,7 +268,7 @@ const Tournaments = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             disabled={tournament.status !== 'DRAFT'}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -268,7 +278,7 @@ const Tournaments = () => {
                           >
                             <Pencil className="h-4 w-4 mr-2" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedTournament(tournament);
@@ -287,6 +297,20 @@ const Tournaments = () => {
                     <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
                       {tournament.description}
                     </p>
+                  )}
+
+                  {tournament.status === 'COMPLETED' && tournament.winner && (
+                    <div className="flex items-center gap-2 mb-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/5 p-2 rounded-lg border border-amber-500/20">
+                      <div className="h-6 w-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+                        <Crown className="h-3.5 w-3.5 text-amber-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-amber-600/80 font-bold uppercase tracking-widest leading-none mb-0.5">Winner</p>
+                        <p className="text-sm font-bold text-foreground truncate">
+                          {tournament.winner.external_name || tournament.winner.member?.full_name}
+                        </p>
+                      </div>
+                    </div>
                   )}
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -348,15 +372,15 @@ const Tournaments = () => {
                 <DialogTitle>Delete Tournament</DialogTitle>
               </div>
               <DialogDescription className="pt-2">
-                Are you sure you want to delete <span className="font-bold text-foreground">"{selectedTournament.name}"</span>? 
+                Are you sure you want to delete <span className="font-bold text-foreground">"{selectedTournament.name}"</span>?
                 This action cannot be undone.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="mt-6 gap-2">
               <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="flex-1">Cancel</Button>
-              <Button 
-                variant="destructive" 
-                onClick={() => deleteMutation.mutate(selectedTournament.id)} 
+              <Button
+                variant="destructive"
+                onClick={() => deleteMutation.mutate(selectedTournament.id)}
                 disabled={deleteMutation.isPending}
                 className="flex-1"
               >
@@ -397,6 +421,7 @@ function CreateTournamentDialog({
     measurement: 'time',
     group_size: 4,
     matches_per_player: 3,
+    knockout_type: 'score' as 'score' | 'time'
   });
 
   const selectedFormat = masterData?.formats.find((f) => f.id === formData.format_id);
@@ -411,11 +436,15 @@ function CreateTournamentDialog({
       if (selectedFormat?.type === 'SCORE_BASED') {
         rules.attempts = formData.attempts;
         rules.unit = formData.unit;
+        rules.winning_criteria = 'highest'; // Score based is almost always highest
       } else if (selectedFormat?.type === 'TIME_BASED') {
         rules.attempts = formData.attempts;
         rules.time_limit_seconds = formData.time_limit_seconds;
         rules.measurement = formData.measurement;
-      } else if (selectedFormat?.type === 'KNOCKOUT') {
+        rules.winning_criteria = formData.winning_criteria;
+      } else if (selectedFormat?.type === 'KNOCKOUT' || selectedFormat?.name === 'Group Stage + Knockout') {
+        rules.knockout_type = formData.knockout_type;
+        rules.winning_criteria = formData.winning_criteria;
         if (selectedFormat.name === 'Group Stage + Knockout') {
           rules.group_size = formData.group_size;
           rules.matches_per_player = formData.matches_per_player;
@@ -445,6 +474,7 @@ function CreateTournamentDialog({
       name: '', description: '', start_date: '', end_date: '',
       category_id: '', format_id: '', attempts: 3, unit: 'kg',
       time_limit_seconds: 60, measurement: 'time', group_size: 4, matches_per_player: 3,
+      knockout_type: 'score', winning_criteria: 'highest'
     });
   };
 
@@ -571,8 +601,8 @@ function CreateTournamentDialog({
                       value={formData.group_size.toString()}
                       onValueChange={(val) => {
                         const size = parseInt(val);
-                        setFormData({ 
-                          ...formData, 
+                        setFormData({
+                          ...formData,
                           group_size: size,
                           matches_per_player: Math.min(formData.matches_per_player, size - 1)
                         });
@@ -629,7 +659,7 @@ function CreateTournamentDialog({
                         max={10}
                         value={formData.attempts}
                         onChange={(e) =>
-                          setFormData({ ...formData, attempts: parseInt(e.target.value) || 3 })
+                          setFormData({ ...formData, attempts: e.target.value === '' ? '' : parseInt(e.target.value) } as any)
                         }
                       />
                     </div>
@@ -666,8 +696,8 @@ function CreateTournamentDialog({
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            time_limit_seconds: parseInt(e.target.value) || 60,
-                          })
+                            time_limit_seconds: e.target.value === '' ? '' : parseInt(e.target.value),
+                          } as any)
                         }
                       />
                     </div>
@@ -679,22 +709,72 @@ function CreateTournamentDialog({
                         max={10}
                         value={formData.attempts}
                         onChange={(e) =>
-                          setFormData({ ...formData, attempts: parseInt(e.target.value) || 1 })
+                          setFormData({ ...formData, attempts: e.target.value === '' ? '' : parseInt(e.target.value) } as any)
                         }
                       />
                     </div>
+                  </div>
+                  <div className="space-y-1.5 pt-2">
+                    <Label className="text-xs text-muted-foreground">Winning Criteria</Label>
+                    <Select 
+                      value={formData.winning_criteria}
+                      onValueChange={(val: 'highest' | 'lowest') => setFormData({ ...formData, winning_criteria: val })}
+                    >
+                      <SelectTrigger className="h-9 bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lowest">Lowest Time Wins (Speed/Race)</SelectItem>
+                        <SelectItem value="highest">Highest Time Wins (Holds/Endurance)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {selectedFormat?.type === 'KNOCKOUT' && (
-              <Card className="border-dashed">
-                <CardContent className="p-4">
-                  <p className="text-sm font-medium text-muted-foreground">Knockout Format</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The bracket will be auto-generated based on the number of participants you add.
-                    Byes are handled automatically.
+            {/* Knockout / Bracket Settings */}
+            {(selectedFormat?.type === 'KNOCKOUT' || selectedFormat?.name === 'Group Stage + Knockout') && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-semibold">Knockout Settings</Label>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Judging Criteria *</Label>
+                    <Select 
+                      value={formData.knockout_type}
+                      onValueChange={(val: 'score' | 'time') => setFormData({ ...formData, knockout_type: val, winning_criteria: val === 'score' ? 'highest' : 'lowest' })}
+                    >
+                      <SelectTrigger className="h-9 bg-background">
+                        <SelectValue placeholder="Select how matches are won" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="score">Score Based (KG / Reps)</SelectItem>
+                        <SelectItem value="time">Time Based (Seconds)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formData.knockout_type === 'time' && (
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground">Time Criteria</Label>
+                      <Select 
+                        value={formData.winning_criteria}
+                        onValueChange={(val: 'highest' | 'lowest') => setFormData({ ...formData, winning_criteria: val })}
+                      >
+                        <SelectTrigger className="h-8 bg-background text-[10px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lowest">Lowest Time Wins (Speed)</SelectItem>
+                          <SelectItem value="highest">Highest Time Wins (Holds)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground italic leading-tight">
+                    * The winner of each 1-on-1 match will be determined by this rule.
                   </p>
                 </CardContent>
               </Card>
@@ -720,20 +800,20 @@ function CreateTournamentDialog({
   );
 }
 
-function EditTournamentDialog({ 
-  open, 
-  onOpenChange, 
-  tournament, 
+function EditTournamentDialog({
+  open,
+  onOpenChange,
+  tournament,
   masterData,
-  onConfirm, 
-  isPending 
-}: { 
-  open: boolean; 
-  onOpenChange: (v: boolean) => void; 
-  tournament: any; 
+  onConfirm,
+  isPending
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  tournament: any;
   masterData?: TournamentMasterData;
-  onConfirm: (updates: any) => void; 
-  isPending: boolean 
+  onConfirm: (updates: any) => void;
+  isPending: boolean
 }) {
   const [formData, setFormData] = useState({
     name: tournament.name,
@@ -748,6 +828,8 @@ function EditTournamentDialog({
     measurement: tournament.rules?.measurement || 'time',
     group_size: tournament.rules?.group_size || 4,
     matches_per_player: tournament.rules?.matches_per_player || 3,
+    knockout_type: tournament.rules?.knockout_type || 'score',
+    winning_criteria: tournament.rules?.winning_criteria || 'highest'
   });
 
   const selectedFormat = masterData?.formats.find((f) => f.id === formData.format_id);
@@ -771,6 +853,8 @@ function EditTournamentDialog({
         measurement: tournament.rules?.measurement || 'time',
         group_size: tournament.rules?.group_size || 4,
         matches_per_player: tournament.rules?.matches_per_player || 3,
+        knockout_type: tournament.rules?.knockout_type || 'score',
+        winning_criteria: tournament.rules?.winning_criteria || 'highest',
       });
     }
   }, [open, tournament]);
@@ -785,7 +869,9 @@ function EditTournamentDialog({
       rules.attempts = formData.attempts;
       rules.time_limit_seconds = formData.time_limit_seconds;
       rules.measurement = formData.measurement;
-    } else if (selectedFormat?.type === 'KNOCKOUT') {
+    } else if (selectedFormat?.type === 'KNOCKOUT' || selectedFormat?.name === 'Group Stage + Knockout') {
+      rules.knockout_type = formData.knockout_type;
+      rules.winning_criteria = formData.winning_criteria;
       if (selectedFormat.name === 'Group Stage + Knockout') {
         rules.group_size = formData.group_size;
         rules.matches_per_player = formData.matches_per_player;
@@ -901,7 +987,7 @@ function EditTournamentDialog({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Attempts</Label>
-                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: parseInt(e.target.value) || 3 })} />
+                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: e.target.value === '' ? '' : parseInt(e.target.value) } as any)} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Unit</Label>
@@ -926,13 +1012,71 @@ function EditTournamentDialog({
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Time Limit (seconds)</Label>
-                      <Input type="number" min={10} value={formData.time_limit_seconds} onChange={(e) => setFormData({ ...formData, time_limit_seconds: parseInt(e.target.value) || 60 })} />
+                      <Input type="number" min={10} value={formData.time_limit_seconds} onChange={(e) => setFormData({ ...formData, time_limit_seconds: e.target.value === '' ? '' : parseInt(e.target.value) } as any)} />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Attempts</Label>
-                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: parseInt(e.target.value) || 1 })} />
+                      <Input type="number" min={1} value={formData.attempts} onChange={(e) => setFormData({ ...formData, attempts: e.target.value === '' ? '' : parseInt(e.target.value) } as any)} />
                     </div>
                   </div>
+                  <div className="space-y-1.5 pt-2">
+                    <Label className="text-xs text-muted-foreground">Winning Criteria</Label>
+                    <Select 
+                      value={formData.winning_criteria}
+                      onValueChange={(val: 'highest' | 'lowest') => setFormData({ ...formData, winning_criteria: val })}
+                    >
+                      <SelectTrigger className="h-9 bg-background">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lowest">Lowest Time Wins (Speed/Race)</SelectItem>
+                        <SelectItem value="highest">Highest Time Wins (Holds/Endurance)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {(selectedFormat?.type === 'KNOCKOUT' || selectedFormat?.name === 'Group Stage + Knockout') && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Trophy className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-semibold">Knockout Settings</Label>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Judging Criteria *</Label>
+                    <Select 
+                      value={formData.knockout_type}
+                      onValueChange={(val: 'score' | 'time') => setFormData({ ...formData, knockout_type: val, winning_criteria: val === 'score' ? 'highest' : 'lowest' })}
+                    >
+                      <SelectTrigger className="h-9 bg-background">
+                        <SelectValue placeholder="Select how matches are won" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="score">Score Based (KG / Reps)</SelectItem>
+                        <SelectItem value="time">Time Based (Seconds)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {formData.knockout_type === 'time' && (
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs text-muted-foreground">Time Criteria</Label>
+                      <Select 
+                        value={formData.winning_criteria}
+                        onValueChange={(val: 'highest' | 'lowest') => setFormData({ ...formData, winning_criteria: val })}
+                      >
+                        <SelectTrigger className="h-8 bg-background text-[10px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lowest">Lowest Time Wins (Speed)</SelectItem>
+                          <SelectItem value="highest">Highest Time Wins (Holds)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}

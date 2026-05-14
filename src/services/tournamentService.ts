@@ -157,7 +157,7 @@ export const tournamentService = {
     return response.json();
   },
 
-  async resolveTieBreaker(tournamentId: string, data: { groupLabel: string; participantIds: string[]; strategy: 'STEPLADDER' | 'MINI_LEAGUE' }): Promise<any> {
+  async resolveTieBreaker(tournamentId: string, data: { groupLabel: string; participantIds: string[]; strategy: 'STEPLADDER' | 'MINI_LEAGUE'; safeParticipantId?: string; spotsAvailable?: number }): Promise<any> {
     const headers = await getAuthHeaders();
     const response = await fetch(`${API_BASE_URL}/tournaments/${tournamentId}/resolve-tie`, {
       method: 'POST',

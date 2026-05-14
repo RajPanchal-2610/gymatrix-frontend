@@ -28,6 +28,9 @@ export interface TournamentRules {
   time_limit_seconds?: number;
   measurement?: string; // time, reps
   max_participants?: number;
+  group_size?: number;
+  matches_per_player?: number;
+  knockout_type?: 'score' | 'time';
 }
 
 export interface Tournament {
