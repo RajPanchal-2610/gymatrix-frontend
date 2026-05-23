@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { tournamentService } from '@/services/tournamentService';
+import { usePermissions } from '@/contexts/PermissionsContext';
 import type { Tournament, TournamentMasterData, TournamentFormat } from '@/types/tournament';
 
 const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -65,6 +66,7 @@ const formatIcons: Record<string, React.ElementType> = {
 const Tournaments = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
   const [createOpen, setCreateOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
@@ -157,13 +159,15 @@ const Tournaments = () => {
             Create and manage gym competitions, challenges, and knockout events.
           </p>
         </div>
-        <Button
-          onClick={() => setCreateOpen(true)}
-          className="gradient-primary shadow-glow"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Tournament
-        </Button>
+        {hasPermission('manage_tournaments') && (
+          <Button
+            onClick={() => setCreateOpen(true)}
+            className="gradient-primary shadow-glow"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Tournament
+          </Button>
+        )}
       </div>
 
       {/* Stats */}
@@ -214,9 +218,11 @@ const Tournaments = () => {
             <p className="text-sm text-muted-foreground mt-1">
               {filterStatus !== 'all' ? 'Try a different filter or ' : ''}Create your first tournament to get started!
             </p>
-            <Button className="mt-4 gradient-primary" onClick={() => setCreateOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" /> Create Tournament
-            </Button>
+            {hasPermission('manage_tournaments') && (
+              <Button className="mt-4 gradient-primary" onClick={() => setCreateOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" /> Create Tournament
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -256,40 +262,42 @@ const Tournaments = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={config?.variant}>{config?.label}</Badge>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            disabled={tournament.status !== 'DRAFT'}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTournament(tournament);
-                              setEditOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4 mr-2" /> Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTournament(tournament);
-                              setDeleteConfirmOpen(true);
-                            }}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" /> Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      {hasPermission('manage_tournaments') && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              disabled={tournament.status !== 'DRAFT'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTournament(tournament);
+                                setEditOpen(true);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4 mr-2" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedTournament(tournament);
+                                setDeleteConfirmOpen(true);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
 

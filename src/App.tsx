@@ -125,13 +125,7 @@ const App = () => (
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
-                    <Route path="/permissions" element={
-                      <FeatureGuard feature="Access Control">
-                        <PermissionGuard permission="view_permissions">
-                          <GymPermissions />
-                        </PermissionGuard>
-                      </FeatureGuard>
-                    } />
+
                     <Route path="/reports" element={
                       <FeatureGuard feature="Reports & Analytics">
                         <PermissionGuard permission="view_reports">
@@ -167,8 +161,20 @@ const App = () => (
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
-                    <Route path="/tournaments" element={<GymTournaments />} />
-                    <Route path="/tournaments/:id" element={<GymTournamentDetail />} />
+                    <Route path="/tournaments" element={
+                      <FeatureGuard feature="Tournament">
+                        <PermissionGuard permission="view_tournaments">
+                          <GymTournaments />
+                        </PermissionGuard>
+                      </FeatureGuard>
+                    } />
+                    <Route path="/tournaments/:id" element={
+                      <FeatureGuard feature="Tournament">
+                        <PermissionGuard permission="view_tournaments">
+                          <GymTournamentDetail />
+                        </PermissionGuard>
+                      </FeatureGuard>
+                    } />
                   </Route>
                 </Route>
 
@@ -188,6 +194,7 @@ const App = () => (
                     <Route path="/admin/settings" element={<SuperAdminSettings />} />
                     <Route path="/admin/contact-messages" element={<ContactMessages />} />
                     <Route path="/admin/coupons" element={<Coupons />} />
+                    <Route path="/admin/permissions" element={<GymPermissions />} />
                   </Route>
                 </Route>
 

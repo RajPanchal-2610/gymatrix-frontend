@@ -98,7 +98,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           .from('profiles')
           .select('full_name')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         setUserProfile({
           full_name: profile?.full_name || user.email?.split('@')[0] || "User",
@@ -109,6 +109,11 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     };
 
     getUserProfile();
+
+    window.addEventListener("profile-updated", getUserProfile);
+    return () => {
+      window.removeEventListener("profile-updated", getUserProfile);
+    };
   }, []);
 
   const currentGym = gyms.find(g => g.id === gymId);
@@ -128,10 +133,10 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     }
   };
 
-    const NavItem = ({ item }: { item: typeof navItems[0] }) => {
-      const { role } = usePermissions();
-    // Hide Attendance, Staff, Pricing, Roles, Permissions, Inventory, and Tournaments for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/permissions" || item.title === "Inventory" || item.title === "Tournaments")) {
+  const NavItem = ({ item }: { item: typeof navItems[0] }) => {
+    const { role } = usePermissions();
+    // Hide Attendance, Staff, Pricing, Roles, Diet & Workout, Inventory, and Tournaments for Super Admin (Platform Admin)
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/diet-workout" || item.title === "Inventory" || item.title === "Tournaments")) {
       return null;
     }
 
@@ -154,8 +159,9 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Diet & Workout" && !hasFeature("Diet & Workout Plans")) return null;
       if (item.title === "Reports" && !hasFeature("Reports & Analytics")) return null;
       if (item.title === "Roles" && !hasFeature("Access Control")) return null;
-      if (item.title === "Permissions" && !hasFeature("Access Control")) return null;
+      if (item.title === "Permissions") return null;
       if (item.title === "Settings" && !hasFeature("Gym Settings")) return null;
+      if (item.title === "Tournaments" && !hasFeature("Tournament")) return null;
 
       // 2. Permission checks (Secondary layer)
       if (item.title === "Members" && !hasPermission('view_members')) return null;
@@ -168,6 +174,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Reports" && !hasPermission('view_reports')) return null;
       if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
+      if (item.title === "Tournaments" && !hasPermission('view_tournaments')) return null;
       if (item.title === "Contact Messages" || item.title === "Coupons") return null;
     }
 
@@ -221,13 +228,25 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
         {/* ... Logo content ... */}
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center shadow-glow">
-            <Dumbbell className="h-5 w-5 text-primary-foreground" />
-          </div>
+        <div className="flex items-center gap-2 overflow-hidden">
+          {!isAdmin && currentGym?.logo_url ? (
+            <img
+              src={currentGym.logo_url}
+              alt={currentGym.name}
+              className="h-9 w-9 rounded-lg object-cover bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+            />
+          ) : (
+            <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center shadow-glow flex-shrink-0">
+              <Dumbbell className="h-5 w-5 text-primary-foreground" />
+            </div>
+          )}
           {!collapsed && (
-            <span className="font-bold text-lg text-foreground">
-              Fit<span className="gradient-text">Flow</span>
+            <span className="font-bold text-lg text-foreground truncate max-w-[130px]">
+              {!isAdmin && currentGym?.name && hasFeature("Gym Settings") ? (
+                currentGym.name
+              ) : (
+                <>Fit<span className="gradient-text">Flow</span></>
+              )}
             </span>
           )}
         </div>
@@ -286,7 +305,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 opacity-0 group-hover/item:opacity-100 hover:bg-primary/10 hover:text-primary transition-all ml-2"
+                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary transition-all ml-2 text-muted-foreground hover:text-primary"
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingGym({ id: gym.id, name: gym.name });

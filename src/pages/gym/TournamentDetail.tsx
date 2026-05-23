@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Trophy, ArrowLeft, Users, Play, CheckCircle2, Loader2, UserPlus, Trash2, Swords, Target, Timer, Crown, Medal, ArrowUp, ArrowDown, Shuffle, Settings2, Plus, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { tournamentService } from '@/services/tournamentService';
+import { usePermissions } from '@/contexts/PermissionsContext';
 import { supabase } from '@/lib/supabase';
 import { useGym } from '@/hooks/useGym';
 import type { TournamentDetail as TournamentDetailType, TournamentMatch, TournamentAttempt, LeaderboardEntry } from '@/types/tournament';
@@ -30,6 +31,7 @@ const TournamentDetailPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { gymId } = useGym();
+  const { hasPermission } = usePermissions();
   const [addParticipantsOpen, setAddParticipantsOpen] = useState(false);
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
@@ -208,20 +210,24 @@ const TournamentDetailPage = () => {
         <div className="flex gap-2">
           {tournament.status === 'DRAFT' && (
             <>
-              <Button variant="outline" onClick={() => setAddParticipantsOpen(true)}>
-                <UserPlus className="h-4 w-4 mr-2" /> Add Participants
-              </Button>
-              <Button
-                className="gradient-primary"
-                onClick={() => setStartDialogOpen(true)}
-                disabled={generateMutation.isPending || (tournament.participants?.length || 0) < 2}
-              >
-                {generateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
-                Start Tournament
-              </Button>
+              {hasPermission('manage_tournaments') && (
+                <Button variant="outline" onClick={() => setAddParticipantsOpen(true)}>
+                  <UserPlus className="h-4 w-4 mr-2" /> Add Participants
+                </Button>
+              )}
+              {hasPermission('manage_tournaments') && (
+                <Button
+                  className="gradient-primary"
+                  onClick={() => setStartDialogOpen(true)}
+                  disabled={generateMutation.isPending || (tournament.participants?.length || 0) < 2}
+                >
+                  {generateMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Play className="h-4 w-4 mr-2" />}
+                  Start Tournament
+                </Button>
+              )}
             </>
           )}
-          {tournament.status === 'ONGOING' && (
+          {tournament.status === 'ONGOING' && hasPermission('manage_tournaments') && (
             <>
               {formatName === 'Group Stage + Knockout' && !tournament.matches?.some(m => m.phase === 'KNOCKOUT') && (
                 <Button
@@ -472,6 +478,7 @@ function BracketView({
   onSelectMatch: (m: TournamentMatch) => void;
   searchTerm?: string;
 }) {
+  const { hasPermission } = usePermissions();
   const rounds = new Map<number, TournamentMatch[]>();
   matches.forEach((m) => {
     if (!rounds.has(m.round_number)) rounds.set(m.round_number, []);
@@ -565,12 +572,12 @@ function BracketView({
 
                       <Card
                         className={`relative overflow-hidden transition-all duration-300 border-sidebar-border/50 bg-card/40 backdrop-blur-md shadow-lg hover:shadow-xl hover:-translate-y-0.5 h-[136px] w-full
-                          ${match.status === 'PENDING' && status === 'ONGOING' ? 'ring-1 ring-primary/20 hover:ring-primary/50 cursor-pointer' : ''}
+                          ${match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments') ? 'ring-1 ring-primary/20 hover:ring-primary/50 cursor-pointer' : ''}
                           ${match.status === 'COMPLETED' ? 'bg-secondary/10' : ''}
                           ${isHighlighted ? 'ring-2 ring-primary border-primary shadow-[0_0_20px_rgba(255,191,0,0.15)] z-10 scale-[1.02]' : ''}
                         `}
                         onClick={() => {
-                          if (match.status === 'PENDING' && status === 'ONGOING') {
+                          if (match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments')) {
                             onSelectMatch(match);
                           }
                         }}
@@ -665,6 +672,7 @@ function GroupStageView({
   status: string;
   searchTerm?: string;
 }) {
+  const { hasPermission } = usePermissions();
   const filteredMatches = matches.filter(m => {
     if (!searchTerm) return true;
     const s = searchTerm.toLowerCase();
@@ -718,7 +726,7 @@ function GroupStageView({
             <CardContent className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {regularMatches.map((match) => {
-                  const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING';
+                  const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments');
                   return (
                     <Card
                       key={match.id}
@@ -770,7 +778,7 @@ function GroupStageView({
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {matches.map((match) => {
-                          const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING';
+                          const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments');
                           return (
                             <Card
                               key={match.id}
@@ -817,6 +825,7 @@ function GroupStageView({
 // ======== SCORE TABLE VIEW ========
 function ScoreTableView({ attempts, tournamentId, status, rules, formatType, searchTerm }: { attempts: TournamentAttempt[]; tournamentId: string; status: string; rules: any; formatType: string; searchTerm?: string }) {
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editScore, setEditScore] = useState('');
 
@@ -933,7 +942,7 @@ function ScoreTableView({ attempts, tournamentId, status, rules, formatType, sea
                               ${status !== 'ONGOING' ? 'cursor-default pointer-events-none opacity-60' : ''}
                             `}
                             onClick={() => {
-                              if (status === 'ONGOING') {
+                              if (status === 'ONGOING' && hasPermission('manage_tournaments')) {
                                 setEditingId(att.id);
                                 setEditScore(att.score?.toString() || '');
                               }
@@ -1010,6 +1019,8 @@ function LeaderboardView({ leaderboard, rules, formatType, searchTerm }: { leade
 
 // ======== PARTICIPANTS TABLE ========
 function ParticipantsTable({ participants, isDraft, onRemove, onSelectParticipant }: { participants: any[]; isDraft: boolean; onRemove: (id: string) => void; onSelectParticipant: (name: string) => void }) {
+  const { hasPermission } = usePermissions();
+  const canManage = isDraft && hasPermission('manage_tournaments');
   return (
     <Card className="bg-sidebar/30 border-sidebar-border/50">
       <CardContent className="p-0">
@@ -1021,7 +1032,7 @@ function ParticipantsTable({ participants, isDraft, onRemove, onSelectParticipan
               <TableHead>Type</TableHead>
               <TableHead>Phone / Contact</TableHead>
               <TableHead>Joined</TableHead>
-              {isDraft && <TableHead className="w-10 text-right">Actions</TableHead>}
+              {canManage && <TableHead className="w-10 text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -1053,7 +1064,7 @@ function ParticipantsTable({ participants, isDraft, onRemove, onSelectParticipan
                   </TableCell>
                   <TableCell className="text-muted-foreground text-xs">{contact}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">{new Date(p.joined_at).toLocaleDateString()}</TableCell>
-                  {isDraft && (
+                  {canManage && (
                     <TableCell className="text-right">
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10" onClick={() => onRemove(p.id)}>
                         <Trash2 className="h-3.5 w-3.5" />

@@ -6,6 +6,8 @@ export interface Gym {
     name: string;
     created_at: string;
     owner_id: string;
+    logo_url?: string;
+    theme_color?: string;
 }
 
 interface GymContextType {
@@ -37,13 +39,13 @@ export function GymProvider({ children }: { children: ReactNode }) {
             // 1. Fetch gyms owned by the user
             const { data: ownedGyms, error: ownerError } = await supabase
                 .from('gyms')
-                .select('id, name, created_at, owner_id')
+                .select('*')
                 .eq('owner_id', user.id);
 
             // 2. Fetch gyms where user is a staff member
             const { data: staffRecords, error: staffError } = await supabase
                 .from('gym_staff')
-                .select('gym_id, gyms(id, name, created_at, owner_id)')
+                .select('gym_id, gyms(*)')
                 .eq('user_id', user.id)
                 .eq('is_deleted', false)
                 .eq('status', 'active');
@@ -109,6 +111,142 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    // Apply dynamic gym theme color to CSS custom variables
+    useEffect(() => {
+        const root = document.documentElement;
+        
+        const updateColors = () => {
+            const currentGym = gyms.find(g => g.id === gymId);
+            const isDark = root.classList.contains('dark');
+            
+            if (currentGym?.theme_color) {
+                const color = currentGym.theme_color;
+                
+                if (color === 'emerald') {
+                    root.style.setProperty('--primary', '142 76% 36%');
+                    root.style.setProperty('--ring', '142 76% 36%');
+                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(142, 76%, 36%) 0%, hsl(160, 84%, 39%) 100%)');
+                    root.style.setProperty('--shadow-glow', '0 0 20px hsl(142 76% 36% / 0.3)');
+                    
+                    if (isDark) {
+                        root.style.setProperty('--accent', '142 70% 12%');
+                        root.style.setProperty('--accent-foreground', '210 40% 98%');
+                        root.style.setProperty('--sidebar-accent', '142 70% 12%');
+                        root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                    } else {
+                        root.style.setProperty('--accent', '142 70% 94%');
+                        root.style.setProperty('--accent-foreground', '142 76% 25%');
+                        root.style.setProperty('--sidebar-accent', '142 70% 96%');
+                        root.style.setProperty('--sidebar-accent-foreground', '142 76% 25%');
+                    }
+                } else if (color === 'violet') {
+                    root.style.setProperty('--primary', '262 83% 58%');
+                    root.style.setProperty('--ring', '262 83% 58%');
+                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(282, 84%, 60%) 100%)');
+                    root.style.setProperty('--shadow-glow', '0 0 20px hsl(262 83% 58% / 0.3)');
+                    
+                    if (isDark) {
+                        root.style.setProperty('--accent', '262 83% 15%');
+                        root.style.setProperty('--accent-foreground', '210 40% 98%');
+                        root.style.setProperty('--sidebar-accent', '262 83% 15%');
+                        root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                    } else {
+                        root.style.setProperty('--accent', '262 83% 95%');
+                        root.style.setProperty('--accent-foreground', '262 83% 30%');
+                        root.style.setProperty('--sidebar-accent', '262 83% 97%');
+                        root.style.setProperty('--sidebar-accent-foreground', '262 83% 30%');
+                    }
+                } else if (color === 'rose') {
+                    root.style.setProperty('--primary', '346 84% 50%');
+                    root.style.setProperty('--ring', '346 84% 50%');
+                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(346, 84%, 50%) 0%, hsl(355, 90%, 62%) 100%)');
+                    root.style.setProperty('--shadow-glow', '0 0 20px hsl(346 84% 50% / 0.3)');
+                    
+                    if (isDark) {
+                        root.style.setProperty('--accent', '346 84% 15%');
+                        root.style.setProperty('--accent-foreground', '210 40% 98%');
+                        root.style.setProperty('--sidebar-accent', '346 84% 15%');
+                        root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                    } else {
+                        root.style.setProperty('--accent', '346 84% 95%');
+                        root.style.setProperty('--accent-foreground', '346 84% 30%');
+                        root.style.setProperty('--sidebar-accent', '346 84% 97%');
+                        root.style.setProperty('--sidebar-accent-foreground', '346 84% 30%');
+                    }
+                } else if (color === 'orange') {
+                    root.style.setProperty('--primary', '24 95% 53%');
+                    root.style.setProperty('--ring', '24 95% 53%');
+                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(24, 95%, 53%) 0%, hsl(38, 92%, 50%) 100%)');
+                    root.style.setProperty('--shadow-glow', '0 0 20px hsl(24 95% 53% / 0.3)');
+                    
+                    if (isDark) {
+                        root.style.setProperty('--accent', '24 95% 12%');
+                        root.style.setProperty('--accent-foreground', '210 40% 98%');
+                        root.style.setProperty('--sidebar-accent', '24 95% 12%');
+                        root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                    } else {
+                        root.style.setProperty('--accent', '24 95% 94%');
+                        root.style.setProperty('--accent-foreground', '24 95% 25%');
+                        root.style.setProperty('--sidebar-accent', '24 95% 96%');
+                        root.style.setProperty('--sidebar-accent-foreground', '24 95% 25%');
+                    }
+                } else {
+                    // Default blue
+                    root.style.setProperty('--primary', '221 83% 53%');
+                    root.style.setProperty('--ring', '221 83% 53%');
+                    root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(221, 83%, 53%) 0%, hsl(199, 89%, 48%) 100%)');
+                    root.style.setProperty('--shadow-glow', '0 0 20px hsl(221 83% 53% / 0.3)');
+                    
+                    if (isDark) {
+                        root.style.setProperty('--accent', '221 83% 15%');
+                        root.style.setProperty('--accent-foreground', '210 40% 98%');
+                        root.style.setProperty('--sidebar-accent', '222 47% 12%');
+                        root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                    } else {
+                        root.style.setProperty('--accent', '221 83% 93%');
+                        root.style.setProperty('--accent-foreground', '221 83% 30%');
+                        root.style.setProperty('--sidebar-accent', '210 40% 96%');
+                        root.style.setProperty('--sidebar-accent-foreground', '222 47% 11%');
+                    }
+                }
+            } else {
+                // Reset to default blue
+                root.style.setProperty('--primary', '221 83% 53%');
+                root.style.setProperty('--ring', '221 83% 53%');
+                root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(221, 83%, 53%) 0%, hsl(199, 89%, 48%) 100%)');
+                root.style.setProperty('--shadow-glow', '0 0 20px hsl(221 83% 53% / 0.3)');
+                
+                if (isDark) {
+                    root.style.setProperty('--accent', '222 47% 12%');
+                    root.style.setProperty('--accent-foreground', '210 40% 98%');
+                    root.style.setProperty('--sidebar-accent', '222 47% 12%');
+                    root.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+                } else {
+                    root.style.setProperty('--accent', '210 40% 96%');
+                    root.style.setProperty('--accent-foreground', '222 47% 11%');
+                    root.style.setProperty('--sidebar-accent', '210 40% 96%');
+                    root.style.setProperty('--sidebar-accent-foreground', '222 47% 11%');
+                }
+            }
+        };
+
+        // Initial update
+        updateColors();
+
+        // Observe class changes on html element to handle theme toggles (dark/light)
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.attributeName === 'class') {
+                    updateColors();
+                }
+            });
+        });
+
+        observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+
+        return () => observer.disconnect();
+    }, [gymId, gyms]);
 
     const switchGym = (id: number) => {
         const gym = gyms.find(g => g.id === id);
