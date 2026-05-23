@@ -233,19 +233,21 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
             <img
               src={currentGym.logo_url}
               alt={currentGym.name}
-              className="h-9 w-9 rounded-lg object-cover bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+              className="h-11 w-11 rounded-lg object-cover bg-white p-0.5 border border-sidebar-border flex-shrink-0"
             />
           ) : (
-            <div className="h-9 w-9 rounded-lg gradient-primary flex items-center justify-center shadow-glow flex-shrink-0">
-              <Dumbbell className="h-5 w-5 text-primary-foreground" />
-            </div>
+            <img
+              src="/logo.png"
+              alt="Gymatrix Logo"
+              className="h-11 w-11 rounded-lg object-contain bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+            />
           )}
           {!collapsed && (
             <span className="font-bold text-lg text-foreground truncate max-w-[130px]">
               {!isAdmin && currentGym?.name && hasFeature("Gym Settings") ? (
                 currentGym.name
               ) : (
-                <>Fit<span className="gradient-text">Flow</span></>
+                <>Gy<span className="gradient-text">matrix</span></>
               )}
             </span>
           )}

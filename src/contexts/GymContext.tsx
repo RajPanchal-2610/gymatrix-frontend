@@ -58,7 +58,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
             // Combine the results
             const combinedGyms: Gym[] = [...(ownedGyms || [])];
-            
+
             // Add gyms from staff records if they aren't already in the list
             staffRecords?.forEach(record => {
                 if (record.gyms && !combinedGyms.find(g => g.id === record.gym_id)) {
@@ -115,20 +115,20 @@ export function GymProvider({ children }: { children: ReactNode }) {
     // Apply dynamic gym theme color to CSS custom variables
     useEffect(() => {
         const root = document.documentElement;
-        
+
         const updateColors = () => {
             const currentGym = gyms.find(g => g.id === gymId);
             const isDark = root.classList.contains('dark');
-            
+
             if (currentGym?.theme_color) {
                 const color = currentGym.theme_color;
-                
+
                 if (color === 'emerald') {
                     root.style.setProperty('--primary', '142 76% 36%');
                     root.style.setProperty('--ring', '142 76% 36%');
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(142, 76%, 36%) 0%, hsl(160, 84%, 39%) 100%)');
                     root.style.setProperty('--shadow-glow', '0 0 20px hsl(142 76% 36% / 0.3)');
-                    
+
                     if (isDark) {
                         root.style.setProperty('--accent', '142 70% 12%');
                         root.style.setProperty('--accent-foreground', '210 40% 98%');
@@ -145,7 +145,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
                     root.style.setProperty('--ring', '262 83% 58%');
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(262, 83%, 58%) 0%, hsl(282, 84%, 60%) 100%)');
                     root.style.setProperty('--shadow-glow', '0 0 20px hsl(262 83% 58% / 0.3)');
-                    
+
                     if (isDark) {
                         root.style.setProperty('--accent', '262 83% 15%');
                         root.style.setProperty('--accent-foreground', '210 40% 98%');
@@ -162,7 +162,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
                     root.style.setProperty('--ring', '346 84% 50%');
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(346, 84%, 50%) 0%, hsl(355, 90%, 62%) 100%)');
                     root.style.setProperty('--shadow-glow', '0 0 20px hsl(346 84% 50% / 0.3)');
-                    
+
                     if (isDark) {
                         root.style.setProperty('--accent', '346 84% 15%');
                         root.style.setProperty('--accent-foreground', '210 40% 98%');
@@ -179,7 +179,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
                     root.style.setProperty('--ring', '24 95% 53%');
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(24, 95%, 53%) 0%, hsl(38, 92%, 50%) 100%)');
                     root.style.setProperty('--shadow-glow', '0 0 20px hsl(24 95% 53% / 0.3)');
-                    
+
                     if (isDark) {
                         root.style.setProperty('--accent', '24 95% 12%');
                         root.style.setProperty('--accent-foreground', '210 40% 98%');
@@ -197,7 +197,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
                     root.style.setProperty('--ring', '221 83% 53%');
                     root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(221, 83%, 53%) 0%, hsl(199, 89%, 48%) 100%)');
                     root.style.setProperty('--shadow-glow', '0 0 20px hsl(221 83% 53% / 0.3)');
-                    
+
                     if (isDark) {
                         root.style.setProperty('--accent', '221 83% 15%');
                         root.style.setProperty('--accent-foreground', '210 40% 98%');
@@ -216,7 +216,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
                 root.style.setProperty('--ring', '221 83% 53%');
                 root.style.setProperty('--gradient-primary', 'linear-gradient(135deg, hsl(221, 83%, 53%) 0%, hsl(199, 89%, 48%) 100%)');
                 root.style.setProperty('--shadow-glow', '0 0 20px hsl(221 83% 53% / 0.3)');
-                
+
                 if (isDark) {
                     root.style.setProperty('--accent', '222 47% 12%');
                     root.style.setProperty('--accent-foreground', '210 40% 98%');

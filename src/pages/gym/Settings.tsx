@@ -338,8 +338,8 @@ export default function Settings() {
                           type="button"
                           onClick={() => setThemeColor(t.id)}
                           className={`flex items-center gap-2 p-3 rounded-lg border text-left transition-all ${isSelected
-                              ? "border-primary ring-2 ring-primary bg-primary/5 font-medium"
-                              : "border-border hover:bg-muted"
+                            ? "border-primary ring-2 ring-primary bg-primary/5 font-medium"
+                            : "border-border hover:bg-muted"
                             }`}
                         >
                           <span className={`h-4 w-4 rounded-full ${t.class} flex-shrink-0 flex items-center justify-center`}>

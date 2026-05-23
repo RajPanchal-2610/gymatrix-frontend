@@ -435,7 +435,7 @@ export default function DietWorkoutPlans() {
     const [activeTab, setActiveTab] = useState<"diet" | "workout">("diet");
 
     const currentGym = gyms.find(g => g.id === gymId);
-    const gymName = currentGym?.name || "FitFlow Gym";
+    const gymName = currentGym?.name || "Gymatrix Gym";
 
     // Data
     const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);

@@ -18,7 +18,7 @@ const RevenueCollectionReport = () => {
   const navigate = useNavigate();
   const { gymId, gyms } = useGym();
   const currentGym = gyms.find(g => g.id === gymId);
-  const gymName = currentGym?.name || "FitFlow Gym";
+  const gymName = currentGym?.name || "Gymatrix Gym";
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: startOfMonth(subDays(new Date(), 365)),

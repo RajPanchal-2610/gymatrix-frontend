@@ -412,7 +412,7 @@ export default function Pricing() {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency,
-                name: "FitFlow",
+                name: "Gymatrix",
                 description: `Upgrade to ${plan.name} Plan`,
                 order_id: data.orderId,
                 handler: async function (paymentResponse: any) {
@@ -552,7 +552,7 @@ export default function Pricing() {
                 key: data.keyId,
                 amount: data.amount,
                 currency: data.currency,
-                name: "FitFlow",
+                name: "Gymatrix",
                 description: `Extend ${type === 'gym' ? 'Gyms' : 'Members'} Limit`,
                 order_id: data.orderId,
                 handler: async function (paymentResponse: any) {
@@ -608,7 +608,7 @@ export default function Pricing() {
             const data = await response.json();
 
             // Branding
-            const gymBranding = "FitFlow Membership";
+            const gymBranding = "Gymatrix Membership";
 
             await pdfExportService.exportInvoice(data, gymBranding);
             toast.success("Invoice downloaded!");
