@@ -79,6 +79,38 @@ interface SubscriptionHistoryRecord {
     }[];
 }
 
+const hslToHex = (h: number, s: number, l: number): string => {
+    s /= 100;
+    l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+};
+
+const getThemeColorHex = (): string => {
+    try {
+        const primaryHsl = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+        if (primaryHsl) {
+            const parts = primaryHsl.split(/[\s,]+/);
+            if (parts.length >= 3) {
+                const h = parseFloat(parts[0]);
+                const s = parseFloat(parts[1].replace('%', ''));
+                const l = parseFloat(parts[2].replace('%', ''));
+                if (!isNaN(h) && !isNaN(s) && !isNaN(l)) {
+                    return hslToHex(h, s, l);
+                }
+            }
+        }
+    } catch (e) {
+        console.error("Error getting theme color:", e);
+    }
+    return "#2563eb"; // default Gymatrix brand blue color
+};
+
 export default function Pricing() {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [loading, setLoading] = useState(true);
@@ -445,7 +477,8 @@ export default function Pricing() {
                     }
                 },
                 prefill: { email: user.email },
-                theme: { color: "#0f172a" },
+                image: "https://cgmjxszkfdyzefxlwvjn.supabase.co/storage/v1/object/public/gymatrix-assets/logo.png?v=2",
+                theme: { color: getThemeColorHex() },
             };
 
             const paymentObject = new (window as any).Razorpay(options);
@@ -581,7 +614,8 @@ export default function Pricing() {
                     }
                 },
                 prefill: { email: user.email },
-                theme: { color: "#0f172a" }
+                image: "https://cgmjxszkfdyzefxlwvjn.supabase.co/storage/v1/object/public/gymatrix-assets/logo.png?v=2",
+                theme: { color: getThemeColorHex() }
             };
 
             const rzp = new (window as any).Razorpay(options);
