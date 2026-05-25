@@ -43,7 +43,8 @@ const MembershipLifecycleReport = () => {
       if (date?.from) params.append('startDate', date.from.toISOString());
       if (date?.to) params.append('endDate', date.to.toISOString());
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/membership-lifecycle?${params.toString()}`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/reports/membership-lifecycle?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }

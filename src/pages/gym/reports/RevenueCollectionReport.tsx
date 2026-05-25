@@ -35,7 +35,8 @@ const RevenueCollectionReport = () => {
       if (date?.to) params.append('endDate', date.to.toISOString());
       params.append('groupBy', groupBy);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/collection?${params.toString()}`, {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/reports/collection?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`
         }
