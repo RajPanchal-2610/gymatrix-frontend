@@ -19,6 +19,7 @@ import SuperAdminSettings from "./pages/super-admin/Settings";
 import ContactMessages from "./pages/super-admin/ContactMessages";
 import Coupons from "./pages/super-admin/Coupons";
 import GymSettings from "./pages/gym/Settings";
+import GymProfile from "./pages/gym/Profile";
 import Login from "./pages/super-admin/Login";
 import ForgotPassword from "./pages/super-admin/ForgotPassword";
 import NotFound from "./pages/super-admin/NotFound";
@@ -154,13 +155,14 @@ const App = () => (
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
-                    <Route path="/settings" element={
+                     <Route path="/settings" element={
                       <FeatureGuard feature="Gym Settings">
                         <PermissionGuard permission="view_gym_settings">
                           <GymSettings />
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
+                    <Route path="/profile" element={<GymProfile />} />
                     <Route path="/tournaments" element={
                       <FeatureGuard feature="Tournament">
                         <PermissionGuard permission="view_tournaments">

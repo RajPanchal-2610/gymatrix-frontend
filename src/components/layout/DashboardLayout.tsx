@@ -24,8 +24,34 @@ export function DashboardLayout({ children, title, hideSidebar = false }: Dashbo
   const getPageTitle = () => {
     if (title) return title;
 
-    const path = location.pathname.split('/').pop() || 'Dashboard';
-    return path.charAt(0).toUpperCase() + path.slice(1);
+    const segments = location.pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return 'Dashboard';
+
+    const lastSegment = segments[segments.length - 1];
+
+    // Check if the last segment is a numeric ID or a UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isId = !isNaN(Number(lastSegment)) || uuidRegex.test(lastSegment);
+
+    if (isId && segments.length > 1) {
+      const parentSegment = segments[segments.length - 2];
+      const cleanParent = parentSegment.replace(/[-_]/g, ' ');
+      const formattedParent = cleanParent
+        .split(' ')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      if (formattedParent.endsWith('s')) {
+        return formattedParent.slice(0, -1) + ' Detail';
+      }
+      return formattedParent + ' Detail';
+    }
+
+    const cleanSegment = lastSegment.replace(/[-_]/g, ' ');
+    return cleanSegment
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   };
 
   return (

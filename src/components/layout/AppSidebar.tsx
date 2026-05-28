@@ -25,7 +25,8 @@ import {
   Shield,
   Apple,
   TicketPercent,
-  Trophy
+  Trophy,
+  IndianRupee
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -50,7 +51,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+ 
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Members", url: "/members", icon: Users },
@@ -58,7 +69,7 @@ const navItems = [
   { title: "Features", url: "/features", icon: List },
   { title: "Pricing", url: "/pricing", icon: Wallet },
   { title: "Attendance", url: "/attendance", icon: Calendar },
-  { title: "Payments", url: "/payments", icon: Receipt },
+  { title: "Payments", url: "/payments", icon: IndianRupee },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Staff & Trainers", url: "/staff", icon: UserCog },
   { title: "Diet & Workout", url: "/diet-workout", icon: Apple },
@@ -89,6 +100,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const [createGymOpen, setCreateGymOpen] = useState(false);
   const [editingGym, setEditingGym] = useState<{ id: number; name: string } | null>(null);
   const [userProfile, setUserProfile] = useState<{ full_name: string; avatar_url: string | null; email: string } | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   useEffect(() => {
     const getUserProfile = async () => {
@@ -361,26 +373,34 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           "flex items-center gap-3 p-2 rounded-lg mt-2 relative group",
           collapsed ? "justify-center" : "bg-sidebar-accent/30"
         )}>
-          <Avatar className="h-9 w-9 border border-primary/20">
-            <AvatarImage src={userProfile?.avatar_url || undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary font-bold">
-              {userProfile?.full_name ? userProfile.full_name.substring(0, 2).toUpperCase() : "U"}
-            </AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-foreground truncate">{userProfile?.full_name || "Loading..."}</p>
-              <p className="text-[10px] text-muted-foreground truncate opacity-70 italic font-medium">{userProfile?.email}</p>
-            </div>
-          )}
+          <NavLink
+            to="/profile"
+            className={cn(
+              "flex flex-1 items-center gap-3 min-w-0 text-left hover:opacity-85 transition-opacity",
+              collapsed && "justify-center"
+            )}
+          >
+            <Avatar className="h-9 w-9 border border-primary/20">
+              <AvatarImage src={userProfile?.avatar_url || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                {userProfile?.full_name ? userProfile.full_name.substring(0, 2).toUpperCase() : "U"}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-foreground truncate">{userProfile?.full_name || "Loading..."}</p>
+                <p className="text-[10px] text-muted-foreground truncate opacity-70 italic font-medium">{userProfile?.email}</p>
+              </div>
+            )}
+          </NavLink>
           {!collapsed && (
             <Tooltip delayDuration={0}>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                  onClick={handleLogout}
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex-shrink-0"
+                  onClick={() => setShowLogoutConfirm(true)}
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
@@ -394,7 +414,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 text-destructive"
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
               >
                 <LogOut className="h-4 w-4" />
               </Button>
@@ -402,6 +422,23 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
           )}
         </div>
       </div>
+
+      <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign back in to access your account.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Log Out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </aside>
   );
 }

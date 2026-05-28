@@ -19,7 +19,12 @@ import {
     Upload,
     Loader2,
     RefreshCw,
-    User
+    User,
+    Users,
+    UserCheck,
+    UserX,
+    ChevronLeft,
+    ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -66,6 +71,14 @@ import { format, addMonths, addDays, addYears, differenceInCalendarDays } from "
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
+import { StatCard } from "@/components/dashboard/StatCard";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink
+} from "@/components/ui/pagination";
 
 export default function Members() {
     const navigate = useNavigate();
@@ -119,6 +132,8 @@ export default function Members() {
     const [assignTrainerMember, setAssignTrainerMember] = useState<GymMember | null>(null);
     const [selectedTrainerId, setSelectedTrainerId] = useState<string>("none");
     const [showOnlyMyMembers, setShowOnlyMyMembers] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     useEffect(() => {
         const filter = searchParams.get('filter');
@@ -730,6 +745,32 @@ export default function Members() {
         return matchesSearch;
     });
 
+    // Statistics calculations
+    const totalMembersCount = members.length;
+
+    const activeMembersCount = members.filter(member => {
+        const status = getMemberStatusDisplay(member);
+        return status.label === "Active" || status.label.startsWith("Expires in");
+    }).length;
+
+    const expiredMembersCount = members.filter(member => {
+        const status = getMemberStatusDisplay(member);
+        return status.label === "Expired" || status.label === "Expires Today";
+    }).length;
+
+    const pendingDuesTotal = members.reduce((sum, member) => {
+        const payments = member.gym_membership_payments || [];
+        const unpaid = payments.reduce((pSum, p) => pSum + (p.payment_status !== 'paid' ? (p.due_amount || 0) : 0), 0);
+        return sum + unpaid;
+    }, 0);
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
+    const validCurrentPage = Math.max(1, Math.min(currentPage, totalPages || 1));
+    const startIndex = (validCurrentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedMembers = filteredMembers.slice(startIndex, endIndex);
+
     return (
         <>
             {gymLoading || (loading && !members.length && gymId) ? (
@@ -745,7 +786,10 @@ export default function Members() {
                                 placeholder="Search members..."
                                 className="pl-9"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setCurrentPage(1);
+                                }}
                             />
                         </div>
                         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
@@ -753,7 +797,10 @@ export default function Members() {
                                 <Button
                                     variant={showOnlyMyMembers ? "default" : "outline"}
                                     size="sm"
-                                    onClick={() => setShowOnlyMyMembers(!showOnlyMyMembers)}
+                                    onClick={() => {
+                                        setShowOnlyMyMembers(!showOnlyMyMembers);
+                                        setCurrentPage(1);
+                                    }}
                                     className={cn(
                                         "h-10 px-4 transition-all duration-200",
                                         showOnlyMyMembers && "bg-primary text-primary-foreground shadow-glow border-none"
@@ -1130,6 +1177,46 @@ export default function Members() {
                         </Dialog>
                     </div>
 
+                    {/* Member Statistics Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <StatCard
+                            title="Total Members"
+                            value={totalMembersCount}
+                            change="All registered members"
+                            changeType="neutral"
+                            icon={Users}
+                            iconClassName="gradient-primary"
+                            loading={loading}
+                        />
+                        <StatCard
+                            title="Active Members"
+                            value={activeMembersCount}
+                            change="Active membership status"
+                            changeType="positive"
+                            icon={UserCheck}
+                            iconClassName="bg-success"
+                            loading={loading}
+                        />
+                        <StatCard
+                            title="Expired Members"
+                            value={expiredMembersCount}
+                            change="Memberships requiring renewal"
+                            changeType="negative"
+                            icon={UserX}
+                            iconClassName="bg-destructive"
+                            loading={loading}
+                        />
+                        <StatCard
+                            title="Pending Dues"
+                            value={`₹${pendingDuesTotal.toLocaleString()}`}
+                            change="Outstanding member payments"
+                            changeType={pendingDuesTotal > 0 ? "negative" : "neutral"}
+                            icon={IndianRupee}
+                            iconClassName="bg-warning"
+                            loading={loading}
+                        />
+                    </div>
+
                     <Card>
                         <CardContent className="p-0">
                             <Table>
@@ -1153,7 +1240,7 @@ export default function Members() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        filteredMembers.map((member) => (
+                                        paginatedMembers.map((member) => (
                                             <TableRow
                                                 key={member.id}
                                                 className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
@@ -1525,6 +1612,100 @@ export default function Members() {
                             </Table>
                         </CardContent>
                     </Card>
+
+                    {/* Pagination Controls */}
+                    {filteredMembers.length > 0 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-2">
+                            <div className="text-sm text-muted-foreground order-2 sm:order-1">
+                                Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{" "}
+                                <span className="font-semibold text-foreground">
+                                    {Math.min(endIndex, filteredMembers.length)}
+                                </span>{" "}
+                                of <span className="font-semibold text-foreground">{filteredMembers.length}</span> members
+                            </div>
+                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto order-1 sm:order-2 justify-end">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page</span>
+                                    <Select
+                                        value={itemsPerPage.toString()}
+                                        onValueChange={(val) => {
+                                            setItemsPerPage(Number(val));
+                                            setCurrentPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-[70px] h-9">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                            <SelectItem value="100">100</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <Pagination className="w-auto mx-0">
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                                disabled={validCurrentPage === 1}
+                                                className="gap-1 pl-2.5"
+                                            >
+                                                <ChevronLeft className="h-4 w-4" />
+                                                <span>Previous</span>
+                                            </Button>
+                                        </PaginationItem>
+                                        {Array.from({ length: totalPages }).map((_, idx) => {
+                                            const pageNum = idx + 1;
+                                            if (
+                                                pageNum === 1 ||
+                                                pageNum === totalPages ||
+                                                Math.abs(pageNum - validCurrentPage) <= 1
+                                            ) {
+                                                return (
+                                                    <PaginationItem key={pageNum}>
+                                                        <PaginationLink
+                                                            isActive={validCurrentPage === pageNum}
+                                                            onClick={() => setCurrentPage(pageNum)}
+                                                            className="cursor-pointer"
+                                                        >
+                                                            {pageNum}
+                                                        </PaginationLink>
+                                                    </PaginationItem>
+                                                );
+                                            }
+                                            if (
+                                                (pageNum === 2 && validCurrentPage > 3) ||
+                                                (pageNum === totalPages - 1 && validCurrentPage < totalPages - 2)
+                                            ) {
+                                                return (
+                                                    <PaginationItem key={pageNum}>
+                                                        <PaginationEllipsis />
+                                                    </PaginationItem>
+                                                );
+                                            }
+                                            return null;
+                                        })}
+                                        <PaginationItem>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                                disabled={validCurrentPage === totalPages}
+                                                className="gap-1 pr-2.5"
+                                            >
+                                                <span>Next</span>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                            </div>
+                        </div>
+                    )}
 
                     <Dialog open={assignTrainerOpen} onOpenChange={setAssignTrainerOpen}>
                         <DialogContent className="sm:max-w-[400px]">

@@ -20,13 +20,13 @@ interface RecentActivityProps {
 const getTypeBadge = (type: string) => {
   switch (type) {
     case "new-member":
-      return <Badge className="bg-primary/10 text-primary hover:bg-primary/20">New</Badge>;
+      return <Badge className="bg-indigo-500/15 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 hover:bg-indigo-500/25 border-none font-semibold">New</Badge>;
     case "check-in":
-      return <Badge className="bg-success/10 text-success hover:bg-success/20">Check-in</Badge>;
+      return <Badge className="bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300 hover:bg-emerald-500/25 border-none font-semibold">Check-in</Badge>;
     case "payment":
-      return <Badge className="bg-accent/10 text-accent hover:bg-accent/20">Payment</Badge>;
+      return <Badge className="bg-blue-500/15 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300 hover:bg-blue-500/25 border-none font-semibold">Payment</Badge>;
     case "renewal":
-      return <Badge className="bg-primary/10 text-primary hover:bg-primary/20">Renewal</Badge>;
+      return <Badge className="bg-purple-500/15 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 hover:bg-purple-500/25 border-none font-semibold">Renewal</Badge>;
     default:
       return <Badge variant="secondary">Activity</Badge>;
   }

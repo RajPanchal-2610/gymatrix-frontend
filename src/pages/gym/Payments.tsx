@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
     Search,
     Filter,
-    DollarSign,
+    IndianRupee,
     TrendingUp,
     AlertCircle,
     CheckCircle,
@@ -151,7 +151,7 @@ export default function GymPayments() {
                     value={`₹${totalCollected.toLocaleString()}`}
                     change="Lifetime"
                     changeType="neutral"
-                    icon={DollarSign}
+                    icon={IndianRupee}
                     iconClassName="gradient-primary"
                 />
                 <StatCard

@@ -1,21 +1,18 @@
 import { useState, useEffect } from "react";
-import { User, Building2, Bell, Shield, Palette, Loader2, Upload, X, Check } from "lucide-react";
+import { Building2, Bell, Shield, Loader2, Upload, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { useTheme } from "@/hooks/useTheme";
 import { toast } from "sonner";
 import { usePermissions } from "@/contexts/PermissionsContext";
 import { useGym } from "@/hooks/useGym";
 import { supabase } from "@/lib/supabase";
 
 export default function Settings() {
-  const { theme, setTheme } = useTheme();
   const { hasPermission, role } = usePermissions();
   const { gyms, gymId, refreshGyms } = useGym();
   const isOwner = role?.isOwner;
@@ -24,12 +21,6 @@ export default function Settings() {
   const [logoUrl, setLogoUrl] = useState("");
   const [themeColor, setThemeColor] = useState("blue");
   const [savingBranding, setSavingBranding] = useState(false);
-
-  // User profile states
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [savingProfile, setSavingProfile] = useState(false);
 
   // Gym settings states
   const [gymName, setGymName] = useState("");
@@ -45,78 +36,6 @@ export default function Settings() {
       setGymName(currentGym.name || "");
     }
   }, [currentGym]);
-
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('full_name, email, phone')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (profile) {
-            setFullName(profile.full_name || "");
-            setEmail(profile.email || user.email || "");
-            setPhone(profile.phone || "");
-          } else {
-            setEmail(user.email || "");
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-      }
-    };
-    fetchUserProfile();
-  }, []);
-
-  const handleSaveProfile = async () => {
-    setSavingProfile(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No authenticated user found");
-
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      let error;
-      if (existingProfile) {
-        const { error: err } = await supabase
-          .from('profiles')
-          .update({
-            full_name: fullName,
-            phone: phone,
-            email: email
-          })
-          .eq('user_id', user.id);
-        error = err;
-      } else {
-        const { error: err } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: user.id,
-            full_name: fullName,
-            phone: phone,
-            email: email
-          });
-        error = err;
-      }
-
-      if (error) throw error;
-      toast.success("Profile updated successfully!");
-      window.dispatchEvent(new CustomEvent("profile-updated"));
-    } catch (error: any) {
-      console.error(error);
-      toast.error("Failed to update profile: " + error.message);
-    } finally {
-      setSavingProfile(false);
-    }
-  };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -169,12 +88,8 @@ export default function Settings() {
 
   return (
     <>
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs defaultValue="gym" className="space-y-6">
         <TabsList className="bg-muted p-1 h-auto flex-wrap">
-          <TabsTrigger value="profile" className="gap-2">
-            <User className="h-4 w-4" />
-            Profile
-          </TabsTrigger>
           {hasPermission('view_gym_settings') && (
             <TabsTrigger value="gym" className="gap-2">
               <Building2 className="h-4 w-4" />
@@ -185,70 +100,8 @@ export default function Settings() {
             <Bell className="h-4 w-4" />
             Notifications
           </TabsTrigger>
-          <TabsTrigger value="appearance" className="gap-2">
-            <Palette className="h-4 w-4" />
-            Appearance
-          </TabsTrigger>
 
         </TabsList>
-
-        {/* Profile Settings */}
-        <TabsContent value="profile">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Settings</CardTitle>
-              <CardDescription>Manage your personal information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    disabled
-                    placeholder="e.g. john@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. +1 234-567-8901"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  className="gradient-primary"
-                  onClick={handleSaveProfile}
-                  disabled={savingProfile}
-                >
-                  {savingProfile ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Changes"
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {/* Gym Settings */}
         <TabsContent value="gym">
@@ -400,37 +253,6 @@ export default function Settings() {
                   </span>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Appearance */}
-        <TabsContent value="appearance">
-          <Card>
-            <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize how GymFlow looks</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <Label>Theme</Label>
-                <div className="flex gap-4">
-                  <Button
-                    variant={theme === "light" ? "default" : "outline"}
-                    onClick={() => setTheme("light")}
-                    className="flex-1"
-                  >
-                    Light
-                  </Button>
-                  <Button
-                    variant={theme === "dark" ? "default" : "outline"}
-                    onClick={() => setTheme("dark")}
-                    className="flex-1"
-                  >
-                    Dark
-                  </Button>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
