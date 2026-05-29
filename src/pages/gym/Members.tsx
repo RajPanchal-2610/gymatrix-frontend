@@ -72,6 +72,7 @@ import { usePermissions } from "@/contexts/PermissionsContext";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 import { StatCard } from "@/components/dashboard/StatCard";
+import ImportMembersDialog from "@/components/gym/ImportMembersDialog";
 import {
     Pagination,
     PaginationContent,
@@ -93,6 +94,7 @@ export default function Members() {
     const [searchQuery, setSearchQuery] = useState("");
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<GymMember | null>(null);
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
 
     const [formData, setFormData] = useState({
         full_name: "",
@@ -808,6 +810,16 @@ export default function Members() {
                                 >
                                     <User className="h-4 w-4 mr-2" />
                                     My Members
+                                </Button>
+                            )}
+                            {hasPermission('add_members') && (
+                                <Button
+                                    variant="outline"
+                                    className="border-primary/20 hover:bg-primary/5 text-primary h-10 px-4 transition-all duration-200"
+                                    onClick={() => setImportDialogOpen(true)}
+                                >
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Import Members
                                 </Button>
                             )}
                             {hasPermission('add_members') && (
@@ -1756,6 +1768,18 @@ export default function Members() {
                                 handleViewHistory(viewingMember);
                             }
                         }}
+                    />
+
+                    <ImportMembersDialog
+                        open={importDialogOpen}
+                        onOpenChange={setImportDialogOpen}
+                        gymId={gymId}
+                        plans={plans}
+                        trainers={trainers}
+                        onSuccess={fetchMembers}
+                        subscription={subscription}
+                        currentMembersCount={members.length}
+                        gyms={gyms}
                     />
                 </>
             )}

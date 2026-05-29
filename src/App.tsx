@@ -22,10 +22,13 @@ import GymSettings from "./pages/gym/Settings";
 import GymProfile from "./pages/gym/Profile";
 import Login from "./pages/super-admin/Login";
 import ForgotPassword from "./pages/super-admin/ForgotPassword";
+import ResetPassword from "./pages/super-admin/ResetPassword";
 import NotFound from "./pages/super-admin/NotFound";
 
 import GymLogin from "./pages/gym/GymLogin";
 import GymRegister from "./pages/gym/GymRegister";
+import GymForgotPassword from "./pages/gym/GymForgotPassword";
+import GymResetPassword from "./pages/gym/GymResetPassword";
 import GymDashboard from "./pages/gym/Dashboard";
 import GymInventory from "./pages/gym/Inventory";
 import GymMembers from "./pages/gym/Members";
@@ -183,6 +186,8 @@ const App = () => (
                 {/* Public Gym Auth */}
                 <Route path="/auth" element={<GymLogin />} />
                 <Route path="/auth/register" element={<GymRegister />} />
+                <Route path="/auth/forgot-password" element={<GymForgotPassword />} />
+                <Route path="/auth/reset-password" element={<GymResetPassword />} />
 
                 {/* Super Admin Routes - Protected */}
                 <Route element={<PrivateRoute allowedRoles={['SUPER_ADMIN']} />}>
@@ -203,6 +208,7 @@ const App = () => (
                 {/* Public Admin Auth */}
                 <Route path="/admin/login" element={<Login />} />
                 <Route path="/admin/forgot-password" element={<ForgotPassword />} />
+                <Route path="/admin/reset-password" element={<ResetPassword />} />
 
 
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

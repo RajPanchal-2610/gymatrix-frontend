@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Dumbbell, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { Building2, Mail, ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
-export default function ForgotPassword() {
+export default function GymForgotPassword() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export default function ForgotPassword() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/admin/reset-password`,
+        redirectTo: `${window.location.origin}/auth/reset-password`,
       });
       if (error) throw error;
       
@@ -48,7 +48,7 @@ export default function ForgotPassword() {
       <Card className="w-full max-w-md relative animate-scale-in">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto h-14 w-14 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-glow">
-            <Dumbbell className="h-7 w-7 text-primary-foreground" />
+            <Building2 className="h-7 w-7 text-primary-foreground" />
           </div>
           {submitted ? (
             <>
@@ -64,7 +64,7 @@ export default function ForgotPassword() {
             <>
               <CardTitle className="text-2xl font-bold">Forgot password?</CardTitle>
               <CardDescription>
-                Enter your email and we'll send you a reset link
+                Enter your registered gym email to receive a reset link
               </CardDescription>
             </>
           )}
@@ -73,7 +73,7 @@ export default function ForgotPassword() {
           {submitted ? (
             <div className="space-y-4">
               <Button asChild variant="outline" className="w-full">
-                <Link to="/admin/login">
+                <Link to="/auth">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to login
                 </Link>
@@ -92,13 +92,13 @@ export default function ForgotPassword() {
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@email.com"
+                    placeholder="admin@gym.com"
                     className="pl-10"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -118,7 +118,7 @@ export default function ForgotPassword() {
                 )}
               </Button>
               <Button asChild variant="ghost" className="w-full" disabled={loading}>
-                <Link to="/admin/login">
+                <Link to="/auth">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to login
                 </Link>

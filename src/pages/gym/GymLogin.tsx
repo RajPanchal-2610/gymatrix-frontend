@@ -152,7 +152,7 @@ export default function GymLogin() {
                 </Label>
               </div>
               <Link
-                to="/forgot-password"
+                to="/auth/forgot-password"
                 className="text-sm text-primary hover:underline"
               >
                 Forgot password?
