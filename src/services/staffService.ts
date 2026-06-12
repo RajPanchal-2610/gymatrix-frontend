@@ -6,10 +6,15 @@ const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const getAuthHeaders = async () => {
     const { data } = await supabase.auth.getSession();
-    return {
+    const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${data.session?.access_token}`
     };
+    const activeRole = localStorage.getItem('activeRole');
+    if (activeRole) {
+        headers['x-active-role'] = activeRole;
+    }
+    return headers;
 };
 
 export const staffService = {
@@ -84,7 +89,7 @@ export const staffService = {
 
     async markAttendance(attendance: Partial<GymStaffAttendance>) {
         // Remove joined fields to prevent "column does not exist" error
-        const { gym_staff, ...payload } = attendance;
+        const { gym_staff, staff, ...payload } = attendance as any;
 
         const { data, error } = await supabase
             .from('gym_staff_attendance')

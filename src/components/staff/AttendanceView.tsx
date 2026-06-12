@@ -111,7 +111,7 @@ export function AttendanceView() {
     const emptyDays = Array(startDay).fill(null);
 
     const handleDateClick = (date: Date) => {
-        if (!hasPermission('manage_staff_attendance')) {
+        if (!hasPermission('mark_attendance')) {
             toast({ 
                 title: "Permission Denied", 
                 description: "You don't have permission to mark attendance.", 

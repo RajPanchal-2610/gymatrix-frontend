@@ -4,7 +4,13 @@ import { supabase } from '@/lib/supabase';
 
 interface PermissionsContextType {
     permissions: string[];
-    role: { name: string; isOwner?: boolean; staff_id?: number | null } | null;
+    role: { 
+        name: string; 
+        isOwner?: boolean; 
+        staff_id?: number | null;
+        hasStaffRecord?: boolean;
+        staffRoleName?: string | null;
+    } | null;
     loading: boolean;
     hasPermission: (action: string) => boolean;
     refreshPermissions: () => Promise<void>;
@@ -14,7 +20,13 @@ const PermissionsContext = createContext<PermissionsContextType | undefined>(und
 
 export function PermissionsProvider({ children }: { children: ReactNode }) {
     const [permissions, setPermissions] = useState<string[]>([]);
-    const [role, setRole] = useState<{ name: string; isOwner?: boolean; staff_id?: number | null } | null>(null);
+    const [role, setRole] = useState<{ 
+        name: string; 
+        isOwner?: boolean; 
+        staff_id?: number | null;
+        hasStaffRecord?: boolean;
+        staffRoleName?: string | null;
+    } | null>(null);
     const [loading, setLoading] = useState(true);
 
     const fetchPermissions = async () => {

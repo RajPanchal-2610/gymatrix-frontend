@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Dumbbell, Mail, Lock, Eye, EyeOff, Building2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,16 @@ export default function GymLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [remember, setRemember] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("remembered_gym_email");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRemember(true);
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +79,11 @@ export default function GymLogin() {
         }
 
         toast.success("Welcome back!");
+        if (remember) {
+          localStorage.setItem("remembered_gym_email", email);
+        } else {
+          localStorage.removeItem("remembered_gym_email");
+        }
         navigate("/");
       }
 
@@ -90,10 +104,10 @@ export default function GymLogin() {
 
       <Card className="w-full max-w-md relative animate-scale-in">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto h-14 w-14 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-glow">
-            <Building2 className="h-7 w-7 text-primary-foreground" />
+          <div className="mx-auto h-14 w-14 rounded-xl bg-white p-1 border flex items-center justify-center mb-4 shadow-glow overflow-hidden">
+            <img src="/logo.png" alt="Gymatrix Logo" className="h-full w-full object-contain" />
           </div>
-          <CardTitle className="text-2xl font-bold">Admin Login</CardTitle>
+          <CardTitle className="text-2xl font-bold">Login</CardTitle>
           <CardDescription>Manage your gym efficiently</CardDescription>
         </CardHeader>
         <CardContent>
@@ -146,7 +160,12 @@ export default function GymLogin() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Checkbox id="remember" disabled={loading} />
+                <Checkbox
+                  id="remember"
+                  disabled={loading}
+                  checked={remember}
+                  onCheckedChange={(checked) => setRemember(checked === true)}
+                />
                 <Label htmlFor="remember" className="text-sm font-normal">
                   Remember me
                 </Label>
@@ -165,14 +184,14 @@ export default function GymLogin() {
                   Logging in...
                 </>
               ) : (
-                "Login as Admin"
+                "Login"
               )}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an admin account? </span>
+            <span className="text-muted-foreground">Don't have an account? </span>
             <Link to="/auth/register" className="text-primary hover:underline font-medium">
-              Register Gym
+              Register
             </Link>
           </div>
         </CardContent>

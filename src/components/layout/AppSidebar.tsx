@@ -26,7 +26,8 @@ import {
   Apple,
   TicketPercent,
   Trophy,
-  IndianRupee
+  IndianRupee,
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -61,14 +62,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
- 
+
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Members", url: "/members", icon: Users },
   { title: "Membership Plans", url: "/plans", icon: CreditCard },
   { title: "Features", url: "/features", icon: List },
   { title: "Pricing", url: "/pricing", icon: Wallet },
-  { title: "Attendance", url: "/attendance", icon: Calendar },
+  // { title: "Attendance", url: "/attendance", icon: Calendar },
   { title: "Payments", url: "/payments", icon: IndianRupee },
   { title: "Inventory", url: "/inventory", icon: Package },
   { title: "Staff & Trainers", url: "/staff", icon: UserCog },
@@ -95,7 +97,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const navigate = useNavigate();
   const isAdmin = location.pathname.startsWith("/admin");
   const { hasFeature, loading: subscriptionLoading } = useSubscription();
-  const { hasPermission } = usePermissions();
+  const { hasPermission, role } = usePermissions();
   const { gyms, gymId, switchGym, refreshGyms } = useGym();
   const [createGymOpen, setCreateGymOpen] = useState(false);
   const [editingGym, setEditingGym] = useState<{ id: number; name: string } | null>(null);
@@ -178,11 +180,10 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       // 2. Permission checks (Secondary layer)
       if (item.title === "Members" && !hasPermission('view_members')) return null;
       if (item.title === "Membership Plans" && !hasPermission('view_membership_plans')) return null;
-      if (item.title === "Attendance" && !hasPermission('view_attendance')) return null;
       if (item.title === "Payments" && !hasPermission('view_payments')) return null;
       if (item.title === "Staff & Trainers" && !hasPermission('view_staff')) return null;
       if (item.title === "Roles" && !hasPermission('view_roles')) return null;
-      if (item.title === "Permissions" && !hasPermission('view_permissions')) return null;
+      if (item.title === "Permissions" && role?.name !== "SUPER_ADMIN") return null;
       if (item.title === "Reports" && !hasPermission('view_reports')) return null;
       if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
@@ -230,6 +231,91 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
     return linkContent;
   };
 
+  const logoContent = (
+    <div className={cn(
+      "flex items-center overflow-hidden transition-all duration-200",
+      collapsed ? "justify-center w-full" : "gap-3 text-left flex-1"
+    )}>
+      {!isAdmin && currentGym?.logo_url ? (
+        <img
+          src={currentGym.logo_url}
+          alt={currentGym.name}
+          className="h-14 w-14 rounded-lg object-cover bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+        />
+      ) : (
+        <img
+          src="/logo.png"
+          alt="Gymatrix Logo"
+          className="h-14 w-14 rounded-lg object-contain bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+        />
+      )}
+      {!collapsed && (
+        <div className="flex flex-col min-w-0">
+          <span className="font-bold text-base lg:text-lg text-foreground truncate leading-snug">
+            {!isAdmin && currentGym?.name ? (
+              currentGym.name
+            ) : (
+              <>Gy<span className="gradient-text">matrix</span></>
+            )}
+          </span>
+          <span className="text-xs lg:text-[13px] text-muted-foreground font-medium leading-none mt-1">
+            {isAdmin ? "Super Admin" : (role?.name ? role.name.replace(/_/g, ' ') : "Gym Admin")}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+
+  const gymSwitcherTrigger = (
+    <Button
+      variant="ghost"
+      className={cn(
+        "w-full flex items-center transition-all duration-200 rounded-lg h-[72px]",
+        collapsed ? "justify-center p-0 hover:bg-sidebar-accent/50" : "justify-between p-2 hover:bg-sidebar-accent/50 border border-transparent hover:border-sidebar-border/30"
+      )}
+    >
+      {logoContent}
+      {!collapsed && (
+        <ChevronsUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-60 ml-2" />
+      )}
+    </Button>
+  );
+
+  const switcherWithTooltip = collapsed ? (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        {gymSwitcherTrigger}
+      </TooltipTrigger>
+      <TooltipContent side="right" className="font-medium">
+        Switch Gym ({currentGym?.name || "Select Gym"})
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    gymSwitcherTrigger
+  );
+
+  const adminHeader = (
+    <div className={cn(
+      "w-full flex items-center h-[72px] rounded-lg",
+      collapsed ? "justify-center px-0" : "px-2"
+    )}>
+      {logoContent}
+    </div>
+  );
+
+  const adminHeaderWithTooltip = collapsed ? (
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        {adminHeader}
+      </TooltipTrigger>
+      <TooltipContent side="right" className="font-medium">
+        Platform Admin
+      </TooltipContent>
+    </Tooltip>
+  ) : (
+    adminHeader
+  );
+
   return (
     <aside
       className={cn(
@@ -237,125 +323,82 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
         collapsed ? "w-16" : "w-64"
       )}
     >
-      {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border">
-        {/* ... Logo content ... */}
-        <div className="flex items-center gap-2 overflow-hidden">
-          {!isAdmin && currentGym?.logo_url ? (
-            <img
-              src={currentGym.logo_url}
-              alt={currentGym.name}
-              className="h-11 w-11 rounded-lg object-cover bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+      <button
+        onClick={() => onCollapsedChange(!collapsed)}
+        className="absolute -right-3 top-9 z-50 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar shadow-md hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-muted-foreground transition-all focus:outline-none cursor-pointer"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5" />
+        )}
+      </button>
+
+      <div className="h-24 flex items-center px-3 border-b border-sidebar-border relative">
+        {isAdmin ? (
+          adminHeaderWithTooltip
+        ) : (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                {switcherWithTooltip}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-56"
+                align="start"
+                side={collapsed ? "right" : "bottom"}
+                sideOffset={collapsed ? 12 : 4}
+              >
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">My Gyms</DropdownMenuLabel>
+                {gyms.map(gym => (
+                  <DropdownMenuItem
+                    key={gym.id}
+                    className="cursor-pointer flex items-center justify-between group/item"
+                    onClick={() => switchGym(gym.id)}
+                  >
+                    <div className="flex items-center min-w-0 flex-1">
+                      <span className="truncate text-sm font-medium">{gym.name}</span>
+                      {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary flex-shrink-0" />}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 hover:bg-primary/10 hover:text-primary transition-all ml-2 text-muted-foreground hover:text-primary opacity-0 group-hover/item:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingGym({ id: gym.id, name: gym.name });
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setCreateGymOpen(true)} className="cursor-pointer text-primary focus:text-primary font-medium">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Create New Gym
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <EditGymDialog
+              open={!!editingGym}
+              onOpenChange={(open) => !open && setEditingGym(null)}
+              gymId={editingGym?.id ?? null}
+              initialName={editingGym?.name ?? ""}
+              onSuccess={refreshGyms}
             />
-          ) : (
-            <img
-              src="/logo.png"
-              alt="Gymatrix Logo"
-              className="h-11 w-11 rounded-lg object-contain bg-white p-0.5 border border-sidebar-border flex-shrink-0"
+
+            <CreateGymDialog
+              open={createGymOpen}
+              onOpenChange={setCreateGymOpen}
+              onSuccess={refreshGyms}
             />
-          )}
-          {!collapsed && (
-            <span className="font-bold text-lg text-foreground truncate max-w-[130px]">
-              {!isAdmin && currentGym?.name && hasFeature("Gym Settings") ? (
-                currentGym.name
-              ) : (
-                <>Gy<span className="gradient-text">matrix</span></>
-              )}
-            </span>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => onCollapsedChange(!collapsed)}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </Button>
+          </>
+        )}
       </div>
 
-      {/* Gym Selector */}
-      {!collapsed && (
-        <div className="px-3 py-3 border-b border-sidebar-border">
-          {isAdmin ? (
-            <div className="flex items-center gap-2 p-2 rounded-lg bg-sidebar-accent">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Platform Admin</p>
-                <p className="text-xs text-muted-foreground">Super Admin</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="w-full flex items-center justify-between p-2 h-auto hover:bg-sidebar-accent mb-1 border border-transparent hover:border-sidebar-border">
-                    <div className="flex items-center gap-2 min-w-0 text-left">
-                      <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{currentGym?.name || "Select Gym"}</p>
-                        <p className="text-xs text-muted-foreground">Gym Admin</p>
-                      </div>
-                    </div>
-                    <ChevronsUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0 opacity-50" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="start">
-                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">My Gyms</DropdownMenuLabel>
-                  {gyms.map(gym => (
-                    <DropdownMenuItem
-                      key={gym.id}
-                      className="cursor-pointer flex items-center justify-between group/item"
-                      onClick={() => switchGym(gym.id)}
-                    >
-                      <div className="flex items-center min-w-0 flex-1">
-                        <span className="truncate">{gym.name}</span>
-                        {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary flex-shrink-0" />}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 hover:bg-primary/10 hover:text-primary transition-all ml-2 text-muted-foreground hover:text-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingGym({ id: gym.id, name: gym.name });
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setCreateGymOpen(true)} className="cursor-pointer text-primary focus:text-primary">
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Create New Gym
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <EditGymDialog
-                open={!!editingGym}
-                onOpenChange={(open) => !open && setEditingGym(null)}
-                gymId={editingGym?.id ?? null}
-                initialName={editingGym?.name ?? ""}
-                onSuccess={refreshGyms}
-              />
-
-              <CreateGymDialog
-                open={createGymOpen}
-                onOpenChange={setCreateGymOpen}
-                onSuccess={refreshGyms}
-              />
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => (
           <NavItem key={item.url} item={item} />

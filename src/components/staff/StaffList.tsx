@@ -136,11 +136,11 @@ export function StaffList() {
                 role_id: undefined,
                 allow_login: false
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error creating staff:", error);
             toast({
                 title: "Error",
-                description: "Failed to create staff member.",
+                description: error.message || "Failed to create staff member.",
                 variant: "destructive",
             });
         }
@@ -181,11 +181,11 @@ export function StaffList() {
             });
             setEditDialogOpen(false);
             loadData();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating staff:", error);
             toast({
                 title: "Error",
-                description: "Failed to update staff member.",
+                description: error.message || "Failed to update staff member.",
                 variant: "destructive",
             });
         }

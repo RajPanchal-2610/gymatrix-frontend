@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import type { GymNotificationSettings } from '@/types/gym';
 
 export interface Gym {
     id: number;
@@ -8,6 +9,7 @@ export interface Gym {
     owner_id: string;
     logo_url?: string;
     theme_color?: string;
+    notification_settings?: GymNotificationSettings;
 }
 
 interface GymContextType {

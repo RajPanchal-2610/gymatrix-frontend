@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,11 +26,14 @@ import { staffService } from "@/services/staffService";
 import { GymRole, Permission } from "@/types/gym";
 import { useGym } from "@/hooks/useGym";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { useSubscription } from "@/hooks/useSubscription";
+import { cn } from "@/lib/utils";
 
 export function RolesView() {
     const { gymId } = useGym();
     const { toast } = useToast();
     const { hasPermission } = usePermissions();
+    const { hasFeature, loading: subscriptionLoading } = useSubscription();
     const [roles, setRoles] = useState<GymRole[]>([]);
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [loading, setLoading] = useState(true);
@@ -190,29 +193,49 @@ export function RolesView() {
                                                     {featureName}
                                                 </h4>
                                                 <div className="grid gap-3">
-                                                    {perms.map((p) => (
-                                                        <div key={p.id} className="flex items-start space-x-3 bg-accent/10 p-3 rounded-lg hover:bg-accent/20 transition-colors border border-transparent hover:border-primary/10">
-                                                            <Checkbox 
-                                                                id={`perm-${p.id}`} 
-                                                                className="h-5 w-5 mt-0.5"
-                                                                checked={selectedPermissions.includes(p.id)}
-                                                                onCheckedChange={() => togglePermission(p.id)}
-                                                            />
-                                                            <div className="grid gap-1.5 leading-none">
-                                                                <label
-                                                                    htmlFor={`perm-${p.id}`}
-                                                                    className="text-base font-semibold leading-tight peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                                >
-                                                                    {p.description || p.action}
-                                                                </label>
-                                                                {p.description && (
-                                                                    <span className="text-xs text-muted-foreground font-mono font-medium tracking-tight">
-                                                                        {p.action}
-                                                                    </span>
+                                                    {perms.map((p) => {
+                                                        const isFeatureActive = p.features?.name ? hasFeature(p.features.name) : true;
+                                                        return (
+                                                            <div 
+                                                                key={p.id} 
+                                                                className={cn(
+                                                                    "flex items-start space-x-3 p-3 rounded-lg border transition-colors",
+                                                                    isFeatureActive 
+                                                                        ? "bg-accent/10 hover:bg-accent/20 border-transparent hover:border-primary/10"
+                                                                        : "bg-muted/30 border-muted opacity-60"
                                                                 )}
+                                                            >
+                                                                <Checkbox 
+                                                                    id={`perm-${p.id}`} 
+                                                                    className="h-5 w-5 mt-0.5 animate-fade-in"
+                                                                    checked={selectedPermissions.includes(p.id)}
+                                                                    onCheckedChange={() => togglePermission(p.id)}
+                                                                    disabled={!isFeatureActive}
+                                                                />
+                                                                <div className="grid gap-1.5 leading-none">
+                                                                    <label
+                                                                        htmlFor={`perm-${p.id}`}
+                                                                        className={cn(
+                                                                            "text-base font-semibold leading-tight flex items-center gap-2 cursor-pointer",
+                                                                            !isFeatureActive && "cursor-not-allowed text-muted-foreground"
+                                                                        )}
+                                                                    >
+                                                                        {p.description || p.action}
+                                                                        {!isFeatureActive && (
+                                                                            <span className="flex items-center gap-1 text-[10px] bg-amber-500/10 text-amber-600 px-1.5 py-0.5 rounded font-bold border border-amber-500/20">
+                                                                                <Lock className="h-3 w-3" /> Upgrade
+                                                                            </span>
+                                                                        )}
+                                                                    </label>
+                                                                    {p.description && (
+                                                                        <span className="text-xs text-muted-foreground font-mono font-medium tracking-tight">
+                                                                            {p.action}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         ))}

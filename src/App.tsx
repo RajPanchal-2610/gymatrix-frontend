@@ -47,6 +47,7 @@ import PlanAnalysisReport from "./pages/gym/reports/PlanAnalysisReport";
 import MembershipLifecycleReport from "./pages/gym/reports/MembershipLifecycleReport";
 import GymTournaments from "./pages/gym/Tournaments";
 import GymTournamentDetail from "./pages/gym/TournamentDetail";
+import GymNotifications from "./pages/gym/Notifications";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -91,9 +92,7 @@ const App = () => (
                     <Route path="/pricing" element={<Pricing />} />
                     <Route path="/attendance" element={
                       <FeatureGuard feature="Access Control">
-                        <PermissionGuard permission="view_attendance">
-                          <GymAttendance />
-                        </PermissionGuard>
+                        <GymAttendance />
                       </FeatureGuard>
                     } />
                     <Route path="/payments" element={
@@ -158,13 +157,14 @@ const App = () => (
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
-                     <Route path="/settings" element={
+                    <Route path="/settings" element={
                       <FeatureGuard feature="Gym Settings">
                         <PermissionGuard permission="view_gym_settings">
                           <GymSettings />
                         </PermissionGuard>
                       </FeatureGuard>
                     } />
+                    <Route path="/notifications" element={<GymNotifications />} />
                     <Route path="/profile" element={<GymProfile />} />
                     <Route path="/tournaments" element={
                       <FeatureGuard feature="Tournament">

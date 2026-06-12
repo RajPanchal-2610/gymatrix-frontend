@@ -198,11 +198,11 @@ export default function GymRegister() {
 
             <Card className="w-full max-w-xl relative animate-scale-in">
                 <CardHeader className="text-center pb-2">
-                    <div className="mx-auto h-14 w-14 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-glow">
-                        <Building2 className="h-7 w-7 text-primary-foreground" />
+                    <div className="mx-auto h-14 w-14 rounded-xl bg-white p-1 border flex items-center justify-center mb-4 shadow-glow overflow-hidden">
+                        <img src="/logo.png" alt="Gymatrix Logo" className="h-full w-full object-contain" />
                     </div>
-                    <CardTitle className="text-2xl font-bold">Register Your Gym</CardTitle>
-                    <CardDescription>Start managing your fitness center with GymFlow</CardDescription>
+                    <CardTitle className="text-2xl font-bold">Register</CardTitle>
+                    <CardDescription>Start managing your fitness center with Gymatrix</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -332,17 +332,17 @@ export default function GymRegister() {
                             {isLoading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Creating Account...
+                                    Registering...
                                 </>
                             ) : (
-                                "Create Gym Account"
+                                "Register"
                             )}
                         </Button>
                     </form>
                     <div className="mt-6 text-center text-sm">
-                        <span className="text-muted-foreground">Already have an admin account? </span>
+                        <span className="text-muted-foreground">Already have an account? </span>
                         <Link to="/auth" className="text-primary hover:underline font-medium">
-                            Login here
+                            Login
                         </Link>
                     </div>
                 </CardContent>

@@ -128,7 +128,7 @@ export function PayrollView() {
     };
 
     const handleOpenPayroll = async (staffId: number) => {
-        if (!hasPermission('manage_payroll')) {
+        if (!hasPermission('add_payroll') && !hasPermission('edit_payroll')) {
             toast({ 
                 title: "Permission Denied", 
                 description: "You don't have permission to manage payroll.", 
@@ -346,7 +346,7 @@ export function PayrollView() {
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            {hasPermission('manage_payroll') && (
+                                            {(hasPermission('add_payroll') || hasPermission('edit_payroll')) && (
                                                 <Button
                                                     size="sm"
                                                     variant="outline"

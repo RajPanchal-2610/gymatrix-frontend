@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, Sun, Moon, Menu, LogOut, User as UserIcon } from "lucide-react";
+import { Bell, Search, Sun, Moon, Menu, LogOut, User as UserIcon, Dumbbell, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,11 @@ import {
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { useGym } from "@/hooks/useGym";
+import { useNotifications } from "@/hooks/useNotifications";
+import { usePermissions } from "@/contexts/PermissionsContext";
+import { formatDistanceToNow } from "date-fns";
+import { ShieldAlert, CircleAlert, UserPlus, IndianRupee, CheckCheck } from "lucide-react";
 
 interface TopBarProps {
   onMenuClick?: () => void;
@@ -38,6 +43,17 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState<{ full_name: string; email: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const { gymId } = useGym();
+  const { hasPermission, role, refreshPermissions } = usePermissions();
+  const canViewFinance = hasPermission('view_payments');
+
+  const {
+    notifications,
+    unreadCount,
+    markAsRead,
+    markAllAsRead
+  } = useNotifications(gymId, canViewFinance);
 
   useEffect(() => {
     const getUserProfile = async () => {
@@ -77,6 +93,50 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
     } catch (error) {
       console.error("Logout error", error);
       toast.error("Failed to log out");
+    }
+  };
+
+  const handleSwitchToTrainer = async () => {
+    localStorage.setItem('activeRole', 'trainer');
+    toast.success(`Switched to ${role?.staffRoleName || 'Trainer'} view`);
+    await refreshPermissions();
+    navigate('/');
+  };
+
+  const handleSwitchToOwner = async () => {
+    localStorage.setItem('activeRole', 'owner');
+    toast.success("Switched to Owner view");
+    await refreshPermissions();
+    navigate('/');
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'new_member':
+        return <UserPlus className="h-4 w-4 text-blue-500" />;
+      case 'payment_received':
+        return <IndianRupee className="h-4 w-4 text-emerald-500" />;
+      case 'membership_expiring':
+      case 'overdue_payment':
+        return <CircleAlert className="h-4 w-4 text-amber-500" />;
+      case 'system':
+      default:
+        return <ShieldAlert className="h-4 w-4 text-purple-500" />;
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    if (!notif.is_read) {
+      await markAsRead(notif.id);
+    }
+    
+    // Redirect based on type
+    if (notif.type === 'new_member' || notif.type === 'membership_expiring') {
+      navigate('/members');
+    } else if (notif.type === 'payment_received' || notif.type === 'overdue_payment') {
+      navigate('/payments');
+    } else {
+      navigate('/notifications');
     }
   };
 
@@ -125,29 +185,70 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
               <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-accent text-accent-foreground">
-                3
-              </Badge>
+              {unreadCount > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-accent text-accent-foreground animate-pulse shadow-glow">
+                  {unreadCount}
+                </Badge>
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <span className="font-medium">New member registered</span>
-              <span className="text-xs text-muted-foreground">Sarah Wilson joined Premium Plan</span>
-              <span className="text-xs text-muted-foreground">2 minutes ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <span className="font-medium">Payment received</span>
-              <span className="text-xs text-muted-foreground">$150 from Mike Johnson</span>
-              <span className="text-xs text-muted-foreground">1 hour ago</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <span className="font-medium">5 memberships expiring</span>
-              <span className="text-xs text-muted-foreground">Members need renewal reminders</span>
-              <span className="text-xs text-muted-foreground">Today</span>
-            </DropdownMenuItem>
+          <DropdownMenuContent align="end" className="w-80 p-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/20">
+              <DropdownMenuLabel className="p-0 font-semibold text-sm">Notifications</DropdownMenuLabel>
+              {unreadCount > 0 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    markAllAsRead();
+                  }}
+                  className="text-xs text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors"
+                >
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Mark all as read
+                </button>
+              )}
+            </div>
+            
+            <div className="max-h-[300px] overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  No notifications yet
+                </div>
+              ) : (
+                notifications.slice(0, 5).map((notif) => (
+                  <DropdownMenuItem
+                    key={notif.id}
+                    onClick={() => handleNotificationClick(notif)}
+                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors ${
+                      !notif.is_read ? 'bg-primary/5 font-medium' : ''
+                    }`}
+                  >
+                    <div className="mt-0.5 p-1 rounded-md bg-secondary flex-shrink-0">
+                      {getNotificationIcon(notif.type)}
+                    </div>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <span className="text-sm text-foreground truncate">{notif.title}</span>
+                      <span className="text-xs text-muted-foreground line-clamp-2 font-normal leading-relaxed">{notif.message}</span>
+                      <span className="text-[10px] text-muted-foreground/80 font-normal">
+                        {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                    {!notif.is_read && (
+                      <span className="h-2 w-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                    )}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+            
+            <div className="border-t border-border bg-muted/10">
+              <button
+                onClick={() => navigate('/notifications')}
+                className="w-full text-center py-2.5 text-xs text-primary hover:text-primary/80 font-medium transition-colors hover:bg-muted/30"
+              >
+                View all notifications
+              </button>
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -174,6 +275,22 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
               <UserIcon className="mr-2 h-4 w-4" />
               <span>My Profile</span>
             </DropdownMenuItem>
+            {role?.isOwner && role?.hasStaffRecord && (
+              <>
+                <DropdownMenuSeparator />
+                {role.name === 'Owner' ? (
+                  <DropdownMenuItem onClick={handleSwitchToTrainer} className="cursor-pointer text-primary font-medium focus:text-primary">
+                    <Dumbbell className="mr-2 h-4 w-4" />
+                    <span>Switch to {role.staffRoleName || 'Trainer'} View</span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={handleSwitchToOwner} className="cursor-pointer text-primary font-medium focus:text-primary">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Switch to Owner View</span>
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setShowLogoutConfirm(true)} className="cursor-pointer text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />

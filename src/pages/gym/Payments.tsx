@@ -238,7 +238,7 @@ export default function GymPayments() {
                                             <td className="px-4 py-3">{getStatusBadge(payment.payment_status)}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-2">
-                                                    {hasPermission('manage_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
+                                                    {hasPermission('add_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -266,31 +266,31 @@ export default function GymPayments() {
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
 
-                                                        {hasPermission('manage_payments') && (
-                                                            <>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
-                                                                    onClick={() => {
-                                                                        setSelectedPayment(payment);
-                                                                        setEditPaymentOpen(true);
-                                                                    }}
-                                                                    title="Edit Record"
-                                                                >
-                                                                    <Edit className="h-4 w-4" />
-                                                                </Button>
+                                                        {hasPermission('edit_payments') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                onClick={() => {
+                                                                    setSelectedPayment(payment);
+                                                                    setEditPaymentOpen(true);
+                                                                }}
+                                                                title="Edit Record"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
 
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                    onClick={() => handleDeletePayment(payment.id)}
-                                                                    title="Delete"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </>
+                                                        {hasPermission('delete_payments') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                onClick={() => handleDeletePayment(payment.id)}
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
                                                         )}
                                                     </div>
                                                 </div>

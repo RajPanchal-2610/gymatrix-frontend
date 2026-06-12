@@ -423,7 +423,7 @@ export default function MemberView() {
                                                                 <td className="py-4 px-4 text-right text-destructive font-bold">₹{payment.due_amount.toLocaleString()}</td>
                                                                 <td className="py-4 px-4 text-right">
                                                                     {payment.payment_status !== 'paid' ? (
-                                                                        hasPermission('manage_payments') ? (
+                                                                        hasPermission('add_payments') ? (
                                                                             <Button
                                                                                 variant="outline"
                                                                                 size="sm"

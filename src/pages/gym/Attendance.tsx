@@ -24,7 +24,7 @@ export default function Attendance() {
   const { gymId } = useGym();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDate, setSelectedDate] = useState("today");
-  
+
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -61,7 +61,7 @@ export default function Attendance() {
     }
   };
 
-  const filteredRecords = records.filter(r => 
+  const filteredRecords = records.filter(r =>
     r.member?.full_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -118,12 +118,10 @@ export default function Attendance() {
             <SelectItem value="month">This Month</SelectItem>
           </SelectContent>
         </Select>
-        {hasPermission('manage_attendance') && (
-          <Button variant="outline">
-            <Filter className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-        )}
+        <Button variant="outline">
+          <Filter className="h-4 w-4 mr-2" />
+          Export
+        </Button>
       </div>
 
       {/* Attendance Table */}

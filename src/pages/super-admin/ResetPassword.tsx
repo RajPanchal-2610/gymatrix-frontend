@@ -119,8 +119,8 @@ export default function ResetPassword() {
         ) : (
           <>
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto h-14 w-14 rounded-xl gradient-primary flex items-center justify-center mb-4 shadow-glow">
-                <Dumbbell className="h-7 w-7 text-primary-foreground" />
+              <div className="mx-auto h-14 w-14 rounded-xl bg-white p-1 border flex items-center justify-center mb-4 shadow-glow overflow-hidden">
+                <img src="/logo.png" alt="Gymatrix Logo" className="h-full w-full object-contain" />
               </div>
               <CardTitle className="text-2xl font-bold">Reset Password</CardTitle>
               <CardDescription>

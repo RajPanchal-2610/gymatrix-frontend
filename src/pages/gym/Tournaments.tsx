@@ -159,7 +159,7 @@ const Tournaments = () => {
             Create and manage gym competitions, challenges, and knockout events.
           </p>
         </div>
-        {hasPermission('manage_tournaments') && (
+        {hasPermission('add_tournaments') && (
           <Button
             onClick={() => setCreateOpen(true)}
             className="gradient-primary shadow-glow"
@@ -218,7 +218,7 @@ const Tournaments = () => {
             <p className="text-sm text-muted-foreground mt-1">
               {filterStatus !== 'all' ? 'Try a different filter or ' : ''}Create your first tournament to get started!
             </p>
-            {hasPermission('manage_tournaments') && (
+            {hasPermission('add_tournaments') && (
               <Button className="mt-4 gradient-primary" onClick={() => setCreateOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" /> Create Tournament
               </Button>
@@ -262,7 +262,7 @@ const Tournaments = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant={config?.variant}>{config?.label}</Badge>
-                      {hasPermission('manage_tournaments') && (
+                      {(hasPermission('edit_tournaments') || hasPermission('delete_tournaments')) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -275,26 +275,30 @@ const Tournaments = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
-                            <DropdownMenuItem
-                              disabled={tournament.status !== 'DRAFT'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTournament(tournament);
-                                setEditOpen(true);
-                              }}
-                            >
-                              <Pencil className="h-4 w-4 mr-2" /> Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTournament(tournament);
-                                setDeleteConfirmOpen(true);
-                              }}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" /> Delete
-                            </DropdownMenuItem>
+                            {hasPermission('edit_tournaments') && (
+                              <DropdownMenuItem
+                                disabled={tournament.status !== 'DRAFT'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTournament(tournament);
+                                  setEditOpen(true);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" /> Edit
+                              </DropdownMenuItem>
+                            )}
+                            {hasPermission('delete_tournaments') && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedTournament(tournament);
+                                  setDeleteConfirmOpen(true);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}

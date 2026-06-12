@@ -444,6 +444,23 @@ export default function Members() {
                             });
                     }
                 }
+                
+                // Create in-app notification
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                    supabase
+                        .from("notifications")
+                        .insert({
+                            gym_id: gymId,
+                            title: "Membership Renewed",
+                            message: `${renewingMember.full_name} renewed their membership with ${plan ? plan.name : 'a plan'}.`,
+                            type: "new_member",
+                            triggered_by: user?.id || null
+                        })
+                        .then(({ error: notifErr }) => {
+                            if (notifErr) console.error("Error creating renewal notification:", notifErr);
+                        });
+                });
+
                 toast.success("Membership renewed successfully");
             }
 
@@ -578,6 +595,23 @@ export default function Members() {
 
                 if (error) throw error;
                 savedMemberId = newMember.id;
+
+                // Create in-app notification
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                    const plan = plans.find(p => p.id === payload.membership_plan_id);
+                    supabase
+                        .from("notifications")
+                        .insert({
+                            gym_id: gymId,
+                            title: "New Member Registered",
+                            message: `${newMember.full_name} has joined the gym on ${plan ? plan.name : 'a plan'}.`,
+                            type: "new_member",
+                            triggered_by: user?.id || null
+                        })
+                        .then(({ error: notifErr }) => {
+                            if (notifErr) console.error("Error creating registration notification:", notifErr);
+                        });
+                });
 
                 // Add history entry for new member if plan is selected
                 if (newMember && payload.membership_plan_id && payload.expiry_date) {
@@ -982,7 +1016,7 @@ export default function Members() {
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                    <div className="space-y-2">
+                                                    {/* <div className="space-y-2">
                                                         <Label htmlFor="device_user_id">Biometric ID (Device)</Label>
                                                         <Input
                                                             id="device_user_id"
@@ -990,8 +1024,8 @@ export default function Members() {
                                                             value={formData.device_user_id}
                                                             onChange={(e) => setFormData({ ...formData, device_user_id: e.target.value })}
                                                         />
-                                                    </div>
-                                                    <div className="space-y-2">
+                                                    </div> */}
+                                                    <div className="space-y-2 sm:col-span-2">
                                                         <Label>Status</Label>
                                                         <Select
                                                             value={formData.status}
@@ -1509,7 +1543,7 @@ export default function Members() {
                                                                 )}
 
                                                                 {/* Payment Action */}
-                                                                {(hasPermission('manage_payments') || (member.trainer_id && member.trainer_id.toString() === role?.staff_id?.toString())) && (() => {
+                                                                {(hasPermission('add_payments') || (member.trainer_id && member.trainer_id.toString() === role?.staff_id?.toString())) && (() => {
                                                                     const actions = [];
                                                                     // 1. Existing Payments that need attention (Unpaid or Partial)
                                                                     // Get ALL payments for this member

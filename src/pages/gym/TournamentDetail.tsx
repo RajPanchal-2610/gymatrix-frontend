@@ -210,12 +210,12 @@ const TournamentDetailPage = () => {
         <div className="flex gap-2">
           {tournament.status === 'DRAFT' && (
             <>
-              {hasPermission('manage_tournaments') && (
+              {hasPermission('edit_tournaments') && (
                 <Button variant="outline" onClick={() => setAddParticipantsOpen(true)}>
                   <UserPlus className="h-4 w-4 mr-2" /> Add Participants
                 </Button>
               )}
-              {hasPermission('manage_tournaments') && (
+              {hasPermission('edit_tournaments') && (
                 <Button
                   className="gradient-primary"
                   onClick={() => setStartDialogOpen(true)}
@@ -227,7 +227,7 @@ const TournamentDetailPage = () => {
               )}
             </>
           )}
-          {tournament.status === 'ONGOING' && hasPermission('manage_tournaments') && (
+          {tournament.status === 'ONGOING' && hasPermission('edit_tournaments') && (
             <>
               {formatName === 'Group Stage + Knockout' && !tournament.matches?.some(m => m.phase === 'KNOCKOUT') && (
                 <Button
@@ -572,12 +572,12 @@ function BracketView({
 
                       <Card
                         className={`relative overflow-hidden transition-all duration-300 border-sidebar-border/50 bg-card/40 backdrop-blur-md shadow-lg hover:shadow-xl hover:-translate-y-0.5 h-[136px] w-full
-                          ${match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments') ? 'ring-1 ring-primary/20 hover:ring-primary/50 cursor-pointer' : ''}
+                          ${match.status === 'PENDING' && status === 'ONGOING' && hasPermission('edit_tournaments') ? 'ring-1 ring-primary/20 hover:ring-primary/50 cursor-pointer' : ''}
                           ${match.status === 'COMPLETED' ? 'bg-secondary/10' : ''}
                           ${isHighlighted ? 'ring-2 ring-primary border-primary shadow-[0_0_20px_rgba(255,191,0,0.15)] z-10 scale-[1.02]' : ''}
                         `}
                         onClick={() => {
-                          if (match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments')) {
+                          if (match.status === 'PENDING' && status === 'ONGOING' && hasPermission('edit_tournaments')) {
                             onSelectMatch(match);
                           }
                         }}
@@ -726,7 +726,7 @@ function GroupStageView({
             <CardContent className="p-4">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {regularMatches.map((match) => {
-                  const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments');
+                  const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('edit_tournaments');
                   return (
                     <Card
                       key={match.id}
@@ -778,7 +778,7 @@ function GroupStageView({
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {matches.map((match) => {
-                          const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('manage_tournaments');
+                          const canSelectWinner = match.status === 'PENDING' && status === 'ONGOING' && hasPermission('edit_tournaments');
                           return (
                             <Card
                               key={match.id}
@@ -942,7 +942,7 @@ function ScoreTableView({ attempts, tournamentId, status, rules, formatType, sea
                               ${status !== 'ONGOING' ? 'cursor-default pointer-events-none opacity-60' : ''}
                             `}
                             onClick={() => {
-                              if (status === 'ONGOING' && hasPermission('manage_tournaments')) {
+                              if (status === 'ONGOING' && hasPermission('edit_tournaments')) {
                                 setEditingId(att.id);
                                 setEditScore(att.score?.toString() || '');
                               }
@@ -1020,7 +1020,7 @@ function LeaderboardView({ leaderboard, rules, formatType, searchTerm }: { leade
 // ======== PARTICIPANTS TABLE ========
 function ParticipantsTable({ participants, isDraft, onRemove, onSelectParticipant }: { participants: any[]; isDraft: boolean; onRemove: (id: string) => void; onSelectParticipant: (name: string) => void }) {
   const { hasPermission } = usePermissions();
-  const canManage = isDraft && hasPermission('manage_tournaments');
+  const canManage = isDraft && hasPermission('edit_tournaments');
   return (
     <Card className="bg-sidebar/30 border-sidebar-border/50">
       <CardContent className="p-0">

@@ -125,16 +125,15 @@ export default function GymDashboard() {
                     .eq('gym_id', gymId)
                     .eq('is_deleted', false);
 
-                // Fetch current month revenue
+                // Fetch current month revenue (based on transaction payment dates)
                 const startOfCurrentMonth = startOfMonth(new Date()).toISOString();
-                const { data: currentMonthPayments } = await supabase
-                    .from('gym_membership_payments')
-                    .select('paid_amount')
+                const { data: currentMonthTxns } = await supabase
+                    .from('gym_payment_transactions')
+                    .select('amount')
                     .eq('gym_id', gymId)
-                    .gte('created_at', startOfCurrentMonth)
-                    .eq('is_deleted', false);
+                    .gte('paid_at', startOfCurrentMonth);
 
-                const monthlyRevenue = currentMonthPayments?.reduce((sum, payment) => sum + Number(payment.paid_amount || 0), 0) || 0;
+                const monthlyRevenue = currentMonthTxns?.reduce((sum, tx) => sum + Number(tx.amount || 0), 0) || 0;
 
                 // Fetch pending dues
                 const { data: unsettledPayments } = await supabase
@@ -188,21 +187,20 @@ export default function GymDashboard() {
                 });
                 setTodayCheckIns(formattedCheckIns);
 
-                // Fetch Revenue Chart Data (past 6 months)
+                // Fetch Revenue Chart Data (past 6 months, based on payment transaction dates)
                 const revChartData = [];
                 for (let i = 5; i >= 0; i--) {
                     const monthStartDate = startOfMonth(subMonths(new Date(), i));
                     const monthEndDate = startOfMonth(subMonths(new Date(), i - 1));
 
-                    const { data: monthPayments } = await supabase
-                        .from('gym_membership_payments')
-                        .select('paid_amount')
+                    const { data: monthTxns } = await supabase
+                        .from('gym_payment_transactions')
+                        .select('amount')
                         .eq('gym_id', gymId)
-                        .gte('created_at', monthStartDate.toISOString())
-                        .lt('created_at', monthEndDate.toISOString())
-                        .eq('is_deleted', false);
+                        .gte('paid_at', monthStartDate.toISOString())
+                        .lt('paid_at', monthEndDate.toISOString());
 
-                    const rev = monthPayments?.reduce((sum, p) => sum + Number(p.paid_amount || 0), 0) || 0;
+                    const rev = monthTxns?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0;
                     revChartData.push({
                         name: format(monthStartDate, 'MMM'),
                         revenue: rev

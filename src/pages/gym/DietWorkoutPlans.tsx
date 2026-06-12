@@ -112,8 +112,8 @@ const PlanCard = ({ plan, type, hasPermission, onEdit, onDelete, onDownload }: {
                 <p className="text-xs text-muted-foreground/60 line-clamp-2 italic">{plan.notes}</p>
             )}
 
-            {hasPermission('manage_diet_workout_plans') && (
-                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                {hasPermission('edit_diet_workout_plans') && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -123,6 +123,8 @@ const PlanCard = ({ plan, type, hasPermission, onEdit, onDelete, onDownload }: {
                         <Edit className="h-3.5 w-3.5 mr-1.5" />
                         Edit
                     </Button>
+                )}
+                {hasPermission('view_diet_workout_plans') && (
                     <Button
                         variant="outline"
                         size="sm"
@@ -132,6 +134,8 @@ const PlanCard = ({ plan, type, hasPermission, onEdit, onDelete, onDownload }: {
                         <Download className="h-3.5 w-3.5 mr-1.5" />
                         PDF
                     </Button>
+                )}
+                {hasPermission('delete_diet_workout_plans') && (
                     <Button
                         variant="outline"
                         size="icon"
@@ -140,8 +144,8 @@ const PlanCard = ({ plan, type, hasPermission, onEdit, onDelete, onDownload }: {
                     >
                         <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                </div>
-            )}
+                )}
+            </div>
         </CardContent>
     </Card>
 );
@@ -165,7 +169,7 @@ const PlansList = ({ plans, type, hasPermission, onCreate, onEdit, onDelete, onD
                     }
                 </div>
                 <p className="text-muted-foreground mb-4">No {type} plans found.</p>
-                {hasPermission('manage_diet_workout_plans') && (
+                {hasPermission('add_diet_workout_plans') && (
                     <Button onClick={() => onCreate(type)} className="gradient-primary shadow-glow">
                         <Plus className="h-4 w-4 mr-2" />
                         Create First {type === "diet" ? "Diet" : "Workout"} Plan
@@ -655,7 +659,7 @@ export default function DietWorkoutPlans() {
                         <TabsTrigger value="diet" className="gap-2 px-6"><Apple className="h-4 w-4" />Diet Plans</TabsTrigger>
                         <TabsTrigger value="workout" className="gap-2 px-6"><Dumbbell className="h-4 w-4" />Workout Plans</TabsTrigger>
                     </TabsList>
-                    {hasPermission('manage_diet_workout_plans') && (
+                    {hasPermission('add_diet_workout_plans') && (
                         <Button className="gradient-primary shadow-glow w-full sm:w-auto" onClick={() => openCreateDialog(activeTab)}>
                             <Plus className="h-4 w-4 mr-2" />Create {activeTab === "diet" ? "Diet" : "Workout"} Plan
                         </Button>

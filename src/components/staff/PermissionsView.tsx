@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,6 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { usePermissions } from "@/contexts/PermissionsContext";
 import { staffService } from "@/services/staffService";
 import { Permission, Feature } from "@/types/gym";
 import {
@@ -33,7 +32,6 @@ import {
 
 export function PermissionsView() {
     const { toast } = useToast();
-    const { hasPermission } = usePermissions();
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [features, setFeatures] = useState<Feature[]>([]);
     const [loading, setLoading] = useState(true);
@@ -100,18 +98,6 @@ export function PermissionsView() {
         }
     };
 
-    const handleDelete = async (id: number) => {
-        if (!confirm("Are you sure? This will remove this permission from all associated roles.")) return;
-        try {
-            await staffService.deletePermission(id);
-            toast({ title: "Success", description: "Permission deleted." });
-            fetchData();
-        } catch (error) {
-            console.error(error);
-            toast({ title: "Error", description: "Failed to delete permission.", variant: "destructive" });
-        }
-    };
-
     const openDialog = (permission?: Permission) => {
         if (permission) {
             setEditingPermission(permission);
@@ -133,63 +119,61 @@ export function PermissionsView() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">System Permissions</h2>
-                {hasPermission('add_permissions') && (
-                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Permission
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                                <DialogTitle>{editingPermission.id ? 'Edit Permission' : 'Create Permission'}</DialogTitle>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="action">Action String *</Label>
-                                    <Input
-                                        id="action"
-                                        value={editingPermission.action}
-                                        onChange={(e) => setEditingPermission({ ...editingPermission, action: e.target.value })}
-                                        placeholder="e.g. view_reports"
-                                    />
-                                    <p className="text-xs text-muted-foreground">This is the code used in the system.</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="feature">Feature *</Label>
-                                    <Select
-                                        value={editingPermission.feature_id?.toString()}
-                                        onValueChange={(value) => setEditingPermission({ ...editingPermission, feature_id: parseInt(value) })}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a feature" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {features.map(f => (
-                                                <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-muted-foreground">Select the feature module this permission belongs to.</p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="description">Description (Optional)</Label>
-                                    <Input
-                                        id="description"
-                                        value={editingPermission.description || ''}
-                                        onChange={(e) => setEditingPermission({ ...editingPermission, description: e.target.value })}
-                                        placeholder="e.g. Can view all financial reports"
-                                    />
-                                </div>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button className="gradient-primary shadow-glow" onClick={() => openDialog()}>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Permission
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>{editingPermission.id ? 'Edit Permission' : 'Create Permission'}</DialogTitle>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="action">Action String *</Label>
+                                <Input
+                                    id="action"
+                                    value={editingPermission.action}
+                                    onChange={(e) => setEditingPermission({ ...editingPermission, action: e.target.value })}
+                                    placeholder="e.g. view_reports"
+                                />
+                                <p className="text-xs text-muted-foreground">This is the code used in the system.</p>
                             </div>
-                            <div className="flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                                <Button onClick={handleSave}>Save</Button>
+                            <div className="space-y-2">
+                                <Label htmlFor="feature">Feature *</Label>
+                                <Select
+                                    value={editingPermission.feature_id?.toString()}
+                                    onValueChange={(value) => setEditingPermission({ ...editingPermission, feature_id: parseInt(value) })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a feature" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {features.map(f => (
+                                            <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-muted-foreground">Select the feature module this permission belongs to.</p>
                             </div>
-                        </DialogContent>
-                    </Dialog>
-                )}
+                            <div className="space-y-2">
+                                <Label htmlFor="description">Description (Optional)</Label>
+                                <Input
+                                    id="description"
+                                    value={editingPermission.description || ''}
+                                    onChange={(e) => setEditingPermission({ ...editingPermission, description: e.target.value })}
+                                    placeholder="e.g. Can view all financial reports"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                            <Button onClick={handleSave}>Save</Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <Card>
@@ -213,16 +197,9 @@ export function PermissionsView() {
                                         <TableCell className="font-mono text-sm">{perm.action}</TableCell>
                                         <TableCell>{perm.description}</TableCell>
                                         <TableCell className="text-right">
-                                            {hasPermission('edit_permissions') && (
-                                                <Button variant="ghost" size="icon" onClick={() => openDialog(perm)}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {hasPermission('delete_permissions') && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(perm.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(perm)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))

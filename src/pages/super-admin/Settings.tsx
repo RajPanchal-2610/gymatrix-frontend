@@ -242,7 +242,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
-              <CardDescription>Customize how GymFlow looks</CardDescription>
+              <CardDescription>Customize how Gymatrix looks</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-4">
@@ -273,7 +273,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle>Billing & Subscription</CardTitle>
-              <CardDescription>Manage your GymFlow subscription</CardDescription>
+              <CardDescription>Manage your Gymatrix subscription</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">

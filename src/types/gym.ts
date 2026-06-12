@@ -184,3 +184,37 @@ export interface GymStaffPayroll {
     // Joined fields
     gym_staff?: GymStaff;
 }
+
+export interface Notification {
+    id: string;
+    gym_id?: number | null;
+    user_id?: string | null;
+    triggered_by?: string | null;
+    title: string;
+    message: string;
+    type: 'new_member' | 'payment_received' | 'membership_expiring' | 'overdue_payment' | 'system' | string;
+    is_read: boolean;
+    created_at: string;
+}
+
+export interface NotificationPreferences {
+    new_member: boolean;
+    payment_received: boolean;
+    membership_expiring: boolean;
+    overdue_payment: boolean;
+}
+
+export interface GymNotificationSettings {
+    membership_expiry: {
+        preferred_time?: string;
+        before_days: number[];
+        on_day: boolean;
+        after_days: number[];
+    };
+    overdue_payment: {
+        preferred_time?: string;
+        reminder_interval_days: number;
+        max_reminders: number;
+    };
+}
+
