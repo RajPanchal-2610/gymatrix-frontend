@@ -57,6 +57,24 @@ export interface GymMember {
     gym_membership_history?: GymMembershipHistory[];
     gym_membership_payments?: GymMembershipPayment[]; // Array because member has many payments
     gym_staff?: GymStaff; // The assigned trainer
+    gym_pt_history?: GymPtHistory[];
+}
+
+export interface GymPtHistory {
+    id: number;
+    gym_id: number;
+    member_id: number;
+    trainer_id: number;
+    start_date: string;
+    end_date: string;
+    pt_fee: number;
+    status: 'active' | 'expired' | 'cancelled';
+    renewed_at: string;
+    created_at?: string;
+    updated_at?: string;
+
+    // Joined fields
+    gym_staff?: GymStaff;
 }
 
 export interface GymMembershipHistory {

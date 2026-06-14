@@ -7,26 +7,117 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft, Mail, Phone, Calendar, Clock, User, UserCircle, MapPin, Map,
-    Activity, IndianRupee, Briefcase, FileText, History, CheckCircle, AlertCircle
+    Activity, IndianRupee, Briefcase, FileText, History, CheckCircle, AlertCircle,
+    Filter, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GymMember } from "@/types/gym";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { useGym } from "@/hooks/useGym";
 
 export default function MemberView() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { hasPermission } = usePermissions();
+    const { hasPermission, role, permissions } = usePermissions();
+    const { gymId } = useGym();
     const [member, setMember] = useState<GymMember | null>(null);
+    const [typeFilter, setTypeFilter] = useState<"all" | "plan" | "pt">("all");
     const [isLoading, setIsLoading] = useState(true);
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
     const [selectedPaymentMember, setSelectedPaymentMember] = useState<any>(null);
+
+    // PT Renewal State
+    const [renewDialogOpen, setRenewDialogOpen] = useState(false);
+    const [renewFormData, setRenewFormData] = useState({ start_date: new Date().toISOString().split('T')[0] });
+    const [renewing, setRenewing] = useState(false);
+
+    const handleRenewPTSubmit = async () => {
+        if (!gymId || !member) return;
+        setRenewing(true);
+        try {
+            // Fetch the latest history record for the member
+            const { data: latestHistory, error: historyErr } = await supabase
+                .from("gym_membership_history")
+                .select("id")
+                .eq("member_id", member.id)
+                .order("created_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (historyErr) throw historyErr;
+
+            if (!latestHistory) {
+                toast.error("No membership history found. Please renew membership plan first.");
+                setRenewing(false);
+                return;
+            }
+
+            // Create new unpaid Personal Training Fee payment
+            const { error: ptError } = await supabase
+                .from("gym_membership_payments")
+                .insert({
+                    membership_history_id: latestHistory.id,
+                    member_id: member.id,
+                    gym_id: gymId,
+                    total_amount: member.pt_fee,
+                    paid_amount: 0,
+                    due_amount: member.pt_fee,
+                    payment_status: 'unpaid',
+                    billing_date: renewFormData.start_date,
+                    remarks: 'Personal Training Fee'
+                });
+
+            if (ptError) throw ptError;
+
+            // Create a record in gym_pt_history table
+            const ptEndDate = format(addMonths(new Date(renewFormData.start_date), 1), 'yyyy-MM-dd');
+            const { error: ptHistError } = await supabase
+                .from("gym_pt_history")
+                .insert({
+                    gym_id: gymId,
+                    member_id: member.id,
+                    trainer_id: member.trainer_id,
+                    start_date: renewFormData.start_date,
+                    end_date: ptEndDate,
+                    pt_fee: member.pt_fee,
+                    status: 'active',
+                    renewed_at: new Date().toISOString()
+                });
+
+            if (ptHistError) throw ptHistError;
+
+            toast.success("Personal Training Fee renewed successfully");
+            setRenewDialogOpen(false);
+            fetchMemberDetails();
+        } catch (error: any) {
+            toast.error("PT Renewal failed: " + error.message);
+        } finally {
+            setRenewing(false);
+        }
+    };
 
     useEffect(() => {
         fetchMemberDetails();
@@ -44,6 +135,10 @@ export default function MemberView() {
                     gym_membership_history (
                         *,
                         gym_membership_plans (*)
+                    ),
+                    gym_pt_history (
+                        *,
+                        gym_staff (*)
                     ),
                     gym_membership_payments (
                         *,
@@ -103,6 +198,26 @@ export default function MemberView() {
         }
     };
 
+    const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
+    const isAssignedTrainer = member?.trainer_id?.toString() === role?.staff_id?.toString();
+
+    const visiblePayments = (member.gym_membership_payments || []).filter(payment => {
+        if (payment.remarks === 'Personal Training Fee') {
+            return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+        }
+        return true;
+    });
+
+    const typeFilteredPayments = visiblePayments.filter(p => {
+        if (typeFilter === 'plan') {
+            return p.remarks !== 'Personal Training Fee';
+        }
+        if (typeFilter === 'pt') {
+            return p.remarks === 'Personal Training Fee';
+        }
+        return true;
+    });
+
     return (
         <>
             <div className="w-full px-6 py-4 space-y-6">
@@ -115,6 +230,18 @@ export default function MemberView() {
                         </Button>
                         <h1 className="text-2xl font-bold tracking-tight">Member Profile</h1>
                     </div>
+                    {isAssignedTrainer && member && member.pt_fee && member.pt_fee > 0 && (
+                        <Button 
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+                            onClick={() => {
+                                setRenewFormData({ start_date: new Date().toISOString().split('T')[0] });
+                                setRenewDialogOpen(true);
+                            }}
+                        >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Renew PT Subscription
+                        </Button>
+                    )}
                 </div>
 
                 <Tabs defaultValue="profile" className="w-full">
@@ -348,6 +475,64 @@ export default function MemberView() {
                                 )}
                             </CardContent>
                         </Card>
+
+                        {/* PT Subscription History */}
+                        {isAssignedTrainer && member.gym_pt_history && member.gym_pt_history.length > 0 && (
+                            <Card>
+                                <CardHeader className="pb-3 border-b border-muted">
+                                    <CardTitle className="flex items-center text-lg font-bold">
+                                        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center mr-3 text-primary">
+                                            <Briefcase className="h-4 w-4" />
+                                        </div>
+                                        Personal Training History
+                                    </CardTitle>
+                                    <CardDescription>All-time personal training cycles and expirations</CardDescription>
+                                </CardHeader>
+                                <CardContent className="pt-6">
+                                    <div className="border rounded-xl overflow-hidden shadow-sm">
+                                        <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
+                                                    <tr>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Trainer</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Duration Period</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Rate</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-muted">
+                                                    {member.gym_pt_history
+                                                        .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+                                                        .map((ptHistory) => (
+                                                            <tr key={ptHistory.id} className="hover:bg-muted/30 transition-colors">
+                                                                <td className="py-4 px-4 font-semibold text-foreground">{ptHistory.gym_staff?.full_name || 'Assigned Trainer'}</td>
+                                                                <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
+                                                                    <div className="flex flex-col">
+                                                                        <span>{format(new Date(ptHistory.start_date), "dd MMM yyyy")}</span>
+                                                                        <span className="text-xs opacity-60">to {format(new Date(ptHistory.end_date), "dd MMM yyyy")}</span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="py-4 px-4 text-left font-semibold">₹{ptHistory.pt_fee.toLocaleString()}</td>
+                                                                <td className="py-4 px-4">
+                                                                    {(() => {
+                                                                        const isPast = new Date().getTime() > new Date(ptHistory.end_date).getTime() + 86400000;
+                                                                        const isActive = ptHistory.status === 'active' && !isPast;
+                                                                        return (
+                                                                            <Badge variant={isActive ? 'default' : 'destructive'} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", isActive ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}>
+                                                                                {isActive ? 'ACTIVE' : 'EXPIRED'}
+                                                                            </Badge>
+                                                                        );
+                                                                    })()}
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
                     </TabsContent>
 
                     {/* Tab 3: Billing & Payments */}
@@ -357,7 +542,7 @@ export default function MemberView() {
                             <div className="p-4 rounded-xl border bg-success/5 border-success/10 flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-semibold text-emerald-600 uppercase">Total Paid</p>
-                                    <p className="text-2xl font-black text-emerald-700">₹{(member.gym_membership_payments || []).reduce((sum, p) => sum + (p.paid_amount || 0), 0).toLocaleString()}</p>
+                                    <p className="text-2xl font-black text-emerald-700">₹{typeFilteredPayments.reduce((sum, p) => sum + (p.paid_amount || 0), 0).toLocaleString()}</p>
                                 </div>
                                 <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-600">
                                     <CheckCircle className="h-6 w-6" />
@@ -366,7 +551,7 @@ export default function MemberView() {
                             <div className="p-4 rounded-xl border bg-destructive/5 border-destructive/10 flex items-center justify-between">
                                 <div>
                                     <p className="text-xs font-semibold text-red-600 uppercase">Current Dues</p>
-                                    <p className="text-2xl font-black text-red-700">₹{(member.gym_membership_payments || []).reduce((sum, p) => sum + (p.due_amount || 0), 0).toLocaleString()}</p>
+                                    <p className="text-2xl font-black text-red-700">₹{typeFilteredPayments.reduce((sum, p) => sum + (p.due_amount || 0), 0).toLocaleString()}</p>
                                 </div>
                                 <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-600">
                                     <AlertCircle className="h-6 w-6" />
@@ -375,6 +560,19 @@ export default function MemberView() {
                         </div>
 
                         {/* Payment History */}
+                        <div className="flex justify-end mb-4">
+                            <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val)}>
+                                <SelectTrigger className="w-[180px]">
+                                    <Filter className="h-4 w-4 mr-2" />
+                                    <SelectValue placeholder="Payment Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Payments</SelectItem>
+                                    <SelectItem value="plan">Membership Plan</SelectItem>
+                                    <SelectItem value="pt">PT Fee Only</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <Card>
                             <CardHeader className="pb-3 border-b border-muted">
                                 <CardTitle className="flex items-center text-lg font-bold">
@@ -386,7 +584,7 @@ export default function MemberView() {
                                 <CardDescription>Complete record of transactions and dues</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-6">
-                                {member.gym_membership_payments && member.gym_membership_payments.length > 0 ? (
+                                {typeFilteredPayments && typeFilteredPayments.length > 0 ? (
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
                                         <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
                                             <table className="w-full text-sm">
@@ -401,7 +599,7 @@ export default function MemberView() {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
-                                                    {member.gym_membership_payments
+                                                    {typeFilteredPayments
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
                                                         .map((payment) => (
                                                             <tr key={payment.id} className="hover:bg-muted/30 transition-colors">
@@ -478,6 +676,44 @@ export default function MemberView() {
                     }}
                 />
             )}
+
+            {/* PT Renewal Dialog */}
+            <Dialog open={renewDialogOpen} onOpenChange={setRenewDialogOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Renew PT Subscription</DialogTitle>
+                        <DialogDescription>
+                            Create a new unpaid Personal Training Fee bill for {member.full_name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="start_date">Billing Date</Label>
+                            <Input
+                                id="start_date"
+                                type="date"
+                                value={renewFormData.start_date}
+                                onChange={(e) => setRenewFormData({ ...renewFormData, start_date: e.target.value })}
+                            />
+                        </div>
+                        <div className="grid gap-1">
+                            <Label>PT Fee Amount</Label>
+                            <div className="text-lg font-bold text-primary">
+                                ₹{member.pt_fee?.toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setRenewDialogOpen(false)} disabled={renewing}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleRenewPTSubmit} disabled={renewing}>
+                            {renewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Confirm Renewal
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 }

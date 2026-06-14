@@ -48,6 +48,7 @@ import MembershipLifecycleReport from "./pages/gym/reports/MembershipLifecycleRe
 import GymTournaments from "./pages/gym/Tournaments";
 import GymTournamentDetail from "./pages/gym/TournamentDetail";
 import GymNotifications from "./pages/gym/Notifications";
+import MyAttendancePayroll from "./pages/gym/MyAttendancePayroll";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -166,6 +167,7 @@ const App = () => (
                     } />
                     <Route path="/notifications" element={<GymNotifications />} />
                     <Route path="/profile" element={<GymProfile />} />
+                    <Route path="/my-attendance-payroll" element={<MyAttendancePayroll />} />
                     <Route path="/tournaments" element={
                       <FeatureGuard feature="Tournament">
                         <PermissionGuard permission="view_tournaments">

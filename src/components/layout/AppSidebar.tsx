@@ -5,6 +5,7 @@ import {
   Users,
   CreditCard,
   Calendar,
+  CalendarCheck,
   Receipt,
   UserCog,
   BarChart3,
@@ -66,6 +67,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Notifications", url: "/notifications", icon: Bell },
+  { title: "My Attendance & Payroll", url: "/my-attendance-payroll", icon: CalendarCheck },
   { title: "Members", url: "/members", icon: Users },
   { title: "Membership Plans", url: "/plans", icon: CreditCard },
   { title: "Features", url: "/features", icon: List },
@@ -150,7 +152,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
     const { role } = usePermissions();
     // Hide Attendance, Staff, Pricing, Roles, Diet & Workout, Inventory, and Tournaments for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/diet-workout" || item.title === "Inventory" || item.title === "Tournaments")) {
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/diet-workout" || item.title === "Inventory" || item.title === "Tournaments" || item.title === "My Attendance & Payroll")) {
       return null;
     }
 
@@ -188,6 +190,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Diet & Workout" && !hasPermission('view_diet_workout_plans')) return null;
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
       if (item.title === "Tournaments" && !hasPermission('view_tournaments')) return null;
+      if (item.title === "My Attendance & Payroll" && (role?.isOwner || role?.name === "SUPER_ADMIN" || role?.name?.toLowerCase() === "owner")) return null;
       if (item.title === "Contact Messages" || item.title === "Coupons") return null;
     }
 

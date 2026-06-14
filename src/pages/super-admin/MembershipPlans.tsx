@@ -57,6 +57,7 @@ interface Plan {
   max_gyms: number;
   max_members: number;
   is_active: boolean;
+  is_trial_plan: boolean;
   created_at?: string;
   plan_prices: PlanPrice[];
   plan_features: PlanFeature[];
@@ -77,6 +78,7 @@ export default function MembershipPlans() {
     max_gyms: "1",
     max_members: "10",
     is_active: true,
+    is_trial_plan: false,
     // Price related fields
     monthlyPrice: "",
     yearlyPrice: "",
@@ -136,6 +138,7 @@ export default function MembershipPlans() {
       max_gyms: "1",
       max_members: "10",
       is_active: true,
+      is_trial_plan: false,
       monthlyPrice: "",
       yearlyPrice: ""
     });
@@ -159,6 +162,7 @@ export default function MembershipPlans() {
       max_gyms: (plan.max_gyms || 1).toString(),
       max_members: (plan.max_members || 10).toString(),
       is_active: plan.is_active,
+      is_trial_plan: plan.is_trial_plan || false,
       monthlyPrice: monthly ? monthly.price.toString() : "",
       yearlyPrice: yearly ? yearly.price.toString() : ""
     });
@@ -200,7 +204,8 @@ export default function MembershipPlans() {
         description: formData.description,
         max_gyms: parseInt(formData.max_gyms),
         max_members: parseInt(formData.max_members),
-        is_active: formData.is_active
+        is_active: formData.is_active,
+        is_trial_plan: formData.is_trial_plan
       };
 
       let planId = editingPlan?.id;
@@ -225,6 +230,14 @@ export default function MembershipPlans() {
       }
 
       if (!planId) throw new Error("Plan ID is missing");
+
+      // If this plan is set as trial, update all other plans' trial status to false
+      if (formData.is_trial_plan) {
+        await supabase
+          .from('plans')
+          .update({ is_trial_plan: false })
+          .neq('id', planId);
+      }
 
       // Handle Monthly Price
       const existingMonthly = editingPlan?.plan_prices?.find(p => p.duration_unit === 'month' && p.duration_value === 1);
@@ -390,11 +403,10 @@ export default function MembershipPlans() {
                 className={`relative overflow-hidden hover:shadow-lg transition-all duration-300 animate-slide-up group ${!plan.is_active ? "opacity-75 grayscale-[0.5]" : ""
                   }`}
               >
-                {!plan.is_active && (
-                  <div className="absolute top-4 right-4 z-10">
-                    <Badge variant="destructive">Inactive</Badge>
-                  </div>
-                )}
+                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                  {!plan.is_active && <Badge variant="destructive">Inactive</Badge>}
+                  {plan.is_trial_plan && <Badge className="bg-emerald-505 bg-emerald-500 hover:bg-emerald-600 text-white font-bold">Trial Plan</Badge>}
+                </div>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center justify-between">
                     <span className="text-xl font-bold">{plan.name}</span>
@@ -520,6 +532,17 @@ export default function MembershipPlans() {
                     onCheckedChange={(checked) => handleInputChange("is_active", checked)}
                   />
                   <span className="text-sm text-muted-foreground">{formData.is_active ? "Active" : "Inactive"}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Trial Plan Status</Label>
+                <div className="flex items-center space-x-2 pt-2">
+                  <Switch
+                    checked={formData.is_trial_plan}
+                    onCheckedChange={(checked) => handleInputChange("is_trial_plan", checked)}
+                  />
+                  <span className="text-sm text-muted-foreground">{formData.is_trial_plan ? "Yes (Trial Active)" : "No"}</span>
                 </div>
               </div>
             </div>

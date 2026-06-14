@@ -35,11 +35,12 @@ import { EditPaymentDialog } from "@/components/payments/EditPaymentDialog";
 
 export default function GymPayments() {
     const { gymId, loading: gymLoading } = useGym();
-    const { hasPermission } = usePermissions();
+    const { hasPermission, role, permissions } = usePermissions();
     const [payments, setPayments] = useState<GymMembershipPayment[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
+    const [typeFilter, setTypeFilter] = useState<"all" | "plan" | "pt">("all");
 
     // Dialog State
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
@@ -57,7 +58,8 @@ export default function GymPayments() {
                     *,
                     gym_members (
                         full_name,
-                        image_url
+                        image_url,
+                        trainer_id
                     ),
                     gym_membership_history (
                         plan_id,
@@ -83,15 +85,34 @@ export default function GymPayments() {
     }, [gymId]);
 
     // Derived State
-    const filteredPayments = payments.filter(p => {
+    const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
+
+    const visiblePayments = payments.filter(payment => {
+        if (payment.remarks === 'Personal Training Fee') {
+            return !!(payment.gym_members?.trainer_id?.toString() === role?.staff_id?.toString());
+        }
+        return true;
+    });
+
+    const typeFilteredPayments = visiblePayments.filter(payment => {
+        if (typeFilter === 'plan') {
+            return payment.remarks !== 'Personal Training Fee';
+        }
+        if (typeFilter === 'pt') {
+            return payment.remarks === 'Personal Training Fee';
+        }
+        return true;
+    });
+
+    const filteredPayments = typeFilteredPayments.filter(p => {
         const matchesSearch = p.gym_members?.full_name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesStatus = statusFilter === 'all' || p.payment_status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 
-    const totalCollected = payments.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
-    const totalDue = payments.reduce((sum, p) => sum + (p.due_amount || 0), 0);
-    const overdueCount = payments.filter(p => p.payment_status === 'unpaid' || p.payment_status === 'partial').length;
+    const totalCollected = typeFilteredPayments.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+    const totalDue = typeFilteredPayments.reduce((sum, p) => sum + (p.due_amount || 0), 0);
+    const overdueCount = typeFilteredPayments.filter(p => p.payment_status === 'unpaid' || p.payment_status === 'partial').length;
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -192,6 +213,17 @@ export default function GymPayments() {
                         <SelectItem value="paid">Paid</SelectItem>
                         <SelectItem value="partial">Partial</SelectItem>
                         <SelectItem value="unpaid">Unpaid</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val)}>
+                    <SelectTrigger className="w-[180px]">
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Payment Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Payments</SelectItem>
+                        <SelectItem value="plan">Membership Plan</SelectItem>
+                        <SelectItem value="pt">PT Fee Only</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

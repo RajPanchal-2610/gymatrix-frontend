@@ -69,6 +69,7 @@ import { staffService } from "@/services/staffService";
 import { toast } from "sonner";
 import { format, addMonths, addDays, addYears, differenceInCalendarDays } from "date-fns";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -85,8 +86,9 @@ export default function Members() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { gymId, gyms, loading: gymLoading } = useGym();
-    const { hasPermission, role } = usePermissions();
+    const { hasPermission, role, permissions } = usePermissions();
     const { subscription } = useSubscription();
+    const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
     const [trainers, setTrainers] = useState<GymStaff[]>([]);
@@ -110,6 +112,7 @@ export default function Members() {
         device_user_id: "",
     });
     const [uploading, setUploading] = useState(false);
+    const [renewalType, setRenewalType] = useState<"both" | "plan" | "pt">("both");
 
     // Renewal State
     const [renewDialogOpen, setRenewDialogOpen] = useState(false);
@@ -282,6 +285,7 @@ export default function Members() {
             plan_id: member.membership_plan_id?.toString() || "",
             start_date: format(new Date(), "yyyy-MM-dd"),
         });
+        setRenewalType(member.pt_fee && member.pt_fee > 0 ? "both" : "plan");
         setRenewDialogOpen(true);
     };
 
@@ -367,12 +371,78 @@ export default function Members() {
 
     const handleRenewSubmit = async () => {
         if (!gymId || !renewingMember) return;
-        if (!renewFormData.plan_id) {
+        
+        // If not renewing PT only, plan_id is required
+        if (renewalType !== "pt" && !renewFormData.plan_id) {
             toast.error("Please select a plan");
             return;
         }
 
         try {
+            if (renewalType === "pt") {
+                // Fetch the latest history record for this member to link the PT payment
+                const { data: latestHistory, error: historyError } = await supabase
+                    .from("gym_membership_history")
+                    .select("id")
+                    .eq("member_id", renewingMember.id)
+                    .order("end_date", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (historyError) throw historyError;
+
+                if (!latestHistory) {
+                    toast.error("No membership history found. Please renew membership plan first.");
+                    return;
+                }
+
+                if (!renewingMember.pt_fee || renewingMember.pt_fee <= 0) {
+                    toast.error("Member does not have a PT Fee configured.");
+                    return;
+                }
+
+                // Insert only the PT Payment record linked to that history
+                const { error: ptError } = await supabase
+                    .from("gym_membership_payments")
+                    .insert({
+                        membership_history_id: latestHistory.id,
+                        member_id: renewingMember.id,
+                        gym_id: gymId,
+                        total_amount: renewingMember.pt_fee,
+                        paid_amount: 0,
+                        due_amount: renewingMember.pt_fee,
+                        payment_status: 'unpaid',
+                        billing_date: renewFormData.start_date,
+                        remarks: 'Personal Training Fee'
+                    });
+
+                if (ptError) throw ptError;
+
+                // Create a record in gym_pt_history table
+                const ptEndDate = format(addMonths(new Date(renewFormData.start_date), 1), 'yyyy-MM-dd');
+                const { error: ptHistError } = await supabase
+                    .from("gym_pt_history")
+                    .insert({
+                        gym_id: gymId,
+                        member_id: renewingMember.id,
+                        trainer_id: renewingMember.trainer_id,
+                        start_date: renewFormData.start_date,
+                        end_date: ptEndDate,
+                        pt_fee: renewingMember.pt_fee,
+                        status: 'active',
+                        renewed_at: new Date().toISOString()
+                    });
+
+                if (ptHistError) throw ptHistError;
+
+
+
+                toast.success("Personal Training Fee renewed successfully");
+                setRenewDialogOpen(false);
+                fetchMembers();
+                return;
+            }
+
             const expiry = calculateExpiry(renewFormData.start_date, renewFormData.plan_id);
             if (!expiry) {
                 toast.error("Invalid plan or date");
@@ -428,7 +498,7 @@ export default function Members() {
                             remarks: 'Membership Subscription'
                         });
 
-                    if (renewingMember.pt_fee && renewingMember.pt_fee > 0) {
+                    if (renewalType === "both" && renewingMember.pt_fee && renewingMember.pt_fee > 0) {
                         await supabase
                             .from("gym_membership_payments")
                             .insert({
@@ -441,6 +511,20 @@ export default function Members() {
                                 payment_status: 'unpaid',
                                 billing_date: renewFormData.start_date,
                                 remarks: 'Personal Training Fee'
+                            });
+
+                        // Insert PT subscription history log
+                        await supabase
+                            .from("gym_pt_history")
+                            .insert({
+                                gym_id: gymId,
+                                member_id: renewingMember.id,
+                                trainer_id: renewingMember.trainer_id,
+                                start_date: renewFormData.start_date,
+                                end_date: expiry, // Align with core plan expiry date
+                                pt_fee: renewingMember.pt_fee,
+                                status: 'active',
+                                renewed_at: new Date().toISOString()
                             });
                     }
                 }
@@ -525,7 +609,7 @@ export default function Members() {
         }
 
         if (!formData.membership_plan_id) {
-            toast.error("Subscription Plan is required");
+            toast.error("Membership Plan is required");
             return;
         }
 
@@ -585,6 +669,54 @@ export default function Members() {
 
                 if (error) throw error;
                 savedMemberId = editingMember.id;
+
+                // Check if they are newly assigned a trainer during update
+                const isNewlyAssignedTrainer = 
+                    (!editingMember.trainer_id || editingMember.trainer_id === null) && 
+                    (payload.trainer_id !== null && payload.pt_fee > 0);
+
+                if (isNewlyAssignedTrainer) {
+                    const { data: historyData, error: historyFetchError } = await supabase
+                        .from("gym_membership_history")
+                        .select("id")
+                        .eq("member_id", editingMember.id)
+                        .order("end_date", { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (!historyFetchError && historyData) {
+                        // Create initial PT payment record
+                        await supabase
+                            .from("gym_membership_payments")
+                            .insert({
+                                membership_history_id: historyData.id,
+                                member_id: editingMember.id,
+                                gym_id: gymId,
+                                total_amount: payload.pt_fee,
+                                paid_amount: 0,
+                                due_amount: payload.pt_fee,
+                                payment_status: 'unpaid',
+                                billing_date: payload.join_date,
+                                remarks: 'Personal Training Fee'
+                            });
+
+                        // Create initial PT history record
+                        const ptEndDate = payload.expiry_date || format(addMonths(new Date(payload.join_date), 1), 'yyyy-MM-dd');
+                        await supabase
+                            .from("gym_pt_history")
+                            .insert({
+                                gym_id: gymId,
+                                member_id: editingMember.id,
+                                trainer_id: payload.trainer_id,
+                                start_date: payload.join_date,
+                                end_date: ptEndDate,
+                                pt_fee: payload.pt_fee,
+                                status: 'active',
+                                renewed_at: new Date().toISOString()
+                            });
+                    }
+                }
+
                 toast.success("Member updated successfully");
             } else {
                 const { data: newMember, error } = await supabase
@@ -659,6 +791,21 @@ export default function Members() {
                                         payment_status: 'unpaid',
                                         billing_date: payload.join_date,
                                         remarks: 'Personal Training Fee'
+                                    });
+
+                                // Create initial record in gym_pt_history table
+                                const ptEndDate = payload.expiry_date || format(addMonths(new Date(payload.join_date), 1), 'yyyy-MM-dd');
+                                await supabase
+                                    .from("gym_pt_history")
+                                    .insert({
+                                        gym_id: gymId,
+                                        member_id: newMember.id,
+                                        trainer_id: payload.trainer_id,
+                                        start_date: payload.join_date,
+                                        end_date: ptEndDate,
+                                        pt_fee: payload.pt_fee,
+                                        status: 'active',
+                                        renewed_at: new Date().toISOString()
                                     });
                             }
                         }
@@ -782,20 +929,29 @@ export default function Members() {
     });
 
     // Statistics calculations
-    const totalMembersCount = members.length;
+    const statsMembers = showOnlyMyMembers && role?.staff_id
+        ? members.filter(member => member.trainer_id === role.staff_id)
+        : members;
 
-    const activeMembersCount = members.filter(member => {
+    const totalMembersCount = statsMembers.length;
+
+    const activeMembersCount = statsMembers.filter(member => {
         const status = getMemberStatusDisplay(member);
         return status.label === "Active" || status.label.startsWith("Expires in");
     }).length;
 
-    const expiredMembersCount = members.filter(member => {
+    const expiredMembersCount = statsMembers.filter(member => {
         const status = getMemberStatusDisplay(member);
         return status.label === "Expired" || status.label === "Expires Today";
     }).length;
 
-    const pendingDuesTotal = members.reduce((sum, member) => {
-        const payments = member.gym_membership_payments || [];
+    const pendingDuesTotal = statsMembers.reduce((sum, member) => {
+        const payments = (member.gym_membership_payments || []).filter(p => {
+            if (p.remarks === 'Personal Training Fee') {
+                return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+            }
+            return true;
+        });
         const unpaid = payments.reduce((pSum, p) => pSum + (p.payment_status !== 'paid' ? (p.due_amount || 0) : 0), 0);
         return sum + unpaid;
     }, 0);
@@ -951,7 +1107,7 @@ export default function Members() {
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                                     <div className="space-y-2">
-                                                        <Label>Subscription Plan <span className="text-destructive">*</span></Label>
+                                                        <Label>Membership Plan <span className="text-destructive">*</span></Label>
                                                         <Select
                                                             value={formData.membership_plan_id}
                                                             onValueChange={(val) => setFormData({ ...formData, membership_plan_id: val })}
@@ -999,20 +1155,22 @@ export default function Members() {
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor="ptFee">PT Fee (Monthly)</Label>
-                                                        <div className="relative">
-                                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                            <Input
-                                                                id="ptFee"
-                                                                type="number"
-                                                                className="pl-9"
-                                                                value={formData.pt_fee}
-                                                                onChange={(e) => setFormData({ ...formData, pt_fee: e.target.value })}
-                                                                placeholder="0.00"
-                                                            />
+                                                     {((role?.staff_id && formData.trainer_id?.toString() === role.staff_id.toString())) && (
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="ptFee">PT Fee (Monthly)</Label>
+                                                            <div className="relative">
+                                                                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                                <Input
+                                                                    id="ptFee"
+                                                                    type="number"
+                                                                    className="pl-9"
+                                                                    value={formData.pt_fee}
+                                                                    onChange={(e) => setFormData({ ...formData, pt_fee: e.target.value })}
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -1070,14 +1228,33 @@ export default function Members() {
                                         <Label>Member</Label>
                                         <div className="font-medium">{renewingMember?.full_name}</div>
                                     </div>
+                                     {renewingMember?.pt_fee && (renewingMember.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                        <div className="space-y-2">
+                                            <Label>Renewal Option</Label>
+                                            <Select
+                                                value={renewalType}
+                                                onValueChange={(val: "both" | "plan" | "pt") => setRenewalType(val)}
+                                            >
+                                                <SelectTrigger>
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="both">Membership Plan & PT Fee (₹{renewingMember.pt_fee})</SelectItem>
+                                                    <SelectItem value="plan">Membership Plan Only</SelectItem>
+                                                    <SelectItem value="pt">PT Fee Only (₹{renewingMember.pt_fee})</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    ) : null}
                                     <div className="space-y-2">
                                         <Label>Select Plan</Label>
                                         <Select
-                                            value={renewFormData.plan_id}
+                                            disabled={renewalType === "pt"}
+                                            value={renewalType === "pt" ? "" : renewFormData.plan_id}
                                             onValueChange={(val) => setRenewFormData({ ...renewFormData, plan_id: val })}
                                         >
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select plan" />
+                                                <SelectValue placeholder={renewalType === "pt" ? "PT-Only renewal selected" : "Select plan"} />
                                             </SelectTrigger>
                                             <SelectContent>
                                                 {plans.map((plan) => (
@@ -1096,15 +1273,6 @@ export default function Members() {
                                             onChange={(e) => setRenewFormData({ ...renewFormData, start_date: e.target.value })}
                                         />
                                     </div>
-                                    {renewingMember?.pt_fee && (role?.isOwner || renewingMember.trainer_id?.toString() === role?.staff_id?.toString()) ? (
-                                        <div className="p-3 bg-muted/30 rounded-lg flex justify-between items-center text-sm">
-                                            <span className="text-muted-foreground font-medium flex items-center gap-2">
-                                                <User className="h-3.5 w-3.5" />
-                                                PT Fee (Current)
-                                            </span>
-                                            <span className="font-semibold text-primary">₹{renewingMember.pt_fee}</span>
-                                        </div>
-                                    ) : null}
                                 </div>
                                 <div className="flex justify-end gap-3">
                                     <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
@@ -1362,7 +1530,7 @@ export default function Members() {
                                                         ) : (
                                                             <span className="text-muted-foreground text-sm">-</span>
                                                         )}
-                                                        {member.pt_fee && member.pt_fee > 0 && (role?.isOwner || member.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                                        {member.pt_fee && member.pt_fee > 0 && (member.trainer_id?.toString() === role?.staff_id?.toString()) ? (
                                                             <div className="flex flex-col gap-1 mt-1">
                                                                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                                                     <IndianRupee className="h-2.5 w-2.5" />
@@ -1400,11 +1568,17 @@ export default function Members() {
                                                     <div className="flex flex-col items-start gap-1">
                                                         {(() => {
                                                             const allPayments = member.gym_membership_payments || [];
+                                                            const visibleAllPayments = allPayments.filter(p => {
+                                                                if (p.remarks === 'Personal Training Fee') {
+                                                                    return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+                                                                }
+                                                                return true;
+                                                            });
                                                             // 1. Identify "Current" Payments (linked to latest history)
                                                             const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
                                                             const latestHistory = sortedHistory[0];
 
-                                                            const currentPayments = allPayments.filter(p => p.membership_history_id === latestHistory?.id);
+                                                            const currentPayments = visibleAllPayments.filter(p => p.membership_history_id === latestHistory?.id);
 
                                                             const badges = [];
 
@@ -1443,7 +1617,7 @@ export default function Members() {
                                                             }
 
                                                             // 2. Check for Previous Unpaid/Partial Payments
-                                                            const previousUnpaid = allPayments.filter(p => 
+                                                            const previousUnpaid = visibleAllPayments.filter(p => 
                                                                 !currentPayments.some(cp => cp.id === p.id) && 
                                                                 (p.payment_status === 'unpaid' || p.payment_status === 'partial')
                                                             );
@@ -1541,13 +1715,17 @@ export default function Members() {
                                                                         Renew
                                                                     </DropdownMenuItem>
                                                                 )}
-
                                                                 {/* Payment Action */}
                                                                 {(hasPermission('add_payments') || (member.trainer_id && member.trainer_id.toString() === role?.staff_id?.toString())) && (() => {
                                                                     const actions = [];
-                                                                    // 1. Existing Payments that need attention (Unpaid or Partial)
+                                                                    // 1. Existing Payments that need attention
                                                                     // Get ALL payments for this member
-                                                                    const allPayments = member.gym_membership_payments || [];
+                                                                    const allPayments = (member.gym_membership_payments || []).filter(p => {
+                                                                        if (p.remarks === 'Personal Training Fee') {
+                                                                            return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+                                                                        }
+                                                                        return true;
+                                                                    });
 
                                                                     // Filter for unpaid or partial
                                                                     const outstandingPayments = allPayments.filter(p => p.payment_status !== 'paid');

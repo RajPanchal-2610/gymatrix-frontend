@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from "date-fns";
-import { Calendar as CalendarIcon, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Save, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -204,6 +204,10 @@ export function AttendanceView() {
             {!selectedStaffId ? (
                 <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
                     Select a staff member to view and manage attendance.
+                </div>
+            ) : loading ? (
+                <div className="flex h-[30vh] items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
                 <div className="grid grid-cols-7 gap-2">

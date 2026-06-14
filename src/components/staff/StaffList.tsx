@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, Shield, IndianRupee } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, Shield, IndianRupee, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -197,7 +197,13 @@ export function StaffList() {
             (member.phone && member.phone.includes(searchQuery))
     );
 
-    if (loading) return <div>Loading staff...</div>;
+    if (loading) {
+        return (
+            <div className="flex h-[50vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

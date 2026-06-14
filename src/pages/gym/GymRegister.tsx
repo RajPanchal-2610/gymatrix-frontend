@@ -88,8 +88,8 @@ export default function GymRegister() {
             // 4. Role assignment skipped for Gym Owner (handled via owner_id in gyms table)
 
 
-            // 5. Create 14-day Trial Subscription (Pro Plan)
-            // Fetch the Pro plan along with limits and price info
+            // 5. Create 14-day Trial Subscription (Dynamic Trial Plan)
+            // Fetch the designated trial plan along with limits and price info
             const { data: planData, error: planError } = await supabase
                 .from('plans')
                 .select(`
@@ -104,7 +104,7 @@ export default function GymRegister() {
                         value
                     )
                 `)
-                .ilike('name', '%Pro%')
+                .eq('is_trial_plan', true)
                 .limit(1)
                 .maybeSingle();
 

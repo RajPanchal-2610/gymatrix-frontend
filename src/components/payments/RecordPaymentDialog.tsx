@@ -125,21 +125,23 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
             if (historyError) throw historyError;
 
             // Create in-app notification
-            supabase.auth.getUser().then(({ data: { user } }) => {
-                const memberName = payment.gym_members?.full_name || "A member";
-                supabase
-                    .from("notifications")
-                    .insert({
-                        gym_id: gymId,
-                        title: "Payment Received",
-                        message: `Recorded ₹${totalEntered} payment from ${memberName} (${splits.map(s => s.mode).join(', ')}).`,
-                        type: "payment_received",
-                        triggered_by: user?.id || null
-                    })
-                    .then(({ error: notifErr }) => {
-                        if (notifErr) console.error("Error creating payment notification:", notifErr);
-                    });
-            });
+            if (payment.remarks !== 'Personal Training Fee') {
+                supabase.auth.getUser().then(({ data: { user } }) => {
+                    const memberName = payment.gym_members?.full_name || "A member";
+                    supabase
+                        .from("notifications")
+                        .insert({
+                            gym_id: gymId,
+                            title: "Payment Received",
+                            message: `Recorded ₹${totalEntered} payment from ${memberName} (${splits.map(s => s.mode).join(', ')}).`,
+                            type: "payment_received",
+                            triggered_by: user?.id || null
+                        })
+                        .then(({ error: notifErr }) => {
+                            if (notifErr) console.error("Error creating payment notification:", notifErr);
+                        });
+                });
+            }
 
             toast.success("Payments recorded successfully");
             onSuccess();

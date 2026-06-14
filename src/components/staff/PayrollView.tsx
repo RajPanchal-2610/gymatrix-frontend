@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { DollarSign, Save, FileText, AlertCircle, RefreshCw } from "lucide-react";
+import { DollarSign, Save, FileText, AlertCircle, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     Select,
@@ -265,6 +265,14 @@ export function PayrollView() {
             toast({ title: "Error", description: "Failed to save payroll.", variant: "destructive" });
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex h-[30vh] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

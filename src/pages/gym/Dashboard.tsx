@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, CreditCard, Activity, CalendarCheck, UserCog, AlertCircle, TrendingUp, IndianRupee, Wrench, Package, Clock } from "lucide-react";
+import { Users, CreditCard, Activity, CalendarCheck, UserCog, AlertCircle, TrendingUp, IndianRupee, Wrench, Package, Clock, Briefcase } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { MembershipChart } from "@/components/dashboard/MembershipChart";
@@ -11,9 +11,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useNavigate } from "react-router-dom";
-import { differenceInDays, parseISO, subMonths, format, startOfMonth } from "date-fns";
+import { differenceInDays, parseISO, subMonths, format, startOfMonth, differenceInCalendarDays } from "date-fns";
 import { useGym } from "@/hooks/useGym";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface Subscription {
     status: string;
@@ -25,7 +28,7 @@ interface Subscription {
 
 export default function GymDashboard() {
     const { gymId } = useGym();
-    const { hasPermission } = usePermissions();
+    const { hasPermission, role } = usePermissions();
     const [subscription, setSubscription] = useState<Subscription | null>(null);
     const [loading, setLoading] = useState(true);
     const [dashboardLoading, setDashboardLoading] = useState(true);
@@ -46,6 +49,18 @@ export default function GymDashboard() {
     const [todayCheckIns, setTodayCheckIns] = useState<CheckInItem[]>([]);
     const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
     const [membershipAtRisk, setMembershipAtRisk] = useState<AlertMember[]>([]);
+
+    // Trainer Specific Dashboard States
+    const [trainerStats, setTrainerStats] = useState({
+        activeClients: 0,
+        monthlyPtRevenue: 0,
+        outstandingPtDues: 0,
+        expiringPtCount: 0
+    });
+    const [ptAlerts, setPtAlerts] = useState<AlertMember[]>([]);
+    const [ptInvoices, setPtInvoices] = useState<UnpaidInvoice[]>([]);
+    const [ptClientsList, setPtClientsList] = useState<any[]>([]);
+    const [activeDashboard, setActiveDashboard] = useState<"general" | "trainer">("general");
 
     useEffect(() => {
         const fetchSubscription = async () => {
@@ -107,6 +122,145 @@ export default function GymDashboard() {
         setUnpaidInvoices([]);
         setMembershipAtRisk([]);
 
+        // Reset Trainer Data
+        setTrainerStats({
+            activeClients: 0,
+            monthlyPtRevenue: 0,
+            outstandingPtDues: 0,
+            expiringPtCount: 0
+        });
+        setPtAlerts([]);
+        setPtInvoices([]);
+        setPtClientsList([]);
+
+        const fetchTrainerDashboardData = async (staffId: number) => {
+            try {
+                // Fetch active PT clients count
+                const { count: activePtClients } = await supabase
+                    .from('gym_members')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('gym_id', gymId)
+                    .eq('trainer_id', staffId)
+                    .eq('status', 'active')
+                    .eq('is_deleted', false);
+
+                // Fetch current month PT revenue collections
+                const startOfCurrentMonth = startOfMonth(new Date()).toISOString();
+                const { data: ptTxns } = await supabase
+                    .from('gym_payment_transactions')
+                    .select(`
+                        amount,
+                        gym_membership_payments (remarks, member_id)
+                    `)
+                    .eq('gym_id', gymId)
+                    .gte('paid_at', startOfCurrentMonth);
+
+                const { data: myMembers } = await supabase
+                    .from('gym_members')
+                    .select('id, full_name, expiry_date, status')
+                    .eq('gym_id', gymId)
+                    .eq('trainer_id', staffId)
+                    .eq('is_deleted', false);
+
+                const myMemberIds = myMembers?.map(m => m.id) || [];
+
+                const monthlyPtRevenue = ptTxns?.reduce((sum, tx: any) => {
+                    if (tx.gym_membership_payments?.remarks !== 'Personal Training Fee') return sum;
+                    if (!myMemberIds.includes(tx.gym_membership_payments?.member_id)) return sum;
+                    return sum + Number(tx.amount || 0);
+                }, 0) || 0;
+
+                // Fetch outstanding PT dues for their clients
+                const { data: myUnpaidPtPayments } = await supabase
+                    .from('gym_membership_payments')
+                    .select('id, due_amount, billing_date, gym_members (id, full_name)')
+                    .eq('gym_id', gymId)
+                    .eq('remarks', 'Personal Training Fee')
+                    .neq('payment_status', 'paid')
+                    .in('member_id', myMemberIds)
+                    .eq('is_deleted', false);
+
+                const outstandingPtDues = myUnpaidPtPayments?.reduce((sum, p) => sum + Number(p.due_amount || 0), 0) || 0;
+
+                // Fetch PT Expirations and History
+                const { data: ptHistories } = await supabase
+                    .from('gym_pt_history')
+                    .select(`
+                        id,
+                        member_id,
+                        trainer_id,
+                        start_date,
+                        end_date,
+                        pt_fee,
+                        status,
+                        gym_members (
+                            full_name
+                        )
+                    `)
+                    .eq('gym_id', gymId)
+                    .eq('trainer_id', staffId)
+                    .order('created_at', { ascending: false });
+
+                const today = new Date();
+                const expiringPtCount = ptHistories?.filter(h => {
+                    const end = parseISO(h.end_date);
+                    const daysDiff = differenceInDays(end, today);
+                    return h.status === 'active' && daysDiff >= 0 && daysDiff <= 7;
+                }).length || 0;
+
+                // Format alerts for PT expiries
+                const formattedPtAlerts = ptHistories
+                    ?.filter(h => {
+                        const end = parseISO(h.end_date);
+                        const daysDiff = differenceInDays(end, today);
+                        return (h.status === 'active' && daysDiff >= 0 && daysDiff <= 7) ||
+                            (h.status === 'expired' && daysDiff < 0 && daysDiff >= -30);
+                    })
+                    .map((h: any) => ({
+                        id: h.id,
+                        name: h.gym_members?.full_name || "Unknown Member",
+                        expiryDate: format(new Date(h.end_date), 'MMM d, yyyy'),
+                        daysRemaining: differenceInDays(parseISO(h.end_date), today),
+                        status: (differenceInDays(parseISO(h.end_date), today) < 0 ? 'expired' : 'active') as 'active' | 'expired'
+                    })) || [];
+
+                // Format Unpaid Invoices
+                const formattedUnpaidInvoices = myUnpaidPtPayments?.map((inv: any) => ({
+                    id: inv.id,
+                    memberName: inv.gym_members?.full_name || "Unknown Member",
+                    amountDue: Number(inv.due_amount || 0),
+                    billingDate: format(new Date(inv.billing_date), 'MMM d, yyyy')
+                })) || [];
+
+                // Format Client Directory details
+                const clientDirectory = myMembers?.map(m => {
+                    const latestPt = ptHistories?.find(h => h.member_id === m.id);
+                    return {
+                        id: m.id,
+                        name: m.full_name,
+                        status: m.status,
+                        expiryDate: m.expiry_date ? format(new Date(m.expiry_date), 'dd MMM yyyy') : '-',
+                        ptExpiryDate: latestPt ? format(new Date(latestPt.end_date), 'dd MMM yyyy') : '-',
+                        ptStatus: latestPt ? latestPt.status : 'none',
+                        ptFee: latestPt ? latestPt.pt_fee : 0
+                    };
+                }) || [];
+
+                setTrainerStats({
+                    activeClients: activePtClients || 0,
+                    monthlyPtRevenue: monthlyPtRevenue,
+                    outstandingPtDues: outstandingPtDues,
+                    expiringPtCount: expiringPtCount
+                });
+                setPtAlerts(formattedPtAlerts);
+                setPtInvoices(formattedUnpaidInvoices);
+                setPtClientsList(clientDirectory);
+
+            } catch (error) {
+                console.error("Error fetching trainer stats:", error);
+            }
+        };
+
         const fetchDashboardData = async () => {
             setDashboardLoading(true);
             try {
@@ -129,11 +283,17 @@ export default function GymDashboard() {
                 const startOfCurrentMonth = startOfMonth(new Date()).toISOString();
                 const { data: currentMonthTxns } = await supabase
                     .from('gym_payment_transactions')
-                    .select('amount')
+                    .select(`
+                        amount,
+                        gym_membership_payments (remarks)
+                    `)
                     .eq('gym_id', gymId)
                     .gte('paid_at', startOfCurrentMonth);
 
-                const monthlyRevenue = currentMonthTxns?.reduce((sum, tx) => sum + Number(tx.amount || 0), 0) || 0;
+                const monthlyRevenue = currentMonthTxns?.reduce((sum, tx: any) => {
+                    if (tx.gym_membership_payments?.remarks === 'Personal Training Fee') return sum;
+                    return sum + Number(tx.amount || 0);
+                }, 0) || 0;
 
                 // Fetch pending dues
                 const { data: unsettledPayments } = await supabase
@@ -141,6 +301,7 @@ export default function GymDashboard() {
                     .select('due_amount')
                     .eq('gym_id', gymId)
                     .neq('payment_status', 'paid')
+                    .neq('remarks', 'Personal Training Fee')
                     .eq('is_deleted', false);
                 const pendingDues = unsettledPayments?.reduce((sum, payment) => sum + Number(payment.due_amount || 0), 0) || 0;
 
@@ -195,12 +356,18 @@ export default function GymDashboard() {
 
                     const { data: monthTxns } = await supabase
                         .from('gym_payment_transactions')
-                        .select('amount')
+                        .select(`
+                            amount,
+                            gym_membership_payments (remarks)
+                        `)
                         .eq('gym_id', gymId)
                         .gte('paid_at', monthStartDate.toISOString())
                         .lt('paid_at', monthEndDate.toISOString());
 
-                    const rev = monthTxns?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0;
+                    const rev = monthTxns?.reduce((sum, t: any) => {
+                        if (t.gym_membership_payments?.remarks === 'Personal Training Fee') return sum;
+                        return sum + Number(t.amount || 0);
+                    }, 0) || 0;
                     revChartData.push({
                         name: format(monthStartDate, 'MMM'),
                         revenue: rev
@@ -278,6 +445,7 @@ export default function GymDashboard() {
                     .select('id, paid_amount, created_at, gym_members(full_name)')
                     .eq('gym_id', gymId)
                     .gt('paid_amount', 0)
+                    .neq('remarks', 'Personal Training Fee')
                     .eq('is_deleted', false)
                     .order('created_at', { ascending: false })
                     .limit(3);
@@ -310,6 +478,7 @@ export default function GymDashboard() {
                     .select('id, due_amount, billing_date, gym_members(full_name)')
                     .eq('gym_id', gymId)
                     .gt('due_amount', 0)
+                    .neq('remarks', 'Personal Training Fee')
                     .eq('is_deleted', false)
                     .order('due_amount', { ascending: false })
                     .limit(5);
@@ -364,13 +533,16 @@ export default function GymDashboard() {
         };
 
         fetchDashboardData();
-    }, [gymId]);
+        if (role?.staff_id) {
+            fetchTrainerDashboardData(role.staff_id);
+        }
+    }, [gymId, role?.staff_id]);
 
     const getDaysRemaining = () => {
         if (!subscription?.end_date) return 0;
         const today = new Date();
         const end = parseISO(subscription.end_date);
-        return Math.max(0, differenceInDays(end, today));
+        return Math.max(0, differenceInCalendarDays(end, today));
     };
 
     return (
@@ -391,7 +563,13 @@ export default function GymDashboard() {
                                         Free Trial Active - {subscription.plans?.name || "Pro Plan"}
                                     </AlertTitle>
                                     <AlertDescription className="text-muted-foreground mt-1">
-                                        You have <span className="font-bold text-primary">{getDaysRemaining()} days</span> remaining in your free trial.
+                                        {getDaysRemaining() === 0 ? (
+                                            <>Your free trial <span className="font-bold text-primary">expires today at {format(parseISO(subscription.end_date), 'h:mm a')}</span>.</>
+                                        ) : getDaysRemaining() === 1 ? (
+                                            <>You have <span className="font-bold text-primary">1 day</span> remaining in your free trial.</>
+                                        ) : (
+                                            <>You have <span className="font-bold text-primary">{getDaysRemaining()} days</span> remaining in your free trial.</>
+                                        )}{" "}
                                         Upgrade now to unlock full access and keep your data.
                                     </AlertDescription>
                                 </div>
@@ -407,135 +585,273 @@ export default function GymDashboard() {
                     </Alert>
                 </div>
             )}
-            {/* Stats Row */}
-            {hasPermission('view_dashboard_stats') && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    {hasPermission('view_members') && (
+            {/* Dashboard Selector Tabs */}
+            {role && (
+                <div className="flex items-center justify-between border-b pb-4 mb-6">
+                    <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+                    <div className="flex bg-muted p-1 rounded-xl shadow-sm border">
+                        <Button
+                            variant={activeDashboard === "general" ? "default" : "ghost"}
+                            className={cn(
+                                "h-9 rounded-lg px-4 text-xs font-bold transition-all duration-200",
+                                activeDashboard === "general" ? "shadow-sm bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => setActiveDashboard("general")}
+                        >
+                            <Activity className="h-3.5 w-3.5 mr-2" />
+                            Gym Overview
+                        </Button>
+                        <Button
+                            variant={activeDashboard === "trainer" ? "default" : "ghost"}
+                            className={cn(
+                                "h-9 rounded-lg px-4 text-xs font-bold transition-all duration-200",
+                                activeDashboard === "trainer" ? "shadow-sm bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                            )}
+                            onClick={() => setActiveDashboard("trainer")}
+                        >
+                            <Users className="h-3.5 w-3.5 mr-2" />
+                            My Workspace
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {activeDashboard === "trainer" ? (
+                <>
+                    {/* Trainer Stats Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <StatCard
-                            title="Active Members"
-                            value={stats.activeMembers}
-                            change="Current active"
+                            title="My Active Clients"
+                            value={trainerStats.activeClients}
+                            change="Assigned PT clients"
                             changeType="neutral"
                             icon={Users}
                             iconClassName="gradient-primary"
                             loading={dashboardLoading}
                         />
-                    )}
-                    {hasPermission('view_revenue_summary') && (
                         <StatCard
-                            title="Monthly Revenue"
-                            value={`₹${stats.monthlyRevenue.toLocaleString()}`}
+                            title="My PT Collections"
+                            value={`₹${trainerStats.monthlyPtRevenue.toLocaleString()}`}
                             change="Current month"
                             changeType="neutral"
                             icon={CreditCard}
                             iconClassName="bg-success"
                             loading={dashboardLoading}
                         />
-                    )}
-                    {hasPermission('view_staff_attendance') && (
                         <StatCard
-                            title="Today's Check-ins"
-                            value={todayCheckIns.length}
-                            change="Staff arrivals today"
-                            changeType="neutral"
-                            icon={Activity}
-                            iconClassName="gradient-accent"
-                            loading={dashboardLoading}
-                        />
-                    )}
-                    {hasPermission('view_staff') && (
-                        <StatCard
-                            title="Total Staff"
-                            value={stats.totalStaff}
-                            change="Active staff"
-                            changeType="neutral"
-                            icon={UserCog}
-                            iconClassName="bg-warning"
-                            loading={dashboardLoading}
-                        />
-                    )}
-                    {hasPermission('view_revenue_summary') && (
-                        <StatCard
-                            title="Pending Dues"
-                            value={`₹${stats.pendingDues.toLocaleString()}`}
-                            change="Outstanding payments"
+                            title="Outstanding PT Dues"
+                            value={`₹${trainerStats.outstandingPtDues.toLocaleString()}`}
+                            change="Unpaid PT bills"
                             changeType="negative"
                             icon={IndianRupee}
                             iconClassName="bg-red-500"
                             loading={dashboardLoading}
                         />
-                    )}
-                    {hasPermission('view_inventory') && (
                         <StatCard
-                            title="Needs Maintenance"
-                            value={stats.pendingMaintenance}
-                            change="Pending repairs"
-                            changeType={stats.pendingMaintenance > 0 ? "negative" : "neutral"}
-                            icon={Wrench}
-                            iconClassName="bg-orange-500"
-                            loading={dashboardLoading}
-                        />
-                    )}
-                    {hasPermission('view_inventory') && (
-                        <StatCard
-                            title="Active Inventory"
-                            value={stats.activeInventory}
-                            change="Total items"
-                            changeType="neutral"
-                            icon={Package}
-                            iconClassName="bg-indigo-500"
-                            loading={dashboardLoading}
-                        />
-                    )}
-                    {hasPermission('view_members') && (
-                        <StatCard
-                            title="Expiring Soon"
-                            value={stats.upcomingExpirations}
+                            title="Expiring PT Plans"
+                            value={trainerStats.expiringPtCount}
                             change="Within 7 days"
-                            changeType={stats.upcomingExpirations > 0 ? "negative" : "neutral"}
+                            changeType={trainerStats.expiringPtCount > 0 ? "negative" : "neutral"}
                             icon={Clock}
                             iconClassName="bg-yellow-500"
                             loading={dashboardLoading}
                         />
+                    </div>
+
+                    {/* Trainer Management Alerts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <PendingPayments
+                            invoices={ptInvoices}
+                            loading={dashboardLoading}
+                            totalAmount={trainerStats.outstandingPtDues}
+                        />
+                        <MembershipAlerts members={ptAlerts} loading={dashboardLoading} />
+                    </div>
+
+                    {/* Trainer Client Directory */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                <Users className="h-5 w-5 text-primary" />
+                                My Personal Training Clients
+                            </CardTitle>
+                            <CardDescription>All members currently assigned to you for personal training</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {ptClientsList.length > 0 ? (
+                                <div className="border rounded-xl overflow-hidden shadow-sm">
+                                    <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
+                                                <tr>
+                                                    <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Client Name</th>
+                                                    <th className="py-3 px-4 text-left font-semibold text-muted-foreground">General Expiry</th>
+                                                    <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Expiry</th>
+                                                    <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Rate</th>
+                                                    <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-muted">
+                                                {ptClientsList.map((client) => (
+                                                    <tr key={client.id} className="hover:bg-muted/30 transition-colors">
+                                                        <td className="py-4 px-4 font-semibold text-foreground">{client.name}</td>
+                                                        <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">{client.expiryDate}</td>
+                                                        <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">{client.ptExpiryDate}</td>
+                                                        <td className="py-4 px-4 font-semibold">₹{client.ptFee.toLocaleString()}</td>
+                                                        <td className="py-4 px-4">
+                                                            <Badge variant={client.ptStatus === 'active' ? 'default' : 'destructive'} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", client.ptStatus === 'active' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}>
+                                                                {client.ptStatus}
+                                                            </Badge>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/20">
+                                    <Users className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                                    <p className="font-medium">No assigned clients found</p>
+                                    <p className="text-xs opacity-60">Clients will appear here when assigned to you</p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </>
+            ) : (
+                <>
+                    {/* Stats Row */}
+                    {hasPermission('view_dashboard_stats') && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            {hasPermission('view_members') && (
+                                <StatCard
+                                    title="Active Members"
+                                    value={stats.activeMembers}
+                                    change="Current active"
+                                    changeType="neutral"
+                                    icon={Users}
+                                    iconClassName="gradient-primary"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_revenue_summary') && (
+                                <StatCard
+                                    title="Monthly Revenue"
+                                    value={`₹${stats.monthlyRevenue.toLocaleString()}`}
+                                    change="Current month"
+                                    changeType="neutral"
+                                    icon={CreditCard}
+                                    iconClassName="bg-success"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_staff_attendance') && (
+                                <StatCard
+                                    title="Today's Check-ins"
+                                    value={todayCheckIns.length}
+                                    change="Staff arrivals today"
+                                    changeType="neutral"
+                                    icon={Activity}
+                                    iconClassName="gradient-accent"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_staff') && (
+                                <StatCard
+                                    title="Total Staff"
+                                    value={stats.totalStaff}
+                                    change="Active staff"
+                                    changeType="neutral"
+                                    icon={UserCog}
+                                    iconClassName="bg-warning"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_revenue_summary') && (
+                                <StatCard
+                                    title="Pending Dues"
+                                    value={`₹${stats.pendingDues.toLocaleString()}`}
+                                    change="Outstanding payments"
+                                    changeType="negative"
+                                    icon={IndianRupee}
+                                    iconClassName="bg-red-500"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_inventory') && (
+                                <StatCard
+                                    title="Needs Maintenance"
+                                    value={stats.pendingMaintenance}
+                                    change="Pending repairs"
+                                    changeType={stats.pendingMaintenance > 0 ? "negative" : "neutral"}
+                                    icon={Wrench}
+                                    iconClassName="bg-orange-500"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_inventory') && (
+                                <StatCard
+                                    title="Active Inventory"
+                                    value={stats.activeInventory}
+                                    change="Total items"
+                                    changeType="neutral"
+                                    icon={Package}
+                                    iconClassName="bg-indigo-500"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                            {hasPermission('view_members') && (
+                                <StatCard
+                                    title="Expiring Soon"
+                                    value={stats.upcomingExpirations}
+                                    change="Within 7 days"
+                                    changeType={stats.upcomingExpirations > 0 ? "negative" : "neutral"}
+                                    icon={Clock}
+                                    iconClassName="bg-yellow-500"
+                                    loading={dashboardLoading}
+                                />
+                            )}
+                        </div>
                     )}
-                </div>
-            )}
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                {hasPermission('view_revenue_summary') && (
-                    <div className="lg:col-span-2">
-                        <RevenueChart data={revenueData} loading={dashboardLoading} />
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        {hasPermission('view_revenue_summary') && (
+                            <div className="lg:col-span-2">
+                                <RevenueChart data={revenueData} loading={dashboardLoading} />
+                            </div>
+                        )}
+                        {hasPermission('view_members') && (
+                            <div className={hasPermission('view_revenue_summary') ? "" : "lg:col-span-3"}>
+                                <MembershipChart data={membershipData} loading={dashboardLoading} />
+                            </div>
+                        )}
                     </div>
-                )}
-                {hasPermission('view_members') && (
-                    <div className={hasPermission('view_revenue_summary') ? "" : "lg:col-span-3"}>
-                        <MembershipChart data={membershipData} loading={dashboardLoading} />
+
+                    {/* Management & Alert Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                        {hasPermission('view_revenue_summary') && (
+                            <PendingPayments
+                                invoices={unpaidInvoices}
+                                loading={dashboardLoading}
+                                totalAmount={stats.pendingDues}
+                            />
+                        )}
+                        {hasPermission('view_members') && (
+                            <MembershipAlerts members={membershipAtRisk} loading={dashboardLoading} />
+                        )}
+                        {hasPermission('view_staff_attendance') && (
+                            <TodayAttendance checkIns={todayCheckIns} loading={dashboardLoading} />
+                        )}
                     </div>
-                )}
-            </div>
 
-            {/* Management & Alert Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                {hasPermission('view_revenue_summary') && (
-                    <PendingPayments
-                        invoices={unpaidInvoices}
-                        loading={dashboardLoading}
-                        totalAmount={stats.pendingDues}
-                    />
-                )}
-                {hasPermission('view_members') && (
-                    <MembershipAlerts members={membershipAtRisk} loading={dashboardLoading} />
-                )}
-                {hasPermission('view_staff_attendance') && (
-                    <TodayAttendance checkIns={todayCheckIns} loading={dashboardLoading} />
-                )}
-            </div>
-
-            {hasPermission('view_activity_logs') && (
-                <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-                    <RecentActivity activities={recentActivities} loading={dashboardLoading} />
-                </div>
+                    {hasPermission('view_activity_logs') && (
+                        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
+                            <RecentActivity activities={recentActivities} loading={dashboardLoading} />
+                        </div>
+                    )}
+                </>
             )}
         </>
     );
