@@ -85,7 +85,7 @@ import {
 export default function Members() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { gymId, gyms, loading: gymLoading } = useGym();
+    const { gymId, gyms, loading: gymLoading, isGymInactive } = useGym();
     const { hasPermission, role, permissions } = usePermissions();
     const { subscription } = useSubscription();
     const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
@@ -1007,15 +1007,32 @@ export default function Members() {
                                     variant="outline"
                                     className="border-primary/20 hover:bg-primary/5 text-primary h-10 px-4 transition-all duration-200"
                                     onClick={() => setImportDialogOpen(true)}
+                                    disabled={isGymInactive}
                                 >
                                     <Upload className="h-4 w-4 mr-2" />
                                     Import Members
                                 </Button>
                             )}
                             {hasPermission('add_members') && (
-                                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                <Dialog open={dialogOpen} onOpenChange={(open) => {
+                                    if (isGymInactive && open) {
+                                        toast.error("This gym is inactive due to plan limits. Cannot add members.");
+                                        return;
+                                    }
+                                    setDialogOpen(open);
+                                }}>
                                     <DialogTrigger asChild>
-                                        <Button className="gradient-primary shadow-glow h-10 px-4" onClick={() => handleOpenDialog()}>
+                                        <Button 
+                                            className="gradient-primary shadow-glow h-10 px-4" 
+                                            onClick={(e) => {
+                                                if (isGymInactive) {
+                                                    e.preventDefault();
+                                                    return;
+                                                }
+                                                handleOpenDialog();
+                                            }}
+                                            disabled={isGymInactive}
+                                        >
                                             <Plus className="h-4 w-4 mr-2" />
                                             Add Member
                                         </Button>
@@ -1454,8 +1471,10 @@ export default function Members() {
                                             </TableCell>
                                         </TableRow>
                                     ) : (
-                                        paginatedMembers.map((member) => (
-                                            <TableRow
+                                        paginatedMembers.map((member) => {
+                                            const isMemberPaused = member.is_active === false || member.status === 'paused';
+                                            return (
+                                                <TableRow
                                                 key={member.id}
                                                 className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
                                                 onClick={() => navigate(`/members/${member.id}`)}
@@ -1548,10 +1567,15 @@ export default function Members() {
                                                                                 variant="outline" 
                                                                                 className="h-6 text-[10px] w-fit px-2 border-primary/30 text-primary hover:bg-primary/5"
                                                                                 onClick={(e) => {
+                                                                                    if (isGymInactive || isMemberPaused) {
+                                                                                        e.preventDefault();
+                                                                                        return;
+                                                                                    }
                                                                                     e.stopPropagation();
                                                                                     setSelectedPaymentMember({ ...ptPayment, gym_members: member } as any);
                                                                                     setRecordPaymentOpen(true);
                                                                                 }}
+                                                                                disabled={isGymInactive || isMemberPaused}
                                                                             >
                                                                                 Pay PT Fee
                                                                             </Button>
@@ -1662,6 +1686,7 @@ export default function Members() {
                                                                     e.stopPropagation();
                                                                     handleOpenDialog(member);
                                                                 }}
+                                                                disabled={isGymInactive || isMemberPaused}
                                                                 title="Edit Member"
                                                             >
                                                                 <Edit className="h-4 w-4" />
@@ -1673,9 +1698,14 @@ export default function Members() {
                                                                 size="icon"
                                                                 className="text-destructive hover:bg-destructive/10"
                                                                 onClick={(e) => {
+                                                                    if (isGymInactive || isMemberPaused) {
+                                                                        e.preventDefault();
+                                                                        return;
+                                                                    }
                                                                     e.stopPropagation();
                                                                     handleDelete(member.id);
                                                                 }}
+                                                                disabled={isGymInactive || isMemberPaused}
                                                                 title="Delete Member"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
@@ -1698,19 +1728,25 @@ export default function Members() {
                                                                     </DropdownMenuItem>
                                                                 )}
                                                                 {hasPermission('edit_members') && (
-                                                                    <DropdownMenuItem onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleOpenAssignTrainer(member);
-                                                                    }}>
+                                                                    <DropdownMenuItem 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenAssignTrainer(member);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                    >
                                                                         <User className="h-4 w-4 mr-2" />
                                                                         Assign Personal Trainer
                                                                     </DropdownMenuItem>
                                                                 )}
                                                                 {hasPermission('renew_membership') && (
-                                                                    <DropdownMenuItem onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleOpenRenewDialog(member);
-                                                                    }}>
+                                                                    <DropdownMenuItem 
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenRenewDialog(member);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                    >
                                                                         <RefreshCw className="h-4 w-4 mr-2" />
                                                                         Renew
                                                                     </DropdownMenuItem>
@@ -1745,12 +1781,16 @@ export default function Members() {
                                                                             : (payment.remarks ? `Pay ${payment.remarks} (Previous)` : `Pay Previous Due`);
 
                                                                         actions.push(
-                                                                            <DropdownMenuItem key={`pay-${payment.id}`} onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const paymentWithMember = { ...payment, gym_members: member };
-                                                                                setSelectedPaymentMember(paymentWithMember as any);
-                                                                                setRecordPaymentOpen(true);
-                                                                            }}>
+                                                                            <DropdownMenuItem 
+                                                                                key={`pay-${payment.id}`} 
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const paymentWithMember = { ...payment, gym_members: member };
+                                                                                    setSelectedPaymentMember(paymentWithMember as any);
+                                                                                    setRecordPaymentOpen(true);
+                                                                                }}
+                                                                                disabled={isGymInactive || isMemberPaused}
+                                                                            >
                                                                                 <IndianRupee className="h-4 w-4 mr-2" />
                                                                                 {label} (₹{payment.due_amount})
                                                                             </DropdownMenuItem>
@@ -1772,50 +1812,54 @@ export default function Members() {
                                                                         const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
 
                                                                         actions.push(
-                                                                            <DropdownMenuItem key={`regen-${history.id}`} onClick={async (e) => {
-                                                                                e.stopPropagation();
-                                                                                try {
-                                                                                    // Find plan details to get price
-                                                                                    const plan = plans.find(p => p.id === history.plan_id);
-                                                                                    if (!plan) {
-                                                                                        toast.error("Plan details not found, cannot regenerate invoice.");
-                                                                                        return;
+                                                                            <DropdownMenuItem 
+                                                                                key={`regen-${history.id}`} 
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
+                                                                                    try {
+                                                                                        // Find plan details to get price
+                                                                                        const plan = plans.find(p => p.id === history.plan_id);
+                                                                                        if (!plan) {
+                                                                                            toast.error("Plan details not found, cannot regenerate invoice.");
+                                                                                            return;
+                                                                                        }
+
+                                                                                        const loadingToast = toast.loading("Regenerating invoice...");
+
+                                                                                        // Create new Payment Record
+                                                                                        const { data: newPayment, error } = await supabase
+                                                                                            .from("gym_membership_payments")
+                                                                                            .insert({
+                                                                                                membership_history_id: history.id,
+                                                                                                member_id: member.id,
+                                                                                                gym_id: gymId,
+                                                                                                total_amount: plan.price,
+                                                                                                paid_amount: 0,
+                                                                                                due_amount: plan.price,
+                                                                                                payment_status: 'unpaid',
+                                                                                                billing_date: new Date().toISOString()
+                                                                                            })
+                                                                                            .select()
+                                                                                            .single();
+
+                                                                                        if (error) throw error;
+
+                                                                                        toast.dismiss(loadingToast);
+                                                                                        toast.success("Invoice regenerated");
+
+                                                                                        // Refresh list then open dialog
+                                                                                        await fetchMembers();
+
+                                                                                        const paymentWithMember = { ...newPayment, gym_members: member };
+                                                                                        setSelectedPaymentMember(paymentWithMember as any);
+                                                                                        setRecordPaymentOpen(true);
+
+                                                                                    } catch (err: any) {
+                                                                                        toast.error("Failed to regenerate invoice: " + err.message);
                                                                                     }
-
-                                                                                    const loadingToast = toast.loading("Regenerating invoice...");
-
-                                                                                    // Create new Payment Record
-                                                                                    const { data: newPayment, error } = await supabase
-                                                                                        .from("gym_membership_payments")
-                                                                                        .insert({
-                                                                                            membership_history_id: history.id,
-                                                                                            member_id: member.id,
-                                                                                            gym_id: gymId,
-                                                                                            total_amount: plan.price,
-                                                                                            paid_amount: 0,
-                                                                                            due_amount: plan.price,
-                                                                                            payment_status: 'unpaid',
-                                                                                            billing_date: new Date().toISOString()
-                                                                                        })
-                                                                                        .select()
-                                                                                        .single();
-
-                                                                                    if (error) throw error;
-
-                                                                                    toast.dismiss(loadingToast);
-                                                                                    toast.success("Invoice regenerated");
-
-                                                                                    // Refresh list then open dialog
-                                                                                    await fetchMembers();
-
-                                                                                    const paymentWithMember = { ...newPayment, gym_members: member };
-                                                                                    setSelectedPaymentMember(paymentWithMember as any);
-                                                                                    setRecordPaymentOpen(true);
-
-                                                                                } catch (err: any) {
-                                                                                    toast.error("Failed to regenerate invoice: " + err.message);
-                                                                                }
-                                                                            }}>
+                                                                                }}
+                                                                                disabled={isGymInactive || isMemberPaused}
+                                                                            >
                                                                                 <IndianRupee className="h-4 w-4 mr-2" />
                                                                                 {label}
                                                                             </DropdownMenuItem>
@@ -1830,7 +1874,8 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </TableBody>
                             </Table>

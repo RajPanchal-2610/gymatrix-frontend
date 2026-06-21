@@ -357,19 +357,36 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
                 {gyms.map(gym => (
                   <DropdownMenuItem
                     key={gym.id}
-                    className="cursor-pointer flex items-center justify-between group/item"
-                    onClick={() => switchGym(gym.id)}
+                    className={cn(
+                      "cursor-pointer flex items-center justify-between group/item",
+                      gym.is_active === false && "opacity-60 cursor-not-allowed"
+                    )}
+                    onClick={(e) => {
+                      if (gym.is_active === false) {
+                        e.preventDefault();
+                        toast.error("This gym is inactive due to subscription limits. Upgrade your plan to switch to it.");
+                        return;
+                      }
+                      switchGym(gym.id);
+                    }}
                   >
                     <div className="flex items-center min-w-0 flex-1">
                       <span className="truncate text-sm font-medium">{gym.name}</span>
+                      {gym.is_active === false && (
+                        <span className="ml-2 text-[9px] font-bold bg-muted text-muted-foreground px-1.5 py-0.5 rounded border border-border">
+                          Inactive
+                        </span>
+                      )}
                       {gym.id === gymId && <Check className="h-4 w-4 ml-2 opacity-100 text-primary flex-shrink-0" />}
                     </div>
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-6 w-6 hover:bg-primary/10 hover:text-primary transition-all ml-2 text-muted-foreground hover:text-primary opacity-0 group-hover/item:opacity-100"
+                      disabled={gym.is_active === false}
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (gym.is_active === false) return;
                         setEditingGym({ id: gym.id, name: gym.name });
                       }}
                     >

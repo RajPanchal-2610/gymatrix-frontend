@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { GymNotificationSettings } from '@/types/gym';
+import { toast } from "sonner";
 
 export interface Gym {
     id: number;
@@ -10,6 +11,7 @@ export interface Gym {
     logo_url?: string;
     theme_color?: string;
     notification_settings?: GymNotificationSettings;
+    is_active?: boolean;
 }
 
 interface GymContextType {
@@ -18,6 +20,7 @@ interface GymContextType {
     loading: boolean;
     switchGym: (id: number) => void;
     refreshGyms: () => Promise<void>;
+    isGymInactive: boolean;
 }
 
 const GymContext = createContext<GymContextType | undefined>(undefined);
@@ -73,19 +76,20 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
                 // Handle Gym Selection
                 if (combinedGyms.length > 0) {
+                    const activeGyms = combinedGyms.filter(g => g.is_active !== false);
                     const storedGymId = localStorage.getItem('gymflow_gym_id');
                     const targetGym = storedGymId
                         ? combinedGyms.find(g => g.id.toString() === storedGymId)
                         : null;
 
-                    if (targetGym) {
+                    if (targetGym && targetGym.is_active !== false) {
                         setGymId(targetGym.id);
+                    } else if (activeGyms.length > 0) {
+                        setGymId(activeGyms[0].id);
+                        localStorage.setItem('gymflow_gym_id', activeGyms[0].id.toString());
                     } else {
-                        // Default to first gym and save it (or checking if current gymId is valid)
-                        if (!gymId || !combinedGyms.find(g => g.id === gymId)) {
-                            setGymId(combinedGyms[0].id);
-                            localStorage.setItem('gymflow_gym_id', combinedGyms[0].id.toString());
-                        }
+                        setGymId(combinedGyms[0].id);
+                        localStorage.setItem('gymflow_gym_id', combinedGyms[0].id.toString());
                     }
                 } else {
                     setGymId(null);
@@ -253,13 +257,20 @@ export function GymProvider({ children }: { children: ReactNode }) {
     const switchGym = (id: number) => {
         const gym = gyms.find(g => g.id === id);
         if (gym) {
+            if (gym.is_active === false) {
+                toast.error("This gym is inactive due to subscription limits. Upgrade your plan to switch to it.");
+                return;
+            }
             setGymId(id);
             localStorage.setItem('gymflow_gym_id', id.toString());
         }
     };
 
+    const currentGym = gyms.find(g => g.id === gymId);
+    const isGymInactive = currentGym?.is_active === false;
+
     return (
-        <GymContext.Provider value={{ gyms, gymId, loading, switchGym, refreshGyms: fetchGyms }}>
+        <GymContext.Provider value={{ gyms, gymId, loading, switchGym, refreshGyms: fetchGyms, isGymInactive }}>
             {children}
         </GymContext.Provider>
     );

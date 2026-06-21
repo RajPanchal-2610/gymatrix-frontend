@@ -3,6 +3,9 @@ import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { cn } from "@/lib/utils";
 import { Outlet, useLocation } from "react-router-dom";
+import { useGym } from "@/hooks/useGym";
+import { ConflictResolutionDialog } from "../gym/ConflictResolutionDialog";
+import { AlertTriangle } from "lucide-react";
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -14,6 +17,7 @@ export function DashboardLayout({ children, title, hideSidebar = false }: Dashbo
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { isGymInactive } = useGym();
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -89,9 +93,16 @@ export function DashboardLayout({ children, title, hideSidebar = false }: Dashbo
           onMenuClick={() => setMobileOpen(!mobileOpen)}
           hideMenuButton={hideSidebar}
         />
+        {isGymInactive && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex items-center gap-2 text-amber-600 dark:text-amber-500 font-bold text-xs">
+            <AlertTriangle className="h-4 w-4 shrink-0 animate-pulse text-amber-500" />
+            <span>This gym is inactive due to subscription limits. Please select an active gym or upgrade.</span>
+          </div>
+        )}
         <main className="p-4 lg:p-6 animate-fade-in">
           {children || <Outlet />}
         </main>
+        <ConflictResolutionDialog />
       </div>
     </div>
   );

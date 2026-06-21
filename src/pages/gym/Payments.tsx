@@ -59,7 +59,9 @@ export default function GymPayments() {
                     gym_members (
                         full_name,
                         image_url,
-                        trainer_id
+                        trainer_id,
+                        is_active,
+                        status
                     ),
                     gym_membership_history (
                         plan_id,
@@ -256,79 +258,85 @@ export default function GymPayments() {
                                         <td colSpan={7} className="text-center py-4 text-muted-foreground">No payments found</td>
                                     </tr>
                                 ) : (
-                                    filteredPayments.map((payment) => (
-                                        <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
-                                            <td className="px-4 py-3 font-medium">
-                                                {payment.gym_members?.full_name}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm">
-                                                {payment.gym_membership_history?.gym_membership_plans?.name || 'Unknown Plan'}
-                                            </td>
-                                            <td className="px-4 py-3 font-semibold">₹{payment.total_amount}</td>
-                                            <td className="px-4 py-3 text-success">₹{payment.paid_amount}</td>
-                                            <td className="px-4 py-3 text-destructive font-medium">₹{payment.due_amount}</td>
-                                            <td className="px-4 py-3">{getStatusBadge(payment.payment_status)}</td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    {hasPermission('add_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => {
-                                                                setSelectedPayment(payment);
-                                                                setRecordPaymentOpen(true);
-                                                            }}
-                                                        >
-                                                            <PlusCircle className="h-3 w-3 mr-2" />
-                                                            Record Pay
-                                                        </Button>
-                                                    )}
-
-                                                    <div className="flex items-center gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-                                                            onClick={() => {
-                                                                setSelectedPayment(payment);
-                                                                setViewPaymentOpen(true);
-                                                            }}
-                                                            title="View Details"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-
-                                                        {hasPermission('edit_payments') && (
+                                    filteredPayments.map((payment) => {
+                                        const isMemberPaused = payment.gym_members?.is_active === false || payment.gym_members?.status === 'paused';
+                                        return (
+                                            <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
+                                                <td className="px-4 py-3 font-medium">
+                                                    {payment.gym_members?.full_name}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm">
+                                                    {payment.gym_membership_history?.gym_membership_plans?.name || 'Unknown Plan'}
+                                                </td>
+                                                <td className="px-4 py-3 font-semibold">₹{payment.total_amount}</td>
+                                                <td className="px-4 py-3 text-success">₹{payment.paid_amount}</td>
+                                                <td className="px-4 py-3 text-destructive font-medium">₹{payment.due_amount}</td>
+                                                <td className="px-4 py-3">{getStatusBadge(payment.payment_status)}</td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        {hasPermission('add_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
                                                             <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                size="sm"
+                                                                variant="outline"
                                                                 onClick={() => {
                                                                     setSelectedPayment(payment);
-                                                                    setEditPaymentOpen(true);
+                                                                    setRecordPaymentOpen(true);
                                                                 }}
-                                                                title="Edit Record"
+                                                                disabled={isMemberPaused}
                                                             >
-                                                                <Edit className="h-4 w-4" />
+                                                                <PlusCircle className="h-3 w-3 mr-2" />
+                                                                Record Pay
                                                             </Button>
                                                         )}
 
-                                                        {hasPermission('delete_payments') && (
+                                                        <div className="flex items-center gap-1">
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
-                                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() => handleDeletePayment(payment.id)}
-                                                                title="Delete"
+                                                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                                onClick={() => {
+                                                                    setSelectedPayment(payment);
+                                                                    setViewPaymentOpen(true);
+                                                                }}
+                                                                title="View Details"
                                                             >
-                                                                <Trash2 className="h-4 w-4" />
+                                                                <Eye className="h-4 w-4" />
                                                             </Button>
-                                                        )}
+
+                                                            {hasPermission('edit_payments') && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                                                    onClick={() => {
+                                                                        setSelectedPayment(payment);
+                                                                        setEditPaymentOpen(true);
+                                                                    }}
+                                                                    disabled={isMemberPaused}
+                                                                    title={isMemberPaused ? "Cannot edit payment of paused member" : "Edit Record"}
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+
+                                                            {hasPermission('delete_payments') && (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                                                    onClick={() => handleDeletePayment(payment.id)}
+                                                                    disabled={isMemberPaused}
+                                                                    title={isMemberPaused ? "Cannot delete payment of paused member" : "Delete"}
+                                                                >
+                                                                    <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>

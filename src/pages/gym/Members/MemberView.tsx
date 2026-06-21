@@ -200,6 +200,7 @@ export default function MemberView() {
 
     const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
     const isAssignedTrainer = member?.trainer_id?.toString() === role?.staff_id?.toString();
+    const isPaused = member?.is_active === false || member?.status === 'paused';
 
     const visiblePayments = (member.gym_membership_payments || []).filter(payment => {
         if (payment.remarks === 'Personal Training Fee') {
@@ -237,6 +238,7 @@ export default function MemberView() {
                                 setRenewFormData({ start_date: new Date().toISOString().split('T')[0] });
                                 setRenewDialogOpen(true);
                             }}
+                            disabled={isPaused}
                         >
                             <Calendar className="mr-2 h-4 w-4" />
                             Renew PT Subscription
@@ -626,6 +628,7 @@ export default function MemberView() {
                                                                                 variant="outline"
                                                                                 size="sm"
                                                                                 className="h-8 px-4 text-xs font-bold border-primary/20 hover:bg-primary/5 text-primary"
+                                                                                disabled={isPaused}
                                                                                 onClick={() => {
                                                                                     const paymentWithMember = { ...payment, gym_members: member };
                                                                                     setSelectedPaymentMember(paymentWithMember as any);

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { parseISO } from "date-fns";
-import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight, Download, Eye, FileText } from "lucide-react";
+import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight, Download, Eye, FileText, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useSubscription } from "@/contexts/SubscriptionContext";
@@ -121,6 +122,9 @@ export default function Pricing() {
     const { subscription, refreshSubscription } = useSubscription();
     const [carryOverCredit, setCarryOverCredit] = useState<number>(0);
     const [extensionCarryOverCredit, setExtensionCarryOverCredit] = useState<number>(0);
+    const [activeGymCount, setActiveGymCount] = useState<number>(0);
+    const [activeMemberCount, setActiveMemberCount] = useState<number>(0);
+    const [confirmConflict, setConfirmConflict] = useState(false);
 
     // Purchase Dialog States
     const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<{ plan: Plan, price: PlanPrice } | null>(null);
@@ -148,6 +152,13 @@ export default function Pricing() {
     const memberUnitPrice = memberExtensionPrice?.unit_price || 0;
     const memberUnitQty = memberExtensionPrice?.unit_quantity || 100;
 
+    const targetGymsLimit = selectedPlanForPurchase ? (selectedPlanForPurchase.plan.max_gyms + purchaseExtraGyms) : 0;
+    const targetMembersLimit = selectedPlanForPurchase ? (selectedPlanForPurchase.plan.max_members + purchaseExtraMembers) : 0;
+
+    const hasGymLimitConflict = selectedPlanForPurchase ? (activeGymCount > targetGymsLimit) : false;
+    const hasMemberLimitConflict = selectedPlanForPurchase ? (activeMemberCount > targetMembersLimit) : false;
+    const hasLimitConflict = hasGymLimitConflict || hasMemberLimitConflict;
+
     const setQty = (id: number, val: number) => {
         setExtensionQtys(prev => ({ ...prev, [id]: val }));
     };
@@ -168,6 +179,7 @@ export default function Pricing() {
             await checkSubscription();
             fetchPlans();
             fetchHistory();
+            fetchActiveUsage();
         };
         init();
         fetchExtensionPricing();
@@ -278,7 +290,47 @@ export default function Pricing() {
     useEffect(() => {
         getCarryOverCredit().then(credit => setCarryOverCredit(credit));
         getExtensionCarryOverCredit().then(credit => setExtensionCarryOverCredit(credit));
+        fetchActiveUsage();
     }, [subscription]);
+
+    const fetchActiveUsage = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Fetch gyms owned by owner
+            const { data: gymsData, error: gymsError } = await supabase
+                .from("gyms")
+                .select("id, is_active")
+                .eq("owner_id", user.id);
+
+            if (gymsError) throw gymsError;
+            if (!gymsData) return;
+
+            const activeGyms = gymsData.filter((g) => g.is_active !== false);
+            setActiveGymCount(activeGyms.length);
+
+            if (activeGyms.length > 0) {
+                const gymIds = activeGyms.map((g) => g.id);
+                const { count, error } = await supabase
+                    .from("gym_members")
+                    .select("id", { count: "exact", head: true })
+                    .in("gym_id", gymIds)
+                    .eq("is_deleted", false)
+                    .eq("is_active", true);
+
+                if (!error && count !== null) {
+                    setActiveMemberCount(count);
+                } else if (error) {
+                    throw error;
+                }
+            } else {
+                setActiveMemberCount(0);
+            }
+        } catch (error) {
+            console.error("Error fetching active usage counts:", error);
+        }
+    };
 
     const checkSubscription = async () => {
         try {
@@ -509,19 +561,15 @@ export default function Pricing() {
             return;
         }
 
-        if (isPlanDowngrade(plan)) {
-            toast.error("Cannot downgrade your plan while your current subscription is active. Please wait until your current plan expires or contact support.");
-            return;
-        }
-
         const hasExtensions = (subscription.extra_gyms || 0) > 0 || (subscription.extra_members || 0) > 0;
         const hasCarryOver = carryOverCredit > 0;
 
         // Set state for dialog (incase it opens)
-        // Reset coupon state for new selection
+        // Reset coupon state and checkbox for new selection
         setCouponInput("");
         setAppliedCoupon(null);
         setCouponError(null);
+        setConfirmConflict(false);
 
         setSelectedPlanForPurchase({ plan, price });
         setPurchaseExtraGyms(subscription.extra_gyms || 0);
@@ -930,7 +978,7 @@ export default function Pricing() {
                             <Card
                                 key={plan.id}
                                 className={`relative flex flex-col hover:shadow-xl transition-all duration-300 border-border/50 ${plan.name.toLowerCase().includes('pro') ? 'border-primary/50 shadow-lg shadow-primary/5 ring-1 ring-primary/20' : ''
-                                    } ${isPlanDowngrade(plan) ? 'opacity-60 border-destructive/30' : ''}`}
+                                    } ${isPlanDowngrade(plan) ? 'border-destructive/40' : ''}`}
                             >
                                 {plan.name.toLowerCase().includes('pro') && (
                                     <div className="absolute -top-4 left-1/2 -translate-x-1/2">
@@ -941,7 +989,7 @@ export default function Pricing() {
                                 )}
                                 {isPlanDowngrade(plan) && (
                                     <div className="absolute -top-4 right-4">
-                                        <Badge variant="destructive" className="text-xs">
+                                        <Badge className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/10 text-xs">
                                             Lower Tier
                                         </Badge>
                                     </div>
@@ -1022,11 +1070,11 @@ export default function Pricing() {
                                                     onClick={() => handleSubscribe(plan, price)}
                                                     disabled={isDisabled}
                                                 >
-                                                    {isCurrentPlan ? 'Current Plan' : isDowngrade ? 'Downgrade Not Allowed' : 'Purchase Plan'}
+                                                    {isCurrentPlan ? 'Current Plan' : isDowngrade ? 'Downgrade Plan' : 'Purchase Plan'}
                                                 </Button>
                                                 {isDowngrade && (
                                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                                                        <div className="bg-destructive text-destructive-foreground text-xs px-3 py-2 rounded shadow-lg whitespace-nowrap">
+                                                        <div className="bg-destructive text-white text-xs px-3 py-2 rounded shadow-lg whitespace-nowrap">
                                                             Cannot downgrade while current plan is active
                                                         </div>
                                                     </div>
@@ -1267,6 +1315,49 @@ export default function Pricing() {
                             </div>
                         </div>
 
+                        {/* Plan Limit Warning */}
+                        {hasLimitConflict && (
+                            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                                <div className="flex items-start gap-2.5">
+                                    <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                                    <div className="space-y-1.5 flex-1">
+                                        <h5 className="font-extrabold text-sm text-destructive">Plan Limit Conflict Warning</h5>
+                                        <p className="text-xs text-muted-foreground leading-normal">
+                                            Your current active resource usage exceeds the limits of the new plan:
+                                        </p>
+                                        <ul className="list-disc pl-4 text-xs text-muted-foreground space-y-1 mt-1">
+                                            {hasGymLimitConflict && (
+                                                <li>
+                                                    Active Gyms: <span className="font-bold text-foreground">{activeGymCount}</span> (New Plan Limit: <span className="font-bold text-foreground">{targetGymsLimit}</span>)
+                                                </li>
+                                            )}
+                                            {hasMemberLimitConflict && (
+                                                <li>
+                                                    Active Members: <span className="font-bold text-foreground">{activeMemberCount}</span> (New Plan Limit: <span className="font-bold text-foreground">{targetMembersLimit}</span>)
+                                                </li>
+                                            )}
+                                        </ul>
+                                        <p className="text-[11px] text-destructive/90 font-semibold leading-normal mt-2">
+                                            If you proceed, excess gyms will be deactivated (locked) and excess members paused. No data will be deleted. You can select which ones to keep active upon return to the dashboard.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-2 pt-1.5 border-t border-destructive/10">
+                                    <Checkbox
+                                        id="confirm-conflict"
+                                        checked={confirmConflict}
+                                        onCheckedChange={(checked) => setConfirmConflict(!!checked)}
+                                    />
+                                    <label
+                                        htmlFor="confirm-conflict"
+                                        className="text-xs font-semibold text-foreground cursor-pointer select-none leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                    >
+                                        I acknowledge and wish to proceed with the downgrade.
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Final Total */}
                         <div className="pt-4 border-t space-y-2">
                             <div className="flex justify-between text-sm">
@@ -1328,7 +1419,11 @@ export default function Pricing() {
                         <Button variant="ghost" onClick={() => setIsPurchaseDialogOpen(false)} className="flex-1">
                             Cancel
                         </Button>
-                        <Button className="gradient-primary flex-[2]" onClick={handleCheckout}>
+                        <Button
+                            className="gradient-primary flex-[2]"
+                            onClick={handleCheckout}
+                            disabled={hasLimitConflict && !confirmConflict}
+                        >
                             Purchase & Pay Now
                         </Button>
                     </DialogFooter>
