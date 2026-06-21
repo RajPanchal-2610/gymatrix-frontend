@@ -17,7 +17,8 @@ export const PrivateRoute = ({ allowedRoles }: { allowedRoles?: string[] }) => {
 
                 if (!session) {
                     setHasAccess(false);
-                    setRedirectPath("/admin/login"); // Or dynamic depending on route logic
+                    const isSuperAdminRoute = allowedRoles?.includes('SUPER_ADMIN') || location.pathname.startsWith('/admin');
+                    setRedirectPath(isSuperAdminRoute ? "/admin/login" : "/auth");
                     setLoading(false);
                     return;
                 }
