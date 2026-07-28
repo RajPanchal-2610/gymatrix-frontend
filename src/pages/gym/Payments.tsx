@@ -59,7 +59,7 @@ export default function GymPayments() {
                     gym_members (
                         full_name,
                         image_url,
-                        trainer_id,
+                        assigned_staff_id,
                         is_active,
                         status
                     ),
@@ -91,7 +91,7 @@ export default function GymPayments() {
 
     const visiblePayments = payments.filter(payment => {
         if (payment.remarks === 'Personal Training Fee') {
-            return !!(payment.gym_members?.trainer_id?.toString() === role?.staff_id?.toString());
+            return !!((payment.gym_members as any)?.assigned_staff_id?.toString() === role?.staff_id?.toString());
         }
         return true;
     });

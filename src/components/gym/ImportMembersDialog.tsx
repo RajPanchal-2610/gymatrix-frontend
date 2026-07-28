@@ -41,7 +41,7 @@ interface ImportMembersDialogProps {
     onOpenChange: (open: boolean) => void;
     gymId: number | null;
     plans: GymMembershipPlan[];
-    trainers: GymStaff[];
+    staffList: GymStaff[];
     onSuccess: () => void;
     subscription: any;
     currentMembersCount: number;
@@ -67,7 +67,7 @@ export default function ImportMembersDialog({
     onOpenChange,
     gymId,
     plans,
-    trainers,
+    staffList,
     onSuccess,
     subscription,
     currentMembersCount,
@@ -444,7 +444,7 @@ export default function ImportMembersDialog({
                     email: memberRow.email || null,
                     phone: memberRow.phone || null,
                     membership_plan_id: memberRow.matchedPlanId || null,
-                    trainer_id: null,
+                    assigned_staff_id: null,
                     join_date: memberRow.joinDate,
                     expiry_date: expiryDate,
                     image_url: null,
@@ -561,7 +561,7 @@ export default function ImportMembersDialog({
                         <div className="flex justify-between items-center p-4 bg-primary/5 rounded-xl border border-primary/10">
                             <div className="space-y-1">
                                 <h4 className="font-bold text-sm text-foreground">Need the correct template?</h4>
-                                <p className="text-xs text-muted-foreground">Download our pre-structured template containing your gym's current plans and trainers.</p>
+                                <p className="text-xs text-muted-foreground">Download our pre-structured template containing your gym's current plans and staff.</p>
                             </div>
                             <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="border-primary/20 hover:bg-primary/5 text-primary font-bold whitespace-nowrap">
                                 <Download className="h-4 w-4 mr-1.5" />

@@ -91,7 +91,7 @@ export default function Members() {
     const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
-    const [trainers, setTrainers] = useState<GymStaff[]>([]);
+    const [staffList, setStaffList] = useState<GymStaff[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -103,7 +103,7 @@ export default function Members() {
         email: "",
         phone: "",
         membership_plan_id: "",
-        trainer_id: "none",
+        assigned_staff_id: "none",
         join_date: format(new Date(), "yyyy-MM-dd"),
         image_url: "",
         gender: "",
@@ -132,10 +132,10 @@ export default function Members() {
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
     const [selectedPaymentMember, setSelectedPaymentMember] = useState<GymMembershipPayment | null>(null);
 
-    // Assign Trainer State
-    const [assignTrainerOpen, setAssignTrainerOpen] = useState(false);
-    const [assignTrainerMember, setAssignTrainerMember] = useState<GymMember | null>(null);
-    const [selectedTrainerId, setSelectedTrainerId] = useState<string>("none");
+    // Assign Staff State
+    const [assignStaffOpen, setAssignStaffOpen] = useState(false);
+    const [assignStaffMember, setAssignStaffMember] = useState<GymMember | null>(null);
+    const [selectedStaffId, setSelectedStaffId] = useState<string>("none");
     const [showOnlyMyMembers, setShowOnlyMyMembers] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -153,7 +153,7 @@ export default function Members() {
         if (gymId) {
             fetchMembers();
             fetchPlans();
-            fetchTrainers();
+            fetchStaffList();
         }
     }, [gymId]);
 
@@ -212,12 +212,12 @@ export default function Members() {
         if (data) setPlans(data);
     };
 
-    const fetchTrainers = async () => {
+    const fetchStaffList = async () => {
         try {
             const data = await staffService.getStaff(gymId!);
-            setTrainers(data || []);
+            setStaffList(data || []);
         } catch (error) {
-            console.error("Failed to fetch trainers", error);
+            console.error("Failed to fetch staff list", error);
         }
     };
 
@@ -241,7 +241,7 @@ export default function Members() {
                 email: member.email || "",
                 phone: member.phone || "",
                 membership_plan_id: member.membership_plan_id?.toString() || "",
-                trainer_id: member.trainer_id?.toString() || "none",
+                assigned_staff_id: member.assigned_staff_id?.toString() || "none",
                 join_date: member.join_date,
                 image_url: member.image_url || "",
                 gender: member.gender || "",
@@ -256,7 +256,7 @@ export default function Members() {
                 email: "",
                 phone: "",
                 membership_plan_id: "",
-                trainer_id: "none",
+                assigned_staff_id: "none",
                 join_date: format(new Date(), "yyyy-MM-dd"),
                 image_url: "",
                 gender: "",
@@ -289,28 +289,28 @@ export default function Members() {
         setRenewDialogOpen(true);
     };
 
-    const handleOpenAssignTrainer = (member: GymMember) => {
-        setAssignTrainerMember(member);
-        setSelectedTrainerId(member.trainer_id?.toString() || "none");
-        setAssignTrainerOpen(true);
+    const handleOpenAssignStaff = (member: GymMember) => {
+        setAssignStaffMember(member);
+        setSelectedStaffId(member.assigned_staff_id?.toString() || "none");
+        setAssignStaffOpen(true);
     };
 
-    const handleAssignTrainerSubmit = async () => {
-        if (!assignTrainerMember || !gymId) return;
+    const handleAssignStaffSubmit = async () => {
+        if (!assignStaffMember || !gymId) return;
 
         try {
             const { error } = await supabase
                 .from("gym_members")
-                .update({ trainer_id: selectedTrainerId === "none" ? null : parseInt(selectedTrainerId) })
-                .eq("id", assignTrainerMember.id);
+                .update({ assigned_staff_id: selectedStaffId === "none" ? null : parseInt(selectedStaffId) })
+                .eq("id", assignStaffMember.id);
 
             if (error) throw error;
 
-            toast.success("Personal Trainer assigned successfully");
-            setAssignTrainerOpen(false);
+            toast.success("Staff assigned successfully");
+            setAssignStaffOpen(false);
             fetchMembers();
         } catch (error: any) {
-            toast.error("Failed to assign Personal Trainer: " + error.message);
+            toast.error("Failed to assign Staff: " + error.message);
         }
     };
 
@@ -425,7 +425,7 @@ export default function Members() {
                     .insert({
                         gym_id: gymId,
                         member_id: renewingMember.id,
-                        trainer_id: renewingMember.trainer_id,
+                        assigned_staff_id: renewingMember.assigned_staff_id,
                         start_date: renewFormData.start_date,
                         end_date: ptEndDate,
                         pt_fee: renewingMember.pt_fee,
@@ -519,7 +519,7 @@ export default function Members() {
                             .insert({
                                 gym_id: gymId,
                                 member_id: renewingMember.id,
-                                trainer_id: renewingMember.trainer_id,
+                                assigned_staff_id: renewingMember.assigned_staff_id,
                                 start_date: renewFormData.start_date,
                                 end_date: expiry, // Align with core plan expiry date
                                 pt_fee: renewingMember.pt_fee,
@@ -648,7 +648,7 @@ export default function Members() {
                 email: formData.email,
                 phone: formData.phone,
                 membership_plan_id: formData.membership_plan_id ? parseInt(formData.membership_plan_id) : null,
-                trainer_id: formData.trainer_id && formData.trainer_id !== "none" ? parseInt(formData.trainer_id) : null,
+                assigned_staff_id: formData.assigned_staff_id && formData.assigned_staff_id !== "none" ? parseInt(formData.assigned_staff_id) : null,
                 join_date: formData.join_date,
                 expiry_date: expiry_date,
                 image_url: formData.image_url || null,
@@ -670,12 +670,12 @@ export default function Members() {
                 if (error) throw error;
                 savedMemberId = editingMember.id;
 
-                // Check if they are newly assigned a trainer during update
-                const isNewlyAssignedTrainer = 
-                    (!editingMember.trainer_id || editingMember.trainer_id === null) && 
-                    (payload.trainer_id !== null && payload.pt_fee > 0);
+                // Check if they are newly assigned a staff during update
+                const isNewlyAssignedStaff = 
+                    (!editingMember.assigned_staff_id || editingMember.assigned_staff_id === null) && 
+                    (payload.assigned_staff_id !== null && payload.pt_fee > 0);
 
-                if (isNewlyAssignedTrainer) {
+                if (isNewlyAssignedStaff) {
                     const { data: historyData, error: historyFetchError } = await supabase
                         .from("gym_membership_history")
                         .select("id")
@@ -707,7 +707,7 @@ export default function Members() {
                             .insert({
                                 gym_id: gymId,
                                 member_id: editingMember.id,
-                                trainer_id: payload.trainer_id,
+                                assigned_staff_id: payload.assigned_staff_id,
                                 start_date: payload.join_date,
                                 end_date: ptEndDate,
                                 pt_fee: payload.pt_fee,
@@ -800,7 +800,7 @@ export default function Members() {
                                     .insert({
                                         gym_id: gymId,
                                         member_id: newMember.id,
-                                        trainer_id: payload.trainer_id,
+                                        assigned_staff_id: payload.assigned_staff_id,
                                         start_date: payload.join_date,
                                         end_date: ptEndDate,
                                         pt_fee: payload.pt_fee,
@@ -922,7 +922,7 @@ export default function Members() {
             member.phone?.includes(searchQuery);
 
         if (showOnlyMyMembers && role?.staff_id) {
-            return matchesSearch && member.trainer_id === role.staff_id;
+            return matchesSearch && member.assigned_staff_id === role.staff_id;
         }
 
         return matchesSearch;
@@ -930,7 +930,7 @@ export default function Members() {
 
     // Statistics calculations
     const statsMembers = showOnlyMyMembers && role?.staff_id
-        ? members.filter(member => member.trainer_id === role.staff_id)
+        ? members.filter(member => member.assigned_staff_id === role.staff_id)
         : members;
 
     const totalMembersCount = statsMembers.length;
@@ -948,7 +948,7 @@ export default function Members() {
     const pendingDuesTotal = statsMembers.reduce((sum, member) => {
         const payments = (member.gym_membership_payments || []).filter(p => {
             if (p.remarks === 'Personal Training Fee') {
-                return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+                return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
             }
             return true;
         });
@@ -1154,25 +1154,25 @@ export default function Members() {
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                                     <div className="space-y-2">
-                                                        <Label>Assigned Personal Trainer</Label>
+                                                        <Label>Assigned Staff</Label>
                                                         <Select
-                                                            value={formData.trainer_id}
-                                                            onValueChange={(val) => setFormData({ ...formData, trainer_id: val })}
+                                                            value={formData.assigned_staff_id}
+                                                            onValueChange={(val) => setFormData({ ...formData, assigned_staff_id: val })}
                                                         >
                                                             <SelectTrigger>
-                                                                <SelectValue placeholder="Select Trainer" />
+                                                                <SelectValue placeholder="Select Staff" />
                                                             </SelectTrigger>
                                                             <SelectContent>
-                                                                <SelectItem value="none">No Personal Trainer</SelectItem>
-                                                                {trainers.map((trainer) => (
-                                                                    <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                                                        {trainer.full_name}
+                                                                <SelectItem value="none">No Assigned Staff</SelectItem>
+                                                                {staffList.map((staff) => (
+                                                                    <SelectItem key={staff.id} value={staff.id.toString()}>
+                                                                        {staff.full_name}
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
                                                     </div>
-                                                     {((role?.staff_id && formData.trainer_id?.toString() === role.staff_id.toString())) && (
+                                                     {((role?.staff_id && formData.assigned_staff_id?.toString() === role.staff_id.toString())) && (
                                                         <div className="space-y-2">
                                                             <Label htmlFor="ptFee">PT Fee (Monthly)</Label>
                                                             <div className="relative">
@@ -1191,15 +1191,6 @@ export default function Members() {
                                                 </div>
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                                                    {/* <div className="space-y-2">
-                                                        <Label htmlFor="device_user_id">Biometric ID (Device)</Label>
-                                                        <Input
-                                                            id="device_user_id"
-                                                            placeholder="e.g. 1001"
-                                                            value={formData.device_user_id}
-                                                            onChange={(e) => setFormData({ ...formData, device_user_id: e.target.value })}
-                                                        />
-                                                    </div> */}
                                                     <div className="space-y-2 sm:col-span-2">
                                                         <Label>Status</Label>
                                                         <Select
@@ -1245,7 +1236,7 @@ export default function Members() {
                                         <Label>Member</Label>
                                         <div className="font-medium">{renewingMember?.full_name}</div>
                                     </div>
-                                     {renewingMember?.pt_fee && (renewingMember.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                     {renewingMember?.pt_fee && (renewingMember.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
                                         <div className="space-y-2">
                                             <Label>Renewal Option</Label>
                                             <Select
@@ -1457,7 +1448,7 @@ export default function Members() {
                                         <TableHead>Contact</TableHead>
                                         <TableHead>Plan</TableHead>
                                         <TableHead>Expiry</TableHead>
-                                        <TableHead>Trainer</TableHead>
+                                        <TableHead>Staff</TableHead>
                                         <TableHead>Payment</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead className="text-right">Action</TableHead>
@@ -1549,7 +1540,7 @@ export default function Members() {
                                                         ) : (
                                                             <span className="text-muted-foreground text-sm">-</span>
                                                         )}
-                                                        {member.pt_fee && member.pt_fee > 0 && (member.trainer_id?.toString() === role?.staff_id?.toString()) ? (
+                                                        {member.pt_fee && member.pt_fee > 0 && (member.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
                                                             <div className="flex flex-col gap-1 mt-1">
                                                                 <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                                                     <IndianRupee className="h-2.5 w-2.5" />
@@ -1587,14 +1578,14 @@ export default function Members() {
                                                         ) : null}
                                                     </div>
                                                 </TableCell>
-
+ 
                                                 <TableCell>
                                                     <div className="flex flex-col items-start gap-1">
                                                         {(() => {
                                                             const allPayments = member.gym_membership_payments || [];
                                                             const visibleAllPayments = allPayments.filter(p => {
                                                                 if (p.remarks === 'Personal Training Fee') {
-                                                                    return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+                                                                    return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
                                                                 }
                                                                 return true;
                                                             });
@@ -1731,12 +1722,12 @@ export default function Members() {
                                                                     <DropdownMenuItem 
                                                                         onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            handleOpenAssignTrainer(member);
+                                                                            handleOpenAssignStaff(member);
                                                                         }}
                                                                         disabled={isGymInactive || isMemberPaused}
                                                                     >
                                                                         <User className="h-4 w-4 mr-2" />
-                                                                        Assign Personal Trainer
+                                                                        Assign Staff
                                                                     </DropdownMenuItem>
                                                                 )}
                                                                 {hasPermission('renew_membership') && (
@@ -1752,13 +1743,13 @@ export default function Members() {
                                                                     </DropdownMenuItem>
                                                                 )}
                                                                 {/* Payment Action */}
-                                                                {(hasPermission('add_payments') || (member.trainer_id && member.trainer_id.toString() === role?.staff_id?.toString())) && (() => {
+                                                                {(hasPermission('add_payments') || (member.assigned_staff_id && member.assigned_staff_id.toString() === role?.staff_id?.toString())) && (() => {
                                                                     const actions = [];
                                                                     // 1. Existing Payments that need attention
                                                                     // Get ALL payments for this member
                                                                     const allPayments = (member.gym_membership_payments || []).filter(p => {
                                                                         if (p.remarks === 'Personal Training Fee') {
-                                                                            return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+                                                                            return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
                                                                         }
                                                                         return true;
                                                                     });
@@ -1976,30 +1967,30 @@ export default function Members() {
                         </div>
                     )}
 
-                    <Dialog open={assignTrainerOpen} onOpenChange={setAssignTrainerOpen}>
+                    <Dialog open={assignStaffOpen} onOpenChange={setAssignStaffOpen}>
                         <DialogContent className="sm:max-w-[400px]">
                             <DialogHeader>
-                                <DialogTitle>Assign Personal Trainer</DialogTitle>
+                                <DialogTitle>Assign Staff</DialogTitle>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label>Member</Label>
-                                    <div className="font-medium">{assignTrainerMember?.full_name}</div>
+                                    <div className="font-medium">{assignStaffMember?.full_name}</div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Select Personal Trainer</Label>
+                                    <Label>Select Staff</Label>
                                     <Select
-                                        value={selectedTrainerId}
-                                        onValueChange={setSelectedTrainerId}
+                                        value={selectedStaffId}
+                                        onValueChange={setSelectedStaffId}
                                     >
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Select Personal Trainer" />
+                                            <SelectValue placeholder="Select Staff" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">No Personal Trainer</SelectItem>
-                                            {trainers.map((trainer) => (
-                                                <SelectItem key={trainer.id} value={trainer.id.toString()}>
-                                                    {trainer.full_name}
+                                            <SelectItem value="none">No Assigned Staff</SelectItem>
+                                            {staffList.map((staff) => (
+                                                <SelectItem key={staff.id} value={staff.id.toString()}>
+                                                    {staff.full_name}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -2007,8 +1998,8 @@ export default function Members() {
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => setAssignTrainerOpen(false)}>Cancel</Button>
-                                <Button className="gradient-primary" onClick={handleAssignTrainerSubmit}>
+                                <Button variant="outline" onClick={() => setAssignStaffOpen(false)}>Cancel</Button>
+                                <Button className="gradient-primary" onClick={handleAssignStaffSubmit}>
                                     Save Assignment
                                 </Button>
                             </div>
@@ -2032,7 +2023,7 @@ export default function Members() {
                         onOpenChange={setImportDialogOpen}
                         gymId={gymId}
                         plans={plans}
-                        trainers={trainers}
+                        coaches={staffList}
                         onSuccess={fetchMembers}
                         subscription={subscription}
                         currentMembersCount={members.length}

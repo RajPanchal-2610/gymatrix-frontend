@@ -18,6 +18,8 @@ import Reports from "./pages/super-admin/Reports";
 import SuperAdminSettings from "./pages/super-admin/Settings";
 import ContactMessages from "./pages/super-admin/ContactMessages";
 import Coupons from "./pages/super-admin/Coupons";
+import GlobalTournaments from "./pages/super-admin/GlobalTournaments";
+import GlobalTournamentDetail from "./pages/super-admin/GlobalTournamentDetail";
 import GymSettings from "./pages/gym/Settings";
 import GymProfile from "./pages/gym/Profile";
 import Login from "./pages/super-admin/Login";
@@ -30,6 +32,7 @@ import GymRegister from "./pages/gym/GymRegister";
 import GymForgotPassword from "./pages/gym/GymForgotPassword";
 import GymResetPassword from "./pages/gym/GymResetPassword";
 import GymDashboard from "./pages/gym/Dashboard";
+import GymDashboard2 from "./pages/gym/Dashboard2";
 import GymInventory from "./pages/gym/Inventory";
 import GymMembers from "./pages/gym/Members";
 import MemberView from "./pages/gym/Members/MemberView";
@@ -69,6 +72,7 @@ const App = () => (
                   <Route element={<DashboardLayout />}>
                     <Route path="/" element={<GymDashboard />} />
                     <Route path="/dashboard" element={<GymDashboard />} />
+                    <Route path="/dashboard-2" element={<GymDashboard2 />} />
                     <Route path="/members" element={
                       <FeatureGuard feature="Member Management">
                         <PermissionGuard permission="view_members">
@@ -204,6 +208,8 @@ const App = () => (
                     <Route path="/admin/contact-messages" element={<ContactMessages />} />
                     <Route path="/admin/coupons" element={<Coupons />} />
                     <Route path="/admin/permissions" element={<GymPermissions />} />
+                    <Route path="/admin/global-tournaments" element={<GlobalTournaments />} />
+                    <Route path="/admin/global-tournaments/:id" element={<GlobalTournamentDetail />} />
                   </Route>
                 </Route>
 

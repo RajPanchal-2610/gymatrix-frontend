@@ -36,7 +36,7 @@ export const pdfExportService = {
         doc.setTextColor(0);
         doc.text(`Title: ${plan.title}`, 14, 45);
         doc.text(`Member: ${plan.gym_members?.full_name || "N/A"}`, 14, 52);
-        doc.text(`Trainer: ${plan.gym_staff?.full_name || "N/A"}`, 14, 59);
+        doc.text(`Staff: ${plan.gym_staff?.full_name || "N/A"}`, 14, 59);
         doc.text(`Duration: ${format(new Date(plan.start_date), "MMM d, yyyy")} - ${format(new Date(plan.end_date), "MMM d, yyyy")}`, 14, 66);
         
         if (plan.notes) {
@@ -127,7 +127,7 @@ export const pdfExportService = {
         doc.setTextColor(0);
         doc.text(`Title: ${plan.title}`, 14, 45);
         doc.text(`Member: ${plan.gym_members?.full_name || "N/A"}`, 14, 52);
-        doc.text(`Trainer: ${plan.gym_staff?.full_name || "N/A"}`, 14, 59);
+        doc.text(`Staff: ${plan.gym_staff?.full_name || "N/A"}`, 14, 59);
         doc.text(`Duration: ${format(new Date(plan.start_date), "MMM d, yyyy")} - ${format(new Date(plan.end_date), "MMM d, yyyy")}`, 14, 66);
         
         if (plan.notes) {

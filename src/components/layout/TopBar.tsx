@@ -96,9 +96,9 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
     }
   };
 
-  const handleSwitchToTrainer = async () => {
-    localStorage.setItem('activeRole', 'trainer');
-    toast.success(`Switched to ${role?.staffRoleName || 'Trainer'} view`);
+  const handleSwitchToStaff = async () => {
+    localStorage.setItem('activeRole', 'staff');
+    toast.success(`Switched to ${role?.staffRoleName || 'Staff'} view`);
     await refreshPermissions();
     navigate('/');
   };
@@ -279,9 +279,9 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
               <>
                 <DropdownMenuSeparator />
                 {role.name === 'Owner' ? (
-                  <DropdownMenuItem onClick={handleSwitchToTrainer} className="cursor-pointer text-primary font-medium focus:text-primary">
+                  <DropdownMenuItem onClick={handleSwitchToStaff} className="cursor-pointer text-primary font-medium focus:text-primary">
                     <Dumbbell className="mr-2 h-4 w-4" />
-                    <span>Switch to {role.staffRoleName || 'Trainer'} View</span>
+                    <span>Switch to {role.staffRoleName || 'Staff'} View</span>
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem onClick={handleSwitchToOwner} className="cursor-pointer text-primary font-medium focus:text-primary">

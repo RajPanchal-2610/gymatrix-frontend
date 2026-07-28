@@ -43,7 +43,7 @@ const getRoleBadge = (roleName?: string) => {
             return <Badge className="gradient-primary text-primary-foreground">{roleName}</Badge>;
         case "Gym Owner":
             return <Badge className="bg-accent/10 text-accent hover:bg-accent/20">{roleName}</Badge>;
-        case "Personal Trainer":
+        case "Staff":
             return <Badge className="bg-primary/10 text-primary hover:bg-primary/20">{roleName}</Badge>;
         default:
             return <Badge variant="secondary">{roleName || 'Staff'}</Badge>;
@@ -262,7 +262,7 @@ export function StaffList() {
                                             type="email"
                                             value={newStaff.email}
                                             onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
-                                            placeholder="trainer@fittflow.com"
+                                            placeholder="staff@fittflow.com"
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -407,7 +407,7 @@ export function StaffList() {
                                     type="email"
                                     value={editStaff.email || ''}
                                     onChange={(e) => setEditStaff({ ...editStaff, email: e.target.value })}
-                                    placeholder="trainer@fittflow.com"
+                                    placeholder="staff@fittflow.com"
                                 />
                             </div>
                             <div className="space-y-2">

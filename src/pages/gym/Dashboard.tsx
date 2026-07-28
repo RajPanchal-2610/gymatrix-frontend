@@ -50,8 +50,8 @@ export default function GymDashboard() {
     const [unpaidInvoices, setUnpaidInvoices] = useState<UnpaidInvoice[]>([]);
     const [membershipAtRisk, setMembershipAtRisk] = useState<AlertMember[]>([]);
 
-    // Trainer Specific Dashboard States
-    const [trainerStats, setTrainerStats] = useState({
+    // Staff Specific Dashboard States
+    const [staffStats, setStaffStats] = useState({
         activeClients: 0,
         monthlyPtRevenue: 0,
         outstandingPtDues: 0,
@@ -60,7 +60,7 @@ export default function GymDashboard() {
     const [ptAlerts, setPtAlerts] = useState<AlertMember[]>([]);
     const [ptInvoices, setPtInvoices] = useState<UnpaidInvoice[]>([]);
     const [ptClientsList, setPtClientsList] = useState<any[]>([]);
-    const [activeDashboard, setActiveDashboard] = useState<"general" | "trainer">("general");
+    const [activeDashboard, setActiveDashboard] = useState<"general" | "staff">("general");
 
     useEffect(() => {
         const fetchSubscription = async () => {
@@ -122,8 +122,8 @@ export default function GymDashboard() {
         setUnpaidInvoices([]);
         setMembershipAtRisk([]);
 
-        // Reset Trainer Data
-        setTrainerStats({
+        // Reset Staff Data
+        setStaffStats({
             activeClients: 0,
             monthlyPtRevenue: 0,
             outstandingPtDues: 0,
@@ -133,14 +133,14 @@ export default function GymDashboard() {
         setPtInvoices([]);
         setPtClientsList([]);
 
-        const fetchTrainerDashboardData = async (staffId: number) => {
+        const fetchStaffDashboardData = async (staffId: number) => {
             try {
                 // Fetch active PT clients count
                 const { count: activePtClients } = await supabase
                     .from('gym_members')
                     .select('*', { count: 'exact', head: true })
                     .eq('gym_id', gymId)
-                    .eq('trainer_id', staffId)
+                    .eq('assigned_staff_id', staffId)
                     .eq('status', 'active')
                     .eq('is_deleted', false);
 
@@ -159,7 +159,7 @@ export default function GymDashboard() {
                     .from('gym_members')
                     .select('id, full_name, expiry_date, status')
                     .eq('gym_id', gymId)
-                    .eq('trainer_id', staffId)
+                    .eq('assigned_staff_id', staffId)
                     .eq('is_deleted', false);
 
                 const myMemberIds = myMembers?.map(m => m.id) || [];
@@ -188,7 +188,7 @@ export default function GymDashboard() {
                     .select(`
                         id,
                         member_id,
-                        trainer_id,
+                        assigned_staff_id,
                         start_date,
                         end_date,
                         pt_fee,
@@ -198,7 +198,7 @@ export default function GymDashboard() {
                         )
                     `)
                     .eq('gym_id', gymId)
-                    .eq('trainer_id', staffId)
+                    .eq('assigned_staff_id', staffId)
                     .order('created_at', { ascending: false });
 
                 const today = new Date();
@@ -246,7 +246,7 @@ export default function GymDashboard() {
                     };
                 }) || [];
 
-                setTrainerStats({
+                setStaffStats({
                     activeClients: activePtClients || 0,
                     monthlyPtRevenue: monthlyPtRevenue,
                     outstandingPtDues: outstandingPtDues,
@@ -257,7 +257,7 @@ export default function GymDashboard() {
                 setPtClientsList(clientDirectory);
 
             } catch (error) {
-                console.error("Error fetching trainer stats:", error);
+                console.error("Error fetching staff stats:", error);
             }
         };
 
@@ -534,7 +534,7 @@ export default function GymDashboard() {
 
         fetchDashboardData();
         if (role?.staff_id) {
-            fetchTrainerDashboardData(role.staff_id);
+            fetchStaffDashboardData(role.staff_id);
         }
     }, [gymId, role?.staff_id]);
 
@@ -602,12 +602,12 @@ export default function GymDashboard() {
                             Gym Overview
                         </Button>
                         <Button
-                            variant={activeDashboard === "trainer" ? "default" : "ghost"}
+                            variant={activeDashboard === "staff" ? "default" : "ghost"}
                             className={cn(
                                 "h-9 rounded-lg px-4 text-xs font-bold transition-all duration-200",
-                                activeDashboard === "trainer" ? "shadow-sm bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
+                                activeDashboard === "staff" ? "shadow-sm bg-background text-foreground" : "text-muted-foreground hover:text-foreground"
                             )}
-                            onClick={() => setActiveDashboard("trainer")}
+                            onClick={() => setActiveDashboard("staff")}
                         >
                             <Users className="h-3.5 w-3.5 mr-2" />
                             My Workspace
@@ -616,22 +616,22 @@ export default function GymDashboard() {
                 </div>
             )}
 
-            {activeDashboard === "trainer" ? (
+            {activeDashboard === "staff" ? (
                 <>
-                    {/* Trainer Stats Row */}
+                    {/* Staff Stats Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                         <StatCard
                             title="My Active Clients"
-                            value={trainerStats.activeClients}
-                            change="Assigned PT clients"
+                            value={staffStats.activeClients}
+                            change="Assigned coaching clients"
                             changeType="neutral"
                             icon={Users}
                             iconClassName="gradient-primary"
                             loading={dashboardLoading}
                         />
                         <StatCard
-                            title="My PT Collections"
-                            value={`₹${trainerStats.monthlyPtRevenue.toLocaleString()}`}
+                            title="My Coaching Collections"
+                            value={`₹${staffStats.monthlyPtRevenue.toLocaleString()}`}
                             change="Current month"
                             changeType="neutral"
                             icon={CreditCard}
@@ -639,43 +639,43 @@ export default function GymDashboard() {
                             loading={dashboardLoading}
                         />
                         <StatCard
-                            title="Outstanding PT Dues"
-                            value={`₹${trainerStats.outstandingPtDues.toLocaleString()}`}
-                            change="Unpaid PT bills"
+                            title="Outstanding Coaching Dues"
+                            value={`₹${staffStats.outstandingPtDues.toLocaleString()}`}
+                            change="Unpaid coaching bills"
                             changeType="negative"
                             icon={IndianRupee}
                             iconClassName="bg-red-500"
                             loading={dashboardLoading}
                         />
                         <StatCard
-                            title="Expiring PT Plans"
-                            value={trainerStats.expiringPtCount}
+                            title="Expiring Coaching Plans"
+                            value={staffStats.expiringPtCount}
                             change="Within 7 days"
-                            changeType={trainerStats.expiringPtCount > 0 ? "negative" : "neutral"}
+                            changeType={staffStats.expiringPtCount > 0 ? "negative" : "neutral"}
                             icon={Clock}
                             iconClassName="bg-yellow-500"
                             loading={dashboardLoading}
                         />
                     </div>
 
-                    {/* Trainer Management Alerts Row */}
+                    {/* Staff Management Alerts Row */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                         <PendingPayments
                             invoices={ptInvoices}
                             loading={dashboardLoading}
-                            totalAmount={trainerStats.outstandingPtDues}
+                            totalAmount={staffStats.outstandingPtDues}
                         />
                         <MembershipAlerts members={ptAlerts} loading={dashboardLoading} />
                     </div>
 
-                    {/* Trainer Client Directory */}
+                    {/* Staff Client Directory */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg font-bold flex items-center gap-2">
                                 <Users className="h-5 w-5 text-primary" />
-                                My Personal Training Clients
+                                My Coaching Clients
                             </CardTitle>
-                            <CardDescription>All members currently assigned to you for personal training</CardDescription>
+                            <CardDescription>All members currently assigned to you for coaching</CardDescription>
                         </CardHeader>
                         <CardContent>
                             {ptClientsList.length > 0 ? (

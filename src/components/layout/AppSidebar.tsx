@@ -83,6 +83,7 @@ const navItems = [
   { title: "Contact Messages", url: "/contact-messages", icon: Mail },
   { title: "Coupons", url: "/coupons", icon: TicketPercent },
   { title: "Tournaments", url: "/tournaments", icon: Trophy },
+  { title: "Global Tournaments", url: "/global-tournaments", icon: Trophy },
 ];
 
 const bottomItems = [
@@ -191,7 +192,7 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
       if (item.title === "Settings" && !hasPermission('view_gym_settings')) return null;
       if (item.title === "Tournaments" && !hasPermission('view_tournaments')) return null;
       if (item.title === "My Attendance & Payroll" && (role?.isOwner || role?.name === "SUPER_ADMIN" || role?.name?.toLowerCase() === "owner")) return null;
-      if (item.title === "Contact Messages" || item.title === "Coupons") return null;
+      if (item.title === "Contact Messages" || item.title === "Coupons" || item.title === "Global Tournaments") return null;
     }
 
     let url = item.url;

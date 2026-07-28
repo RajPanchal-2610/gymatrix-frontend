@@ -6,7 +6,7 @@ export interface DietPlan {
     id: number;
     gym_id: number;
     member_id: number;
-    trainer_id: number;
+    assigned_staff_id: number;
     title: string;
     start_date: string;
     end_date: string;
@@ -40,7 +40,7 @@ export interface WorkoutPlan {
     id: number;
     gym_id: number;
     member_id: number;
-    trainer_id: number;
+    assigned_staff_id: number;
     title: string;
     start_date: string;
     end_date: string;
@@ -108,9 +108,9 @@ export const dietWorkoutService = {
             .eq('is_deleted', false)
             .order('created_at', { ascending: false });
 
-        // Trainer scoping — staff only sees their own plans
+        // Staff scoping — staff only sees their own plans
         if (staffId) {
-            query = query.eq('trainer_id', staffId);
+            query = query.eq('assigned_staff_id', staffId);
         }
 
         const { data, error } = await query;
@@ -228,7 +228,7 @@ export const dietWorkoutService = {
             .order('created_at', { ascending: false });
 
         if (staffId) {
-            query = query.eq('trainer_id', staffId);
+            query = query.eq('assigned_staff_id', staffId);
         }
 
         const { data, error } = await query;
@@ -329,17 +329,17 @@ export const dietWorkoutService = {
 
     // ---------- HELPERS ----------
 
-    async getTrainerMembers(gymId: number, staffId?: number | null) {
+    async getStaffMembers(gymId: number, staffId?: number | null) {
         let query = supabase
             .from('gym_members')
-            .select('id, full_name, trainer_id')
+            .select('id, full_name, assigned_staff_id')
             .eq('gym_id', gymId)
             .eq('is_deleted', false)
             .order('full_name');
 
-        // If staff (trainer), only get their assigned members
+        // If staff, only get their assigned members
         if (staffId) {
-            query = query.eq('trainer_id', staffId);
+            query = query.eq('assigned_staff_id', staffId);
         }
 
         const { data, error } = await query;

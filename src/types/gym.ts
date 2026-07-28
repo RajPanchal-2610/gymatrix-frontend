@@ -44,7 +44,7 @@ export interface GymMember {
     expiry_date?: string;
     image_url?: string | null;
     gender?: string;
-    trainer_id?: number | null;
+    assigned_staff_id?: number | null;
     pt_fee?: number;
     status: 'active' | 'expired' | 'paused' | 'cancelled';
     is_active: boolean;
@@ -56,7 +56,7 @@ export interface GymMember {
     gym_membership_plans?: GymMembershipPlan;
     gym_membership_history?: GymMembershipHistory[];
     gym_membership_payments?: GymMembershipPayment[]; // Array because member has many payments
-    gym_staff?: GymStaff; // The assigned trainer
+    gym_staff?: GymStaff; // The assigned staff member
     gym_pt_history?: GymPtHistory[];
 }
 
@@ -64,7 +64,7 @@ export interface GymPtHistory {
     id: number;
     gym_id: number;
     member_id: number;
-    trainer_id: number;
+    assigned_staff_id: number;
     start_date: string;
     end_date: string;
     pt_fee: number;

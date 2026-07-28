@@ -99,7 +99,7 @@ export default function MemberView() {
                 .insert({
                     gym_id: gymId,
                     member_id: member.id,
-                    trainer_id: member.trainer_id,
+                    assigned_staff_id: member.assigned_staff_id,
                     start_date: renewFormData.start_date,
                     end_date: ptEndDate,
                     pt_fee: member.pt_fee,
@@ -144,7 +144,7 @@ export default function MemberView() {
                         *,
                         gym_payment_transactions (*)
                     ),
-                    gym_staff:trainer_id (*)
+                    gym_staff:assigned_staff_id (*)
                 `)
                 .eq("id", parseInt(id))
                 .single();
@@ -199,12 +199,12 @@ export default function MemberView() {
     };
 
     const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
-    const isAssignedTrainer = member?.trainer_id?.toString() === role?.staff_id?.toString();
+    const isAssignedStaff = member?.assigned_staff_id?.toString() === role?.staff_id?.toString();
     const isPaused = member?.is_active === false || member?.status === 'paused';
 
     const visiblePayments = (member.gym_membership_payments || []).filter(payment => {
         if (payment.remarks === 'Personal Training Fee') {
-            return !!(member.trainer_id?.toString() === role?.staff_id?.toString());
+            return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
         }
         return true;
     });
@@ -231,7 +231,7 @@ export default function MemberView() {
                         </Button>
                         <h1 className="text-2xl font-bold tracking-tight">Member Profile</h1>
                     </div>
-                    {isAssignedTrainer && member && member.pt_fee && member.pt_fee > 0 && (
+                    {isAssignedStaff && member && member.pt_fee && member.pt_fee > 0 && (
                         <Button 
                             className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
                             onClick={() => {
@@ -333,12 +333,12 @@ export default function MemberView() {
                                 </CardContent>
                             </Card>
 
-                            {/* Assigned Trainer Card */}
+                            {/* Assigned Staff Card */}
                             <Card>
                                 <CardHeader className="pb-3 border-b border-muted">
                                     <CardTitle className="text-lg flex items-center font-bold">
                                         <Briefcase className="h-5 w-5 mr-2 text-primary" />
-                                        Assigned Personal Trainer
+                                        Assigned Staff
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="pt-6">
@@ -351,7 +351,7 @@ export default function MemberView() {
                                             </Avatar>
                                             <div className="space-y-1">
                                                 <p className="font-bold text-lg">{member.gym_staff.full_name}</p>
-                                                <p className="text-sm text-primary font-semibold">Personal Trainer</p>
+                                                <p className="text-sm text-primary font-semibold">Staff</p>
                                                 {member.gym_staff.email && (
                                                     <p className="text-xs text-muted-foreground">{member.gym_staff.email}</p>
                                                 )}
@@ -360,8 +360,8 @@ export default function MemberView() {
                                     ) : (
                                         <div className="text-center py-6 text-muted-foreground">
                                             <UserCircle className="h-12 w-12 mx-auto opacity-20 mb-2" />
-                                            <p className="font-semibold text-sm">No Personal Trainer Assigned</p>
-                                            <p className="text-xs opacity-60">Assign a trainer to this member via edit settings</p>
+                                            <p className="font-semibold text-sm">No Staff Assigned</p>
+                                            <p className="text-xs opacity-60">Assign a staff member to this member via edit settings</p>
                                         </div>
                                     )}
                                 </CardContent>
@@ -479,7 +479,7 @@ export default function MemberView() {
                         </Card>
 
                         {/* PT Subscription History */}
-                        {isAssignedTrainer && member.gym_pt_history && member.gym_pt_history.length > 0 && (
+                        {isAssignedStaff && member.gym_pt_history && member.gym_pt_history.length > 0 && (
                             <Card>
                                 <CardHeader className="pb-3 border-b border-muted">
                                     <CardTitle className="flex items-center text-lg font-bold">
@@ -496,7 +496,7 @@ export default function MemberView() {
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Trainer</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Staff</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Duration Period</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Rate</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Status</th>
@@ -507,7 +507,7 @@ export default function MemberView() {
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
                                                         .map((ptHistory) => (
                                                             <tr key={ptHistory.id} className="hover:bg-muted/30 transition-colors">
-                                                                <td className="py-4 px-4 font-semibold text-foreground">{ptHistory.gym_staff?.full_name || 'Assigned Trainer'}</td>
+                                                                <td className="py-4 px-4 font-semibold text-foreground">{ptHistory.gym_staff?.full_name || 'Assigned Staff'}</td>
                                                                 <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
                                                                     <div className="flex flex-col">
                                                                         <span>{format(new Date(ptHistory.start_date), "dd MMM yyyy")}</span>

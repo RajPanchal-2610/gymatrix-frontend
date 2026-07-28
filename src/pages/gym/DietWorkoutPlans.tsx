@@ -105,7 +105,7 @@ const PlanCard = ({ plan, type, hasPermission, onEdit, onDelete, onDownload }: {
             {plan.gym_staff && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
                     <Dumbbell className="h-3 w-3" />
-                    <span>Trainer: {plan.gym_staff.full_name}</span>
+                    <span>Staff: {plan.gym_staff.full_name}</span>
                 </div>
             )}
             {plan.notes && (
@@ -444,7 +444,7 @@ export default function DietWorkoutPlans() {
     // Data
     const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
     const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
-    const [members, setMembers] = useState<{ id: number; full_name: string; trainer_id: number | null }[]>([]);
+    const [members, setMembers] = useState<{ id: number; full_name: string; assigned_staff_id: number | null }[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Dialog
@@ -463,7 +463,7 @@ export default function DietWorkoutPlans() {
     const [dietItems, setDietItems] = useState<DietPlanItem[]>([]);
     const [workoutItems, setWorkoutItems] = useState<WorkoutPlanItem[]>([]);
 
-    // Determine if user is a trainer (staff) or owner
+    // Determine if user is a staff member or owner
     const staffId = role?.isOwner ? null : (role?.staff_id ?? null);
 
     useEffect(() => {
@@ -476,7 +476,7 @@ export default function DietWorkoutPlans() {
             const [diet, workout, mems] = await Promise.all([
                 dietWorkoutService.getDietPlans(gymId!, staffId),
                 dietWorkoutService.getWorkoutPlans(gymId!, staffId),
-                dietWorkoutService.getTrainerMembers(gymId!, staffId),
+                dietWorkoutService.getStaffMembers(gymId!, staffId),
             ]);
             setDietPlans(diet);
             setWorkoutPlans(workout);
@@ -544,13 +544,13 @@ export default function DietWorkoutPlans() {
 
         setSaving(true);
         try {
-            const trainerId = staffId || (members.find(m => m.id === parseInt(formMemberId))?.trainer_id);
+            const assignedStaffId = staffId || (members.find(m => m.id === parseInt(formMemberId))?.assigned_staff_id);
 
             if (dialogType === "diet") {
                 const planData = {
                     gym_id: gymId,
                     member_id: parseInt(formMemberId),
-                    trainer_id: trainerId || null,
+                    assigned_staff_id: assignedStaffId || null,
                     title: formTitle,
                     start_date: formStartDate,
                     end_date: formEndDate,
@@ -569,7 +569,7 @@ export default function DietWorkoutPlans() {
                 const planData = {
                     gym_id: gymId,
                     member_id: parseInt(formMemberId),
-                    trainer_id: trainerId || null,
+                    assigned_staff_id: assignedStaffId || null,
                     title: formTitle,
                     start_date: formStartDate,
                     end_date: formEndDate,
