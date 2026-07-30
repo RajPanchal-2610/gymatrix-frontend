@@ -92,6 +92,7 @@ export default function Members() {
     const [members, setMembers] = useState<GymMember[]>([]);
     const [plans, setPlans] = useState<GymMembershipPlan[]>([]);
     const [staffList, setStaffList] = useState<GymStaff[]>([]);
+    const [currentStaff, setCurrentStaff] = useState<GymStaff | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -157,6 +158,76 @@ export default function Members() {
         }
     }, [gymId]);
 
+    useEffect(() => {
+        const fetchCurrentStaff = async () => {
+            if (role?.staff_id) {
+                try {
+                    const { data: staffData } = await supabase
+                        .from('gym_staff')
+                        .select(`
+                            *,
+                            gym_roles (id, name)
+                        `)
+                        .eq('id', role.staff_id)
+                        .maybeSingle();
+                    
+                    if (staffData) {
+                        let fullName = staffData.full_name;
+                        if (staffData.user_id) {
+                            const { data: profileData } = await supabase
+                                .from('profiles')
+                                .select('full_name')
+                                .eq('user_id', staffData.user_id)
+                                .maybeSingle();
+                            if (profileData?.full_name) {
+                                fullName = profileData.full_name;
+                            }
+                        }
+                        setCurrentStaff({
+                            ...staffData,
+                            full_name: fullName
+                        } as any);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch current staff record", err);
+                }
+            }
+        };
+        fetchCurrentStaff();
+    }, [role?.staff_id]);
+
+    const getDropdownStaffOptions = () => {
+        if (hasPermission('view_staff') || isOwnerOrSuperAdmin) {
+            return staffList;
+        }
+        if (role?.staff_id) {
+            if (currentStaff) {
+                return [currentStaff];
+            }
+            return [{
+                id: role.staff_id,
+                full_name: role.name || "Staff",
+                gym_roles: { name: role.staffRoleName || "Staff" }
+            } as any];
+        }
+        return [];
+    };
+
+    const getAssignedStaffDisplayText = (member: GymMember | null = editingMember) => {
+        if (!member?.assigned_staff_id) return "No Assigned Staff";
+        
+        const staffObj = staffList.find(s => s.id === member.assigned_staff_id) 
+            || member.gym_staff;
+            
+        if (staffObj) {
+            const roleName = staffObj.gym_roles?.name?.replace(/_/g, ' ');
+            const formattedRoleName = roleName ? ` (${roleName.charAt(0).toUpperCase() + roleName.slice(1)})` : '';
+            return `${staffObj.full_name}${formattedRoleName}`;
+        }
+        
+        return "Assigned Staff";
+    };
+
     const fetchMembers = async () => {
         try {
             if (members.length === 0) setLoading(true);
@@ -185,7 +256,11 @@ export default function Members() {
                     ),
                     gym_staff (
                         id,
-                        full_name
+                        full_name,
+                        gym_roles (
+                            id,
+                            name
+                        )
                     )
                 `)
                 .eq("gym_id", gymId)
@@ -1155,22 +1230,32 @@ export default function Members() {
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                                     <div className="space-y-2">
                                                         <Label>Assigned Staff</Label>
-                                                        <Select
-                                                            value={formData.assigned_staff_id}
-                                                            onValueChange={(val) => setFormData({ ...formData, assigned_staff_id: val })}
-                                                        >
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Select Staff" />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="none">No Assigned Staff</SelectItem>
-                                                                {staffList.map((staff) => (
-                                                                    <SelectItem key={staff.id} value={staff.id.toString()}>
-                                                                        {staff.full_name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        {!isOwnerOrSuperAdmin && editingMember && editingMember.assigned_staff_id && editingMember.assigned_staff_id.toString() !== role?.staff_id?.toString() ? (
+                                                            <div className="py-2 px-3 rounded-md bg-muted text-sm font-medium border border-input min-h-[40px] flex items-center">
+                                                                {getAssignedStaffDisplayText()}
+                                                            </div>
+                                                        ) : (
+                                                            <Select
+                                                                value={formData.assigned_staff_id}
+                                                                onValueChange={(val) => setFormData({ ...formData, assigned_staff_id: val })}
+                                                            >
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select Staff" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="none">No Assigned Staff</SelectItem>
+                                                                    {getDropdownStaffOptions().map((staff) => {
+                                                                        const roleName = staff.gym_roles?.name?.replace(/_/g, ' ');
+                                                                        const formattedRoleName = roleName ? ` (${roleName.charAt(0).toUpperCase() + roleName.slice(1)})` : '';
+                                                                        return (
+                                                                            <SelectItem key={staff.id} value={staff.id.toString()}>
+                                                                                {staff.full_name}{formattedRoleName}
+                                                                            </SelectItem>
+                                                                        );
+                                                                    })}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
                                                     </div>
                                                      {((role?.staff_id && formData.assigned_staff_id?.toString() === role.staff_id.toString())) && (
                                                         <div className="space-y-2">
@@ -1979,22 +2064,32 @@ export default function Members() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Select Staff</Label>
-                                    <Select
-                                        value={selectedStaffId}
-                                        onValueChange={setSelectedStaffId}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select Staff" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="none">No Assigned Staff</SelectItem>
-                                            {staffList.map((staff) => (
-                                                <SelectItem key={staff.id} value={staff.id.toString()}>
-                                                    {staff.full_name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {!isOwnerOrSuperAdmin && assignStaffMember && assignStaffMember.assigned_staff_id && assignStaffMember.assigned_staff_id.toString() !== role?.staff_id?.toString() ? (
+                                        <div className="py-2 px-3 rounded-md bg-muted text-sm font-medium border border-input min-h-[40px] flex items-center">
+                                            {getAssignedStaffDisplayText(assignStaffMember)}
+                                        </div>
+                                    ) : (
+                                        <Select
+                                            value={selectedStaffId}
+                                            onValueChange={setSelectedStaffId}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Staff" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="none">No Assigned Staff</SelectItem>
+                                                {getDropdownStaffOptions().map((staff) => {
+                                                    const roleName = staff.gym_roles?.name?.replace(/_/g, ' ');
+                                                    const formattedRoleName = roleName ? ` (${roleName.charAt(0).toUpperCase() + roleName.slice(1)})` : '';
+                                                    return (
+                                                        <SelectItem key={staff.id} value={staff.id.toString()}>
+                                                            {staff.full_name}{formattedRoleName}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3">
