@@ -313,17 +313,19 @@ export function InventoryMaintenance() {
                                     <TableCell>
                                         {job.repaired_by || '-'}
                                     </TableCell>
-                                    <TableCell className="text-right">
-                                        {hasPermission('edit_inventory') && (
-                                            <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        {hasPermission('delete_inventory') && (
-                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                    <TableCell>
+                                        <div className="flex items-center justify-end gap-1">
+                                            {hasPermission('edit_inventory') && (
+                                                <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {hasPermission('delete_inventory') && (
+                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

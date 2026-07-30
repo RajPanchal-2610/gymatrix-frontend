@@ -314,17 +314,19 @@ export function InventoryItems() {
                                             {item.status} ({item.condition})
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                        {hasPermission('edit_inventory') && (
-                                            <Button variant="ghost" size="icon" onClick={() => openDialog(item)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        {hasPermission('delete_inventory') && (
-                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(item.id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center justify-end gap-1">
+                                            {hasPermission('edit_inventory') && (
+                                                <Button variant="ghost" size="icon" onClick={() => openDialog(item)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {hasPermission('delete_inventory') && (
+                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(item.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))}

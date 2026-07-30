@@ -146,9 +146,9 @@ const PlanAnalysisReport = () => {
             <p className="text-muted-foreground mt-1">Analysis of income contribution from each membership plan.</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto">
           <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
-            <SelectTrigger className="w-[140px] bg-white border border-primary/50 hover:border-primary transition-all shadow-sm text-slate-900 font-medium h-10 px-4 rounded-lg">
+            <SelectTrigger className="w-full sm:w-[140px] bg-white border border-primary/50 hover:border-primary transition-all shadow-sm text-slate-900 font-medium h-10 px-4 rounded-lg">
               <SelectValue placeholder="Group By" />
             </SelectTrigger>
             <SelectContent className="bg-white border-primary/20 text-slate-900">
@@ -157,9 +157,11 @@ const PlanAnalysisReport = () => {
               <SelectItem value="year">Yearly</SelectItem>
             </SelectContent>
           </Select>
-          <DateRangePicker date={date} setDate={setDate} />
+          <div className="w-full sm:w-auto">
+            <DateRangePicker date={date} setDate={setDate} />
+          </div>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExportPDF}
             disabled={!reportData?.details?.length}
           >
@@ -167,7 +169,7 @@ const PlanAnalysisReport = () => {
             PDF Report
           </Button>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExport}
             disabled={!reportData?.details?.length}
           >
@@ -190,7 +192,7 @@ const PlanAnalysisReport = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="h-[450px] w-full">
+            <div className="h-[220px] sm:h-[340px] md:h-[450px] w-full">
               {isLoading ? (
                 <div className="h-full w-full flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -199,7 +201,7 @@ const PlanAnalysisReport = () => {
                 // Simple Totals View
                 reportData?.summary?.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData?.summary || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart data={reportData?.summary || []} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
                       <XAxis
                         dataKey="name"
@@ -210,7 +212,8 @@ const PlanAnalysisReport = () => {
                       <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: '#888888', fontSize: 12 }}
+                        width={45}
+                        tick={{ fill: '#888888', fontSize: 11 }}
                         tickFormatter={(v) => `₹${(v / 1000)}k`}
                       />
                       <Tooltip
@@ -243,7 +246,7 @@ const PlanAnalysisReport = () => {
                 // Trend View (Stacked Bar Chart)
                 reportData?.trend?.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={reportData?.trend || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <BarChart data={reportData?.trend || []} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
                       <XAxis
                         dataKey="period"
@@ -254,7 +257,8 @@ const PlanAnalysisReport = () => {
                       <YAxis
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fill: '#888888', fontSize: 12 }}
+                        width={45}
+                        tick={{ fill: '#888888', fontSize: 11 }}
                         tickFormatter={(v) => `₹${(v / 1000)}k`}
                       />
                       <Tooltip
@@ -324,9 +328,9 @@ const PlanAnalysisReport = () => {
                 ))}
               </div>
 
-              <div className="flex flex-col justify-center items-center bg-white/5 rounded-2xl p-8 border border-white/10">
+              <div className="flex flex-col justify-center items-center bg-white/5 rounded-2xl p-6 sm:p-8 border border-white/10 w-full">
                 <p className="text-sm font-medium text-muted-foreground mb-2">Total Revenue</p>
-                <h3 className="text-4xl font-extrabold text-primary">₹{totalRevenue.toLocaleString()}</h3>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-primary">₹{totalRevenue.toLocaleString()}</h3>
                 <div className="flex items-center gap-2 mt-4 text-xs text-emerald-500 font-medium bg-emerald-500/10 px-3 py-1 rounded-full">
                   <span>Period Total</span>
                 </div>
@@ -341,14 +345,14 @@ const PlanAnalysisReport = () => {
             <CardDescription>Individual plan purchases for the selected period</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative w-full overflow-auto">
+            <div className="relative w-full overflow-auto scrollbar-none">
               <table className="w-full caption-bottom text-sm">
                 <thead className="[&_tr]:border-b border-white/10">
                   <tr className="border-b transition-colors hover:bg-muted/50">
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Member</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Plan</th>
-                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Amount</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Date</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Member</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plan</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Amount</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">
@@ -360,18 +364,18 @@ const PlanAnalysisReport = () => {
                       
                       return (
                         <tr key={idx} className="border-b transition-colors hover:bg-white/5">
-                          <td className="p-4 align-middle text-xs text-muted-foreground">
+                          <td className="p-4 align-middle text-xs text-muted-foreground whitespace-nowrap">
                             {new Date(tx.paid_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                           </td>
-                          <td className="p-4 align-middle font-medium">{memberName}</td>
-                          <td className="p-4 align-middle text-xs text-muted-foreground">{planName}</td>
-                          <td className="p-4 align-middle text-right font-bold text-primary">₹{tx.amount.toLocaleString()}</td>
+                          <td className="p-4 align-middle font-medium whitespace-nowrap">{memberName}</td>
+                          <td className="p-4 align-middle text-xs text-muted-foreground whitespace-nowrap">{planName}</td>
+                          <td className="p-4 align-middle text-right font-bold text-primary whitespace-nowrap">₹{tx.amount.toLocaleString()}</td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={4} className="p-8 text-center text-muted-foreground whitespace-nowrap">
                         No individual records found.
                       </td>
                     </tr>

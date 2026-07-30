@@ -168,7 +168,7 @@ export default function GymPayments() {
 
     return (
         <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <StatCard
                     title="Total Collected"
                     value={`₹${totalCollected.toLocaleString()}`}
@@ -206,7 +206,7 @@ export default function GymPayments() {
                     />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-[150px]">
+                    <SelectTrigger className="w-full sm:w-[150px]">
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue />
                     </SelectTrigger>
@@ -218,7 +218,7 @@ export default function GymPayments() {
                     </SelectContent>
                 </Select>
                 <Select value={typeFilter} onValueChange={(val: any) => setTypeFilter(val)}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-full sm:w-[180px]">
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Payment Type" />
                     </SelectTrigger>
@@ -235,17 +235,17 @@ export default function GymPayments() {
                     <CardTitle className="text-lg">Payment History</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto scrollbar-none">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-border text-left">
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Member</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Plan</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Total</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Paid</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Due</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Status</th>
-                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground">Actions</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Member</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Plan</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Total</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Paid</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Due</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Status</th>
+                                    <th className="px-4 py-3 text-sm font-medium text-muted-foreground whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -262,17 +262,17 @@ export default function GymPayments() {
                                         const isMemberPaused = payment.gym_members?.is_active === false || payment.gym_members?.status === 'paused';
                                         return (
                                             <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
-                                                <td className="px-4 py-3 font-medium">
+                                                <td className="px-4 py-3 font-medium whitespace-nowrap">
                                                     {payment.gym_members?.full_name}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm">
+                                                <td className="px-4 py-3 text-sm whitespace-nowrap">
                                                     {payment.gym_membership_history?.gym_membership_plans?.name || 'Unknown Plan'}
                                                 </td>
-                                                <td className="px-4 py-3 font-semibold">₹{payment.total_amount}</td>
-                                                <td className="px-4 py-3 text-success">₹{payment.paid_amount}</td>
-                                                <td className="px-4 py-3 text-destructive font-medium">₹{payment.due_amount}</td>
-                                                <td className="px-4 py-3">{getStatusBadge(payment.payment_status)}</td>
-                                                <td className="px-4 py-3">
+                                                <td className="px-4 py-3 font-semibold whitespace-nowrap">₹{payment.total_amount}</td>
+                                                <td className="px-4 py-3 text-success whitespace-nowrap">₹{payment.paid_amount}</td>
+                                                <td className="px-4 py-3 text-destructive font-medium whitespace-nowrap">₹{payment.due_amount}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap">{getStatusBadge(payment.payment_status)}</td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
                                                     <div className="flex items-center gap-2">
                                                         {hasPermission('add_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
                                                             <Button

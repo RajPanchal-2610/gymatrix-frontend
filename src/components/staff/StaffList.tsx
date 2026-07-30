@@ -221,7 +221,7 @@ export function StaffList() {
                 {hasPermission('add_staff') && (
                     <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gradient-primary shadow-glow">
+                            <Button className="gradient-primary shadow-glow w-auto self-end sm:self-auto">
                                 <Plus className="h-4 w-4 mr-2" />
                                 Add Staff
                             </Button>
@@ -349,11 +349,11 @@ export function StaffList() {
                                 </div>
 
                             </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAddDialogOpen(false)}>
                                     Cancel
                                 </Button>
-                                <Button className="gradient-primary" onClick={handleCreateStaff}>Add Staff</Button>
+                                <Button className="gradient-primary w-full sm:w-auto" onClick={handleCreateStaff}>Add Staff</Button>
                             </div>
                         </DialogContent>
                     </Dialog>
@@ -483,18 +483,18 @@ export function StaffList() {
                         </div>
 
                     </div>
-                    <div className="flex justify-end gap-3 mt-6">
-                        <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEditDialogOpen(false)}>
                             Cancel
                         </Button>
-                        <Button className="gradient-primary" onClick={handleUpdateStaff}>Update Staff</Button>
+                        <Button className="gradient-primary w-full sm:w-auto" onClick={handleUpdateStaff}>Update Staff</Button>
                     </div>
                 </DialogContent>
             </Dialog>
 
 
             {/* Staff Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredStaff.map((member) => (
                     <Card
                         key={member.id}

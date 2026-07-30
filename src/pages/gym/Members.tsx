@@ -1059,7 +1059,7 @@ export default function Members() {
                                 }}
                             />
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto mt-2 sm:mt-0">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                             {role?.staff_id && (
                                 <Button
                                     variant={showOnlyMyMembers ? "default" : "outline"}
@@ -1069,9 +1069,10 @@ export default function Members() {
                                         setCurrentPage(1);
                                     }}
                                     className={cn(
-                                        "h-10 px-4 transition-all duration-200",
+                                        "h-10 px-4 transition-all duration-200 w-full sm:w-auto order-3 sm:order-1",
                                         showOnlyMyMembers && "bg-primary text-primary-foreground shadow-glow border-none"
                                     )}
+                                    disabled={isGymInactive}
                                 >
                                     <User className="h-4 w-4 mr-2" />
                                     My Members
@@ -1080,7 +1081,7 @@ export default function Members() {
                             {hasPermission('add_members') && (
                                 <Button
                                     variant="outline"
-                                    className="border-primary/20 hover:bg-primary/5 text-primary h-10 px-4 transition-all duration-200"
+                                    className="border-primary/20 hover:bg-primary/5 text-primary h-10 px-4 transition-all duration-200 w-full sm:w-auto order-2 sm:order-2"
                                     onClick={() => setImportDialogOpen(true)}
                                     disabled={isGymInactive}
                                 >
@@ -1093,12 +1094,12 @@ export default function Members() {
                                     if (isGymInactive && open) {
                                         toast.error("This gym is inactive due to plan limits. Cannot add members.");
                                         return;
-                                    }
+                                        }
                                     setDialogOpen(open);
                                 }}>
                                     <DialogTrigger asChild>
                                         <Button 
-                                            className="gradient-primary shadow-glow h-10 px-4" 
+                                            className="gradient-primary shadow-glow h-10 px-4 w-full sm:w-auto order-1 sm:order-3"  
                                             onClick={(e) => {
                                                 if (isGymInactive) {
                                                     e.preventDefault();
@@ -1112,12 +1113,12 @@ export default function Members() {
                                             Add Member
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden">
-                                        <DialogHeader className="p-6 pb-2">
+                                    <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden max-h-[92vh] sm:max-h-[90vh] flex flex-col">
+                                        <DialogHeader className="p-6 pb-2 shrink-0">
                                             <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
                                         </DialogHeader>
                                         
-                                        <ScrollArea className="max-h-[80vh] px-6 pb-6">
+                                        <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
                                             <div className="space-y-6 mt-4">
                                                 {/* Profile Image Section */}
                                                 <div className="flex flex-col items-center gap-4 p-4 rounded-xl bg-muted/30 border border-dashed border-muted-foreground/20">
@@ -1295,16 +1296,16 @@ export default function Members() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        </ScrollArea>
-
-                                        <div className="flex justify-end gap-3 p-6 border-t bg-muted/50">
-                                            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                                                Cancel
-                                            </Button>
-                                            <Button className="gradient-primary" onClick={handleSubmit}>
-                                                {editingMember ? "Update Member" : "Register Member"}
-                                            </Button>
                                         </div>
+
+                                         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 p-6 border-t bg-muted/50 shrink-0">
+                                             <Button variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
+                                                 Cancel
+                                             </Button>
+                                             <Button className="gradient-primary w-full sm:w-auto" onClick={handleSubmit}>
+                                                 {editingMember ? "Update Member" : "Register Member"}
+                                             </Button>
+                                         </div>
                                     </DialogContent>
                                 </Dialog>
                             )}
@@ -1367,22 +1368,22 @@ export default function Members() {
                                         />
                                     </div>
                                 </div>
-                                <div className="flex justify-end gap-3">
-                                    <Button variant="outline" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
-                                    <Button className="gradient-primary" onClick={handleRenewSubmit}>
-                                        Confirm Renewal
-                                    </Button>
-                                </div>
+                                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                     <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
+                                     <Button className="gradient-primary w-full sm:w-auto" onClick={handleRenewSubmit}>
+                                         Confirm Renewal
+                                     </Button>
+                                 </div>
                             </DialogContent>
                         </Dialog>
 
                         {/* History Dialog */}
                         <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                            <DialogContent className="sm:max-w-[700px]">
-                                <DialogHeader>
+                             <DialogContent className="sm:max-w-[700px] max-h-[92vh] flex flex-col">
+                                <DialogHeader className="shrink-0">
                                     <DialogTitle>Membership History - {viewingMember?.full_name}</DialogTitle>
                                 </DialogHeader>
-                                <div className="mt-4">
+                                <div className="mt-4 flex-1 overflow-y-auto min-h-0 pr-1">
                                     {historyLoading ? (
                                         <div className="flex justify-center p-8">
                                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1392,16 +1393,17 @@ export default function Members() {
                                             No history found for this member.
                                         </div>
                                     ) : (
+                                        <div className="overflow-x-auto scrollbar-none">
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Plan</TableHead>
-                                                    <TableHead>Start Date</TableHead>
-                                                    <TableHead>End Date</TableHead>
-                                                    <TableHead>Renwed At</TableHead>
-                                                    <TableHead>Payment Status</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className="text-right">Action</TableHead>
+                                                    <TableHead className="whitespace-nowrap">Plan</TableHead>
+                                                    <TableHead className="whitespace-nowrap">Start Date</TableHead>
+                                                    <TableHead className="whitespace-nowrap">End Date</TableHead>
+                                                    <TableHead className="whitespace-nowrap">Renewed At</TableHead>
+                                                    <TableHead className="whitespace-nowrap">Payment Status</TableHead>
+                                                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                                                    <TableHead className="text-right whitespace-nowrap">Action</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -1409,75 +1411,76 @@ export default function Members() {
                                                     const payment = history.gym_membership_payments?.[0];
                                                     return (
                                                         <TableRow key={history.id}>
-                                                            <TableCell className="font-medium">
-                                                                {history.gym_membership_plans?.name || "Unknown Plan"}
-                                                            </TableCell>
-                                                            <TableCell>{history.start_date}</TableCell>
-                                                            <TableCell>{history.end_date}</TableCell>
-                                                            <TableCell>
-                                                                {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                {payment ? (
-                                                                    <div className="flex flex-col gap-1.5">
-                                                                        {payment.payment_status === 'paid' && (
-                                                                            <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
-                                                                                <CheckCircle className="w-3 h-3 mr-1" /> Paid
-                                                                            </Badge>
-                                                                        )}
-                                                                        {payment.payment_status === 'partial' && (
-                                                                            <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
-                                                                                <Clock className="w-3 h-3 mr-1" /> Partial
-                                                                            </Badge>
-                                                                        )}
-                                                                        {payment.payment_status === 'unpaid' && (
-                                                                            <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
-                                                                                <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
-                                                                            </Badge>
-                                                                        )}
-                                                                        <span className="text-xs text-muted-foreground font-medium">
-                                                                            ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
-                                                                        </span>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-muted-foreground text-sm">-</span>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
-                                                                    {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        className="h-7 text-xs"
-                                                                        onClick={() => {
-                                                                            if (viewingMember) {
-                                                                                setSelectedPaymentMember({
-                                                                                    ...payment,
-                                                                                    gym_members: viewingMember
-                                                                                } as any);
-                                                                                setRecordPaymentOpen(true);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        Pay
-                                                                    </Button>
-                                                                ) : (payment && payment.payment_status === 'paid') ? (
-                                                                    <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
-                                                                        <CheckCircle className="h-3.5 w-3.5" />
-                                                                        Done
-                                                                    </div>
-                                                                ) : null}
-                                                            </TableCell>
-                                                        </TableRow>
+                                                             <TableCell className="font-medium whitespace-nowrap">
+                                                                 {history.gym_membership_plans?.name || "Unknown Plan"}
+                                                             </TableCell>
+                                                             <TableCell className="whitespace-nowrap">{history.start_date}</TableCell>
+                                                             <TableCell className="whitespace-nowrap">{history.end_date}</TableCell>
+                                                             <TableCell className="whitespace-nowrap">
+                                                                 {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
+                                                             </TableCell>
+                                                             <TableCell className="whitespace-nowrap">
+                                                                 {payment ? (
+                                                                     <div className="flex flex-col gap-1.5">
+                                                                         {payment.payment_status === 'paid' && (
+                                                                             <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
+                                                                                 <CheckCircle className="w-3 h-3 mr-1" /> Paid
+                                                                             </Badge>
+                                                                         )}
+                                                                         {payment.payment_status === 'partial' && (
+                                                                             <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
+                                                                                 <Clock className="w-3 h-3 mr-1" /> Partial
+                                                                             </Badge>
+                                                                         )}
+                                                                         {payment.payment_status === 'unpaid' && (
+                                                                             <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
+                                                                                 <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
+                                                                             </Badge>
+                                                                         )}
+                                                                         <span className="text-xs text-muted-foreground font-medium">
+                                                                             ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
+                                                                         </span>
+                                                                     </div>
+                                                                 ) : (
+                                                                     <span className="text-muted-foreground text-sm">-</span>
+                                                                 )}
+                                                             </TableCell>
+                                                             <TableCell className="whitespace-nowrap">
+                                                                 <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
+                                                                     {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
+                                                                 </Badge>
+                                                             </TableCell>
+                                                             <TableCell className="text-right whitespace-nowrap">
+                                                                 {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
+                                                                     <Button
+                                                                         size="sm"
+                                                                         variant="outline"
+                                                                         className="h-7 text-xs"
+                                                                         onClick={() => {
+                                                                             if (viewingMember) {
+                                                                                 setSelectedPaymentMember({
+                                                                                     ...payment,
+                                                                                     gym_members: viewingMember
+                                                                                 } as any);
+                                                                                 setRecordPaymentOpen(true);
+                                                                             }
+                                                                         }}
+                                                                     >
+                                                                         Pay
+                                                                     </Button>
+                                                                 ) : (payment && payment.payment_status === 'paid') ? (
+                                                                     <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
+                                                                         <CheckCircle className="h-3.5 w-3.5" />
+                                                                         Done
+                                                                     </div>
+                                                                 ) : null}
+                                                             </TableCell>
+                                                         </TableRow>
                                                     );
                                                 })}
                                             </TableBody>
                                         </Table>
+                                        </div>
                                     )}
                                 </div>
                             </DialogContent>
@@ -1485,7 +1488,7 @@ export default function Members() {
                     </div>
 
                     {/* Member Statistics Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
                         <StatCard
                             title="Total Members"
                             value={totalMembersCount}
@@ -1524,21 +1527,22 @@ export default function Members() {
                         />
                     </div>
 
-                    <Card>
+                    <Card className="overflow-hidden">
                         <CardContent className="p-0">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Member</TableHead>
-                                        <TableHead>Contact</TableHead>
-                                        <TableHead>Plan</TableHead>
-                                        <TableHead>Expiry</TableHead>
-                                        <TableHead>Staff</TableHead>
-                                        <TableHead>Payment</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                            <div className="overflow-x-auto scrollbar-none">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="whitespace-nowrap">Member</TableHead>
+                                            <TableHead className="whitespace-nowrap">Contact</TableHead>
+                                            <TableHead className="whitespace-nowrap">Plan</TableHead>
+                                            <TableHead className="whitespace-nowrap">Expiry</TableHead>
+                                            <TableHead className="whitespace-nowrap">Staff</TableHead>
+                                            <TableHead className="whitespace-nowrap">Payment</TableHead>
+                                            <TableHead className="whitespace-nowrap">Status</TableHead>
+                                            <TableHead className="text-right whitespace-nowrap">Action</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
                                 <TableBody>
                                     {filteredMembers.length === 0 ? (
                                         <TableRow>
@@ -1555,7 +1559,7 @@ export default function Members() {
                                                 className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
                                                 onClick={() => navigate(`/members/${member.id}`)}
                                             >
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex items-center gap-3">
                                                         <Avatar className="h-10 w-10">
                                                             <AvatarImage src={member.image_url || undefined} />
@@ -1567,7 +1571,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                                                         {member.email && (
                                                             <span className="flex items-center gap-1">
@@ -1589,7 +1593,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                                                         {member.gym_membership_plans ? (
                                                             <span className="flex items-center gap-1">
@@ -1602,7 +1606,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                                                         {member.expiry_date ? (
                                                             <span className="flex items-center gap-1">
@@ -1615,7 +1619,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex flex-col gap-1">
                                                         {member.gym_staff ? (
                                                             <span className="flex items-center gap-1 text-primary text-sm font-medium">
@@ -1664,7 +1668,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
  
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     <div className="flex flex-col items-start gap-1">
                                                         {(() => {
                                                             const allPayments = member.gym_membership_payments || [];
@@ -1739,7 +1743,7 @@ export default function Members() {
                                                     </div>
                                                 </TableCell>
 
-                                                <TableCell>
+                                                <TableCell className="whitespace-nowrap">
                                                     {(() => {
                                                         const status = getMemberStatusDisplay(member);
                                                         return <Badge
@@ -1752,7 +1756,7 @@ export default function Members() {
                                                     })()}
                                                 </TableCell>
 
-                                                <TableCell className="text-right">
+                                                <TableCell className="text-right whitespace-nowrap">
                                                     <div className="flex justify-end items-center gap-2">
                                                         {hasPermission('edit_members') && (
                                                             <Button
@@ -1955,6 +1959,7 @@ export default function Members() {
                                     )}
                                 </TableBody>
                             </Table>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -2092,12 +2097,12 @@ export default function Members() {
                                     )}
                                 </div>
                             </div>
-                            <div className="flex justify-end gap-3">
-                                <Button variant="outline" onClick={() => setAssignStaffOpen(false)}>Cancel</Button>
-                                <Button className="gradient-primary" onClick={handleAssignStaffSubmit}>
-                                    Save Assignment
-                                </Button>
-                            </div>
+                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAssignStaffOpen(false)}>Cancel</Button>
+                                 <Button className="gradient-primary w-full sm:w-auto" onClick={handleAssignStaffSubmit}>
+                                     Save Assignment
+                                 </Button>
+                             </div>
                         </DialogContent>
                     </Dialog>
 
@@ -2118,7 +2123,7 @@ export default function Members() {
                         onOpenChange={setImportDialogOpen}
                         gymId={gymId}
                         plans={plans}
-                        coaches={staffList}
+                        staffList={staffList}
                         onSuccess={fetchMembers}
                         subscription={subscription}
                         currentMembersCount={members.length}

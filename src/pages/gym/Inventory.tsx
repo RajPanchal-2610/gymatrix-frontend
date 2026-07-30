@@ -57,36 +57,36 @@ export default function Inventory() {
 
                 <div className="flex flex-col lg:flex-row gap-6 items-start">
                     {/* Left side: Flow Navigation */}
-                    <div className="w-full lg:w-80 shrink-0 sticky top-6">
-                        <div className="bg-card rounded-xl border shadow-sm p-4 text-card-foreground">
-                            <h3 className="font-semibold text-sm uppercase text-muted-foreground mb-4 px-2 tracking-wider">Inventory Flow</h3>
+                    <div className="w-full lg:w-80 shrink-0 lg:sticky lg:top-6">
+                        <div className="bg-card rounded-xl border shadow-sm p-3 lg:p-4 text-card-foreground">
+                            <h3 className="font-semibold text-xs lg:text-sm uppercase text-muted-foreground mb-3 lg:mb-4 px-2 tracking-wider">Inventory Flow</h3>
                             <div className="relative">
                                 {/* Connecting line */}
-                                <div className="absolute left-[27px] top-8 bottom-8 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full" />
+                                <div className="absolute left-[27px] top-8 bottom-8 w-[2px] bg-slate-200 dark:bg-slate-800 rounded-full hidden lg:block" />
 
-                                <div className="space-y-3 relative z-10">
+                                <div className="flex flex-row lg:flex-col overflow-x-auto lg:overflow-visible scrollbar-none gap-2 lg:space-y-3 relative z-10 w-full pb-1 lg:pb-0">
                                     {flowSteps.map((step) => {
                                         const isActive = activeSection === step.id;
                                         return (
                                             <button
                                                 key={step.id}
                                                 onClick={() => setActiveSection(step.id)}
-                                                className={`w-full flex items-center gap-4 p-3 rounded-xl text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${isActive
+                                                className={`flex items-center gap-3 p-2.5 lg:p-3 rounded-xl text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 ${isActive
                                                     ? 'bg-primary/5 border border-primary/20 shadow-sm'
                                                     : 'hover:bg-muted border border-transparent hover:border-border'
                                                     }`}
                                             >
-                                                <div className={`p-2.5 rounded-full flex-shrink-0 transition-colors ${isActive
+                                                <div className={`p-2 rounded-full flex-shrink-0 transition-colors ${isActive
                                                     ? 'bg-primary text-primary-foreground shadow-md'
                                                     : 'bg-background border shadow-sm text-muted-foreground'
                                                     }`}>
-                                                    <step.icon className="w-5 h-5" />
+                                                    <step.icon className="w-4 h-4 lg:w-5 lg:h-5" />
                                                 </div>
-                                                <div className="flex-1">
-                                                    <div className={`font-semibold text-sm leading-none mb-1.5 ${isActive ? 'text-primary' : 'text-foreground'}`}>
+                                                <div>
+                                                    <div className={`font-semibold text-xs lg:text-sm leading-none mb-1 lg:mb-1.5 ${isActive ? 'text-primary' : 'text-foreground'}`}>
                                                         {step.title}
                                                     </div>
-                                                    <div className="text-xs text-muted-foreground leading-tight">
+                                                    <div className="hidden lg:block text-xs text-muted-foreground leading-tight">
                                                         {step.desc}
                                                     </div>
                                                 </div>

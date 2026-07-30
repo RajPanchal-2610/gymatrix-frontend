@@ -174,10 +174,10 @@ export function AttendanceView() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
                     <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                        <SelectTrigger className="w-[250px]">
+                        <SelectTrigger className="w-full sm:w-[250px]">
                             <SelectValue placeholder="Select Staff Member" />
                         </SelectTrigger>
                         <SelectContent>
@@ -187,7 +187,7 @@ export function AttendanceView() {
                         </SelectContent>
                     </Select>
 
-                    <div className="flex items-center gap-2 border rounded-md p-1">
+                    <div className="flex items-center justify-between sm:justify-start gap-2 border rounded-md p-1 w-full sm:w-auto">
                         <Button variant="ghost" size="icon" onClick={prevMonth}>
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
@@ -218,7 +218,7 @@ export function AttendanceView() {
                     ))}
 
                     {emptyDays.map((_, i) => (
-                        <div key={`empty-${i}`} className="h-32 bg-muted/20 rounded-md" />
+                        <div key={`empty-${i}`} className="h-16 sm:h-24 lg:h-32 bg-muted/20 rounded-md" />
                     ))}
 
                     {daysInMonth.map(date => {
@@ -235,7 +235,7 @@ export function AttendanceView() {
                                 key={dateStr}
                                 onClick={() => handleDateClick(date)}
                                 className={cn(
-                                    "h-32 border rounded-md p-2 flex flex-col justify-between transition-all",
+                                    "h-16 sm:h-24 lg:h-32 border rounded-md p-1 lg:p-2 flex flex-col justify-between transition-all",
                                     isBeforeJoinDate
                                         ? "opacity-40 cursor-not-allowed bg-muted/50"
                                         : "cursor-pointer hover:shadow-md hover:border-primary/50",
@@ -243,18 +243,19 @@ export function AttendanceView() {
                                     !isBeforeJoinDate && record ? STATUS_COLORS[record.status] : (!isBeforeJoinDate && "bg-card hover:bg-accent/50")
                                 )}
                             >
-                                <span className={cn("text-sm font-medium h-6 w-6 flex items-center justify-center rounded-full", isTodayDate && "bg-primary text-primary-foreground")}>
+                                <span className={cn("text-xs lg:text-sm font-medium h-5 w-5 lg:h-6 lg:w-6 flex items-center justify-center rounded-full", isTodayDate && "bg-primary text-primary-foreground")}>
                                     {date.getDate()}
                                 </span>
 
                                 {record && !isBeforeJoinDate ? (
-                                    <div className="text-xs space-y-1">
-                                        <div className="font-bold">{record.status.replace('_', ' ')}</div>
-                                        {record.remarks && <div className="truncate opacity-80" title={record.remarks}>{record.remarks}</div>}
+                                    <div className="text-[10px] lg:text-xs space-y-0.5 mt-auto">
+                                        <div className="font-bold block lg:hidden text-center">{record.status.substring(0, 1).toUpperCase()}</div>
+                                        <div className="font-bold hidden lg:block">{record.status.replace('_', ' ')}</div>
+                                        {record.remarks && <div className="hidden lg:block truncate opacity-80" title={record.remarks}>{record.remarks}</div>}
                                     </div>
                                 ) : (
                                     !isBeforeJoinDate && (
-                                        <div className="text-xs text-muted-foreground opacity-0 hover:opacity-100 transition-opacity self-center">
+                                        <div className="text-xs text-muted-foreground opacity-0 hover:opacity-100 transition-opacity self-center mt-auto hidden lg:block">
                                             Click to mark
                                         </div>
                                     )
@@ -297,10 +298,10 @@ export function AttendanceView() {
                             />
                         </div>
                     </div>
-                    <div className="flex justify-end gap-3">
-                        <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSave}>Save</Button>
-                    </div>
+                     <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3">
+                         <Button variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                         <Button onClick={handleSave} className="w-full sm:w-auto">Save</Button>
+                     </div>
                 </DialogContent>
             </Dialog>
         </div>

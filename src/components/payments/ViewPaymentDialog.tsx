@@ -114,7 +114,9 @@ export function ViewPaymentDialog({ open, onOpenChange, payment }: ViewPaymentDi
                                                 {format(new Date(txn.paid_at), 'MMM dd, yyyy')}
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className="text-xs">{txn.payment_mode}</Badge>
+                                                <Badge variant="outline" className="text-xs">
+                                                    {txn.payment_mode === 'Online' ? 'UPI' : txn.payment_mode}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell className="text-xs font-mono text-muted-foreground">
                                                 {txn.transaction_reference || '-'}

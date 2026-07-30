@@ -724,31 +724,29 @@ export default function Pricing() {
             {promoCoupon && (
                 <div className="mb-10 relative overflow-hidden rounded-2xl p-1 gradient-primary shadow-lg shadow-primary/20 animate-in fade-in slide-in-from-top duration-700">
                     <div className="absolute inset-0 bg-white/5 backdrop-blur-3xl pointer-events-none"></div>
-                    <div className="relative flex flex-col md:flex-row items-center justify-between gap-4 bg-card rounded-xl px-6 py-5">
-                        <div className="flex items-center gap-5 text-center md:text-left">
-                            <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+                    <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 bg-card rounded-xl px-6 py-5">
+                        <div className="flex flex-col md:flex-row items-center gap-5 text-center md:text-left w-full md:w-auto">
+                            <div className="h-14 w-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow shrink-0">
                                 <Zap className="h-7 w-7 text-white" />
                             </div>
-                            <div>
-                                <h4 className="text-xl font-extrabold text-foreground flex items-center gap-2 justify-center md:justify-start">
-                                    Launch Celebration Offer!
-                                    <Badge variant="outline" className="bg-success/10 border-success/20 text-success text-[10px] h-5 px-2 font-bold tracking-normal">
+                            <div className="space-y-1">
+                                <h4 className="text-xl font-extrabold text-foreground flex flex-wrap items-center gap-2 justify-center md:justify-start">
+                                    <span>Launch Celebration Offer!</span>
+                                    <Badge variant="outline" className="bg-success/10 border-success/20 text-success text-[10px] h-5 px-2 font-bold tracking-normal shrink-0">
                                         {20 - promoCoupon.count} SPOTS LEFT
                                     </Badge>
                                 </h4>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-sm text-muted-foreground">
                                     Unlock <span className="font-bold text-primary">{promoCoupon.discount_type === 'PERCENTAGE' ? `${promoCoupon.discount_value}%` : `₹${promoCoupon.discount_value}`} OFF</span> your premium plan. Use code: 
-                                    <code className="ml-2 inline-block px-3 py-0.5 bg-primary/5 text-primary font-black rounded-lg border border-primary/20 tracking-widest text-sm">
+                                    <code className="mt-2 md:mt-0 md:ml-2 inline-block px-3 py-0.5 bg-primary/5 text-primary font-black rounded-lg border border-primary/20 tracking-widest text-sm">
                                         {promoCoupon.code}
                                     </code>
                                 </p>
                             </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto pr-4">
-                            <div className="text-center md:text-right">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ending Soon</p>
-                                <p className="text-xs font-medium text-foreground">First 20 Users Only</p>
-                            </div>
+                        <div className="flex flex-col items-center md:items-end gap-1 shrink-0 w-full md:w-auto">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Ending Soon</p>
+                            <p className="text-xs font-medium text-foreground">First 20 Users Only</p>
                         </div>
                     </div>
                 </div>

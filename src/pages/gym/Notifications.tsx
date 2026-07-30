@@ -130,17 +130,17 @@ export default function Notifications() {
   return (
     <div className="space-y-6 w-full">
       {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-2xl border border-border bg-card/40 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-primary/10 text-primary rounded-2xl">
-            <Bell className="h-6 w-6 animate-pulse" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-2xl border border-border bg-card/40 backdrop-blur-md">
+        <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+          <div className="p-2.5 sm:p-3 bg-primary/10 text-primary rounded-xl sm:rounded-2xl shrink-0 mt-0.5 sm:mt-0">
+            <Bell className="h-5 w-5 sm:h-6 sm:w-6 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Notification Center</h1>
-            <p className="text-sm text-muted-foreground">Manage and review your real-time dashboard logs</p>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">Notification Center</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Manage and review your real-time dashboard logs</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-0">
           {unreadCount > 0 && (
             <Button 
               variant="outline" 
@@ -158,30 +158,32 @@ export default function Notifications() {
       {/* Tabs and Content Grid */}
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-          <TabsList className="bg-muted/80 p-1 h-auto flex-wrap gap-1 justify-start">
-            <TabsTrigger value="all" className="px-4 py-1.5 text-xs font-medium rounded-lg">
-              All
-              {notifications.length > 0 && (
-                <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-[10px] bg-secondary-foreground/10">
-                  {notifications.length}
-                </Badge>
+          <div className="w-full overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="bg-muted/80 p-1 h-10 flex gap-1 justify-start w-max sm:w-auto flex-nowrap">
+              <TabsTrigger value="all" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">
+                All
+                {notifications.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 px-1.5 py-0.5 text-[10px] bg-secondary-foreground/10 shrink-0">
+                    {notifications.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="unread" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">
+                Unread
+                {unreadCount > 0 && (
+                  <Badge className="ml-2 px-1.5 py-0.5 text-[10px] bg-primary text-primary-foreground shadow-glow border-none shrink-0">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="read" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">Read</TabsTrigger>
+              <TabsTrigger value="members" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">Members</TabsTrigger>
+              {canViewFinance && (
+                <TabsTrigger value="payments" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">Payments</TabsTrigger>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="unread" className="px-4 py-1.5 text-xs font-medium rounded-lg">
-              Unread
-              {unreadCount > 0 && (
-                <Badge className="ml-2 px-1.5 py-0.5 text-[10px] bg-primary text-primary-foreground shadow-glow border-none">
-                  {unreadCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="read" className="px-4 py-1.5 text-xs font-medium rounded-lg">Read</TabsTrigger>
-            <TabsTrigger value="members" className="px-4 py-1.5 text-xs font-medium rounded-lg">Members</TabsTrigger>
-            {canViewFinance && (
-              <TabsTrigger value="payments" className="px-4 py-1.5 text-xs font-medium rounded-lg">Payments</TabsTrigger>
-            )}
-            <TabsTrigger value="system" className="px-4 py-1.5 text-xs font-medium rounded-lg">System</TabsTrigger>
-          </TabsList>
+              <TabsTrigger value="system" className="px-4 py-1.5 text-xs font-medium rounded-lg shrink-0">System</TabsTrigger>
+            </TabsList>
+          </div>
 
           <div className="relative w-full md:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -233,35 +235,37 @@ export default function Notifications() {
                         {items.map((notif) => (
                           <div
                             key={notif.id}
-                            className={`group flex items-start gap-4 p-4 rounded-xl transition-all duration-200 hover:bg-muted/40 ${
+                            className={`group flex flex-col sm:flex-row items-start sm:items-start justify-between gap-2 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all duration-200 hover:bg-muted/40 ${
                               !notif.is_read ? 'bg-primary/5 dark:bg-primary/10 border-l-2 border-primary' : 'border-l-2 border-transparent'
                             }`}
                           >
-                            <div className="flex-shrink-0">
-                              {getNotificationIcon(notif.type)}
-                            </div>
-                            
-                            <div 
-                              onClick={() => handleNotificationClick(notif)}
-                              className="flex-1 min-w-0 cursor-pointer flex flex-col gap-0.5"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className={`text-sm font-semibold text-foreground ${!notif.is_read ? 'font-bold' : ''}`}>
-                                  {notif.title}
-                                </span>
-                                {!notif.is_read && (
-                                  <Badge className="h-1.5 w-1.5 p-0 bg-primary rounded-full" />
-                                )}
+                            <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0 w-full">
+                              <div className="flex-shrink-0 mt-0.5">
+                                {getNotificationIcon(notif.type)}
                               </div>
-                              <p className="text-xs text-muted-foreground leading-relaxed pr-4">
-                                {notif.message}
-                              </p>
-                              <span className="text-[10px] text-muted-foreground/75 mt-1 font-medium">
-                                {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
-                              </span>
+                              
+                              <div 
+                                onClick={() => handleNotificationClick(notif)}
+                                className="flex-1 min-w-0 cursor-pointer flex flex-col gap-0.5"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm font-semibold text-foreground ${!notif.is_read ? 'font-bold' : ''}`}>
+                                    {notif.title}
+                                  </span>
+                                  {!notif.is_read && (
+                                    <Badge className="h-1.5 w-1.5 p-0 bg-primary rounded-full animate-pulse" />
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground leading-relaxed pr-2 sm:pr-4">
+                                  {notif.message}
+                                </p>
+                                <span className="text-[10px] text-muted-foreground/75 mt-1 font-medium">
+                                  {formatDistanceToNow(new Date(notif.created_at), { addSuffix: true })}
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div className="flex items-center gap-1.5 self-end sm:self-start mt-1 sm:mt-0 pl-[52px] sm:pl-0 shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                               {!notif.is_read && (
                                 <Button
                                   variant="ghost"

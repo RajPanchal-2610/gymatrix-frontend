@@ -110,9 +110,9 @@ export default function GymDashboard2() {
     return (
         <div className="space-y-6">
             {/* Dashboard Selector Tabs */}
-            <div className="flex items-center justify-between border-b pb-4 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 mb-6">
                 <h1 className="text-2xl font-bold tracking-tight">Mock Dashboard (Dashboard 2)</h1>
-                <div className="flex bg-muted p-1 rounded-xl shadow-sm border">
+                <div className="flex bg-muted p-1 rounded-xl shadow-sm border w-fit ml-auto sm:ml-0">
                     <Button
                         variant={activeDashboard === "general" ? "default" : "ghost"}
                         className={cn(
@@ -141,7 +141,7 @@ export default function GymDashboard2() {
             {activeDashboard === "trainer" ? (
                 <>
                     {/* Trainer Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
                         <StatCard
                             title="My Active Clients"
                             value={trainerStats.activeClients}
@@ -205,20 +205,20 @@ export default function GymDashboard2() {
                                     <table className="w-full text-sm">
                                         <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                             <tr>
-                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Client Name</th>
-                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">General Expiry</th>
-                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Expiry</th>
-                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Rate</th>
-                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">PT Status</th>
+                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Client Name</th>
+                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">General Expiry</th>
+                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">PT Expiry</th>
+                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">PT Rate</th>
+                                                <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">PT Status</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-muted">
                                             {ptClientsList.map((client) => (
                                                 <tr key={client.id} className="hover:bg-muted/30 transition-colors">
-                                                    <td className="py-4 px-4 font-semibold text-foreground">{client.name}</td>
+                                                    <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{client.name}</td>
                                                     <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">{client.expiryDate}</td>
                                                     <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">{client.ptExpiryDate}</td>
-                                                    <td className="py-4 px-4 font-semibold">₹{client.ptFee.toLocaleString()}</td>
+                                                    <td className="py-4 px-4 font-semibold whitespace-nowrap">₹{client.ptFee.toLocaleString()}</td>
                                                     <td className="py-4 px-4">
                                                         <Badge variant={client.ptStatus === 'active' ? 'default' : 'destructive'} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", client.ptStatus === 'active' ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}>
                                                             {client.ptStatus}
@@ -236,7 +236,7 @@ export default function GymDashboard2() {
             ) : (
                 <>
                     {/* Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
                         <StatCard
                             title="Active Members"
                             value={stats.activeMembers}

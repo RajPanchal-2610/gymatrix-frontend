@@ -167,14 +167,14 @@ export default function MembershipPlans() {
                 </div>
             ) : (
                 <>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 w-full">
                         <p className="text-muted-foreground">
                             Manage your gym's membership plans
                         </p>
                         {hasPermission('add_membership_plans') && (
                             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button className="gradient-primary shadow-glow" onClick={() => handleOpenDialog()}>
+                                    <Button className="gradient-primary shadow-glow w-auto self-end sm:self-auto" onClick={() => handleOpenDialog()}>
                                         <Plus className="h-4 w-4 mr-2" />
                                         Create Plan
                                     </Button>
@@ -239,11 +239,11 @@ export default function MembershipPlans() {
                                             />
                                         </div>
                                     </div>
-                                    <div className="flex justify-end gap-3 mt-6">
-                                        <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                                    <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
                                             Cancel
                                         </Button>
-                                        <Button className="gradient-primary" onClick={handleSubmit}>
+                                        <Button className="gradient-primary w-full sm:w-auto" onClick={handleSubmit}>
                                             {editingPlan ? "Update Plan" : "Create Plan"}
                                         </Button>
                                     </div>
@@ -260,14 +260,14 @@ export default function MembershipPlans() {
                             )}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {plans.map((plan) => (
                                 <Card
                                     key={plan.id}
                                     className="relative overflow-hidden hover:shadow-lg transition-all duration-300 animate-slide-up"
                                 >
                                     <CardHeader>
-                                        <CardTitle className="flex items-center justify-between gap-2">
+                                        <CardTitle className="flex items-center justify-between gap-2 text-base sm:text-lg font-bold">
                                             <span>{plan.name}</span>
                                             {plan.is_active ? (
                                                 <Badge variant="outline" className="text-success border-success bg-success/10">Active</Badge>
@@ -275,9 +275,9 @@ export default function MembershipPlans() {
                                                 <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>
                                             )}
                                         </CardTitle>
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-4xl font-bold">{Number(plan.price).toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</span>
-                                            <span className="text-muted-foreground">
+                                        <div className="flex items-baseline gap-1 mt-1">
+                                            <span className="text-2xl sm:text-3xl font-extrabold text-foreground">{Number(plan.price).toLocaleString('en-US', { style: 'currency', currency: 'INR' })}</span>
+                                            <span className="text-xs text-muted-foreground">
                                                 / {plan.duration_value} {plan.duration_unit}{plan.duration_value > 1 ? 's' : ''}
                                             </span>
                                         </div>
@@ -287,11 +287,14 @@ export default function MembershipPlans() {
                                             {plan.description || "No description provided."}
                                         </p>
 
-                                        <div className="flex gap-2 pt-4">
+                                        <div className="flex gap-2 pt-4 justify-end">
                                             {hasPermission('edit_membership_plans') && (
-                                                <Button variant="outline" className="flex-1" onClick={() => handleOpenDialog(plan)}>
-                                                    <Edit className="h-4 w-4 mr-2" />
-                                                    Edit
+                                                <Button
+                                                    variant="outline"
+                                                    size="icon"
+                                                    onClick={() => handleOpenDialog(plan)}
+                                                >
+                                                    <Edit className="h-4 w-4" />
                                                 </Button>
                                             )}
                                             {hasPermission('delete_membership_plans') && (

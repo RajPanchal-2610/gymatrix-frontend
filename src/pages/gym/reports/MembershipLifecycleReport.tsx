@@ -130,10 +130,12 @@ const MembershipLifecycleReport = () => {
             <p className="text-muted-foreground mt-1">Tracking member acquisition, retention, and churn.</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <DateRangePicker date={date} setDate={setDate} />
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto">
+          <div className="w-full sm:w-auto">
+            <DateRangePicker date={date} setDate={setDate} />
+          </div>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExportPDF}
             disabled={!lifecycleData?.details?.length}
           >
@@ -141,7 +143,7 @@ const MembershipLifecycleReport = () => {
             PDF Report
           </Button>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExport}
             disabled={!lifecycleData?.details?.length}
           >
@@ -151,15 +153,15 @@ const MembershipLifecycleReport = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-6">
         <Card className="bg-sidebar/30 backdrop-blur-sm border-sidebar-border/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">New Members</p>
-                <p className="text-3xl font-bold">{getCount('New Members')}</p>
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">New Members</p>
+                <p className="text-base sm:text-3xl font-bold mt-0.5 sm:mt-1">{getCount('New Members')}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-full bg-primary/10 items-center justify-center">
                 <UserPlus className="h-6 w-6 text-primary" />
               </div>
             </div>
@@ -167,13 +169,13 @@ const MembershipLifecycleReport = () => {
         </Card>
 
         <Card className="bg-sidebar/30 backdrop-blur-sm border-sidebar-border/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Renewals</p>
-                <p className="text-3xl font-bold">{getCount('Renewals')}</p>
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">Renewals</p>
+                <p className="text-base sm:text-3xl font-bold mt-0.5 sm:mt-1">{getCount('Renewals')}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-purple-500/10 flex items-center justify-center">
+              <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-full bg-purple-500/10 items-center justify-center">
                 <RefreshCcw className="h-6 w-6 text-purple-500" />
               </div>
             </div>
@@ -181,13 +183,13 @@ const MembershipLifecycleReport = () => {
         </Card>
 
         <Card className="bg-sidebar/30 backdrop-blur-sm border-sidebar-border/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-muted-foreground">Expiries</p>
-                <p className="text-3xl font-bold">{getCount('Expiries')}</p>
+          <CardContent className="p-3 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">Expiries</p>
+                <p className="text-base sm:text-3xl font-bold mt-0.5 sm:mt-1">{getCount('Expiries')}</p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center">
+              <div className="hidden sm:flex h-12 w-12 shrink-0 rounded-full bg-rose-500/10 items-center justify-center">
                 <UserMinus className="h-6 w-6 text-rose-500" />
               </div>
             </div>
@@ -201,14 +203,14 @@ const MembershipLifecycleReport = () => {
           <CardDescription>Comparison of admissions vs expiries for selected period</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="h-[400px] w-full">
+          <div className="h-[220px] sm:h-[320px] md:h-[400px] w-full">
             {isLoading ? (
               <div className="h-full w-full flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
             ) : lifecycleData?.summary?.some((d: any) => d.count > 0) ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={lifecycleData?.summary || []}>
+                <BarChart data={lifecycleData?.summary || []} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
                   <XAxis
                     dataKey="name"
@@ -219,7 +221,8 @@ const MembershipLifecycleReport = () => {
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#888888', fontSize: 12 }}
+                    width={35}
+                    tick={{ fill: '#888888', fontSize: 11 }}
                   />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.05)' }}
@@ -250,7 +253,7 @@ const MembershipLifecycleReport = () => {
             ) : (
               <div className="h-full w-full flex flex-col items-center justify-center text-muted-foreground bg-white/5 rounded-xl border border-dashed border-white/10">
                 <p className="text-lg font-medium">No movement data found</p>
-                <p className="text-sm">No admissions, renewals, or expiries in this period.</p>
+                <p className="text-sm">Try selecting a different date range or grouping.</p>
               </div>
             )}
           </div>
@@ -264,26 +267,26 @@ const MembershipLifecycleReport = () => {
           <CardDescription>Member Admissions, Renewals, and Expiries for the selected period</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="relative w-full overflow-auto">
+          <div className="relative w-full overflow-auto scrollbar-none">
             <table className="w-full caption-bottom text-sm">
               <thead className="[&_tr]:border-b border-white/10">
                 <tr className="border-b transition-colors hover:bg-muted/50">
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Member</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Event Type</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Date</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Member</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Event Type</th>
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
                 {lifecycleData?.details?.length > 0 ? (
                   lifecycleData.details.map((event: any, idx: number) => (
                     <tr key={idx} className="border-b transition-colors hover:bg-white/5">
-                      <td className="p-4 align-middle text-xs text-muted-foreground">
+                      <td className="p-4 align-middle text-xs text-muted-foreground whitespace-nowrap">
                         {new Date(event.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                       </td>
-                      <td className="p-4 align-middle font-medium">{event.member}</td>
-                      <td className="p-4 align-middle text-right">
+                      <td className="p-4 align-middle font-medium whitespace-nowrap">{event.member}</td>
+                      <td className="p-4 align-middle text-right whitespace-nowrap">
                         <span className={cn(
-                          "px-2 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider",
+                          "px-2 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider whitespace-nowrap",
                           event.type === 'New Member' ? "bg-emerald-500/10 text-emerald-500" :
                           event.type === 'Renewal' ? "bg-blue-500/10 text-blue-500" :
                           "bg-rose-500/10 text-rose-500"
@@ -295,7 +298,7 @@ const MembershipLifecycleReport = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={3} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={3} className="p-8 text-center text-muted-foreground whitespace-nowrap">
                       No lifecycle events found.
                     </td>
                   </tr>

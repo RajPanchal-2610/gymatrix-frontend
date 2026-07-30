@@ -537,7 +537,7 @@ export default function ImportMembersDialog({
 
     return (
         <Dialog open={open} onOpenChange={(val) => { if (step !== "importing") onOpenChange(val); }}>
-            <DialogContent className={`transition-all duration-300 p-0 overflow-hidden ${step === "preview" ? "sm:max-w-[950px] h-[85vh]" : "sm:max-w-[550px]"
+            <DialogContent className={`transition-all duration-300 p-0 overflow-hidden max-h-[92vh] flex flex-col ${step === "preview" ? "sm:max-w-[950px] h-[85vh]" : "sm:max-w-[550px]"
                 }`}>
                 <DialogHeader className="p-6 pb-2 bg-gradient-to-r from-primary/5 to-accent/5 border-b border-muted">
                     <DialogTitle className="text-xl font-bold flex items-center gap-2">
@@ -605,7 +605,7 @@ export default function ImportMembersDialog({
                 {/* STEP 2: PREVIEW & VALIDATION */}
                 {step === "preview" && (
                     <div className="flex flex-col h-[calc(85vh-90px)]">
-                        <ScrollArea className="flex-1 px-6">
+                        <div className="flex-1 overflow-y-auto px-6 min-h-0">
                             <div className="space-y-6 py-4">
                                 <div className="border rounded-xl overflow-hidden shadow-sm bg-background">
                                     <Table>
@@ -688,9 +688,9 @@ export default function ImportMembersDialog({
                                     </Table>
                                 </div>
                             </div>
-                        </ScrollArea>
+                        </div>
 
-                        <div className="flex justify-between items-center p-6 border-t bg-muted/30">
+                        <div className="flex justify-between items-center p-6 border-t bg-muted/30 shrink-0">
                             <Button variant="outline" onClick={resetState}>
                                 Back to Upload
                             </Button>
@@ -776,7 +776,7 @@ export default function ImportMembersDialog({
                             </div>
                         )}
 
-                        <div className="flex gap-3 justify-end pt-4 border-t">
+                        <div className="flex gap-3 justify-end pt-4 border-t shrink-0">
                             <Button variant="outline" onClick={resetState} className="flex gap-2">
                                 <RefreshCw className="h-4 w-4" />
                                 Import Another File

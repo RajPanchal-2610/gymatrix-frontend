@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GymMember } from "@/types/gym";
+import { GymMember, GymMembershipPayment } from "@/types/gym";
 import { toast } from "sonner";
 import { format, addMonths } from "date-fns";
 import { RecordPaymentDialog } from "@/components/payments/RecordPaymentDialog";
@@ -48,6 +48,16 @@ export default function MemberView() {
     const [isLoading, setIsLoading] = useState(true);
     const [recordPaymentOpen, setRecordPaymentOpen] = useState(false);
     const [selectedPaymentMember, setSelectedPaymentMember] = useState<any>(null);
+
+    const getPaymentModes = (payment: GymMembershipPayment) => {
+        const txns = payment.gym_payment_transactions || [];
+        if (txns.length === 0) return "-";
+        const modeStrings = txns.map(t => {
+            const label = t.payment_mode === 'Online' ? 'UPI' : t.payment_mode;
+            return `${label} (₹${t.amount.toLocaleString()})`;
+        });
+        return modeStrings.join(" + ");
+    };
 
     // PT Renewal State
     const [renewDialogOpen, setRenewDialogOpen] = useState(false);
@@ -224,16 +234,16 @@ export default function MemberView() {
             <div className="w-full px-6 py-4 space-y-6">
 
                 {/* Header Actions */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
                         <Button variant="ghost" size="icon" onClick={() => navigate("/members")}>
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
-                        <h1 className="text-2xl font-bold tracking-tight">Member Profile</h1>
+                        <h1 className="text-2xl font-bold tracking-tight font-display">Member Profile</h1>
                     </div>
                     {isAssignedStaff && member && member.pt_fee && member.pt_fee > 0 && (
                         <Button 
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold w-full sm:w-auto"
                             onClick={() => {
                                 setRenewFormData({ start_date: new Date().toISOString().split('T')[0] });
                                 setRenewDialogOpen(true);
@@ -247,18 +257,18 @@ export default function MemberView() {
                 </div>
 
                 <Tabs defaultValue="profile" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 mb-6 max-w-2xl mx-auto">
-                        <TabsTrigger value="profile" className="flex items-center gap-2">
-                            <User className="h-4 w-4" />
-                            Profile Info
+                    <TabsList className="grid w-full grid-cols-3 mb-6 max-w-2xl mx-auto h-10">
+                        <TabsTrigger value="profile" className="flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-sm px-1 sm:px-4">
+                            <User className="h-3.5 w-3.5" />
+                            <span className="truncate">Profile</span>
                         </TabsTrigger>
-                        <TabsTrigger value="membership" className="flex items-center gap-2">
-                            <Activity className="h-4 w-4" />
-                            Membership & Activity
+                        <TabsTrigger value="membership" className="flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-sm px-1 sm:px-4">
+                            <Activity className="h-3.5 w-3.5" />
+                            <span className="truncate">Activity</span>
                         </TabsTrigger>
-                        <TabsTrigger value="payments" className="flex items-center gap-2">
-                            <IndianRupee className="h-4 w-4" />
-                            Billing & Payments
+                        <TabsTrigger value="payments" className="flex items-center justify-center gap-1 sm:gap-2 text-[10px] sm:text-sm px-1 sm:px-4">
+                            <IndianRupee className="h-3.5 w-3.5" />
+                            <span className="truncate">Billing</span>
                         </TabsTrigger>
                     </TabsList>
 
@@ -414,14 +424,14 @@ export default function MemberView() {
                             <CardContent className="pt-6">
                                 {member.gym_membership_history && member.gym_membership_history.length > 0 ? (
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
+                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Plan Name</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Duration Period</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Current Status</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Renewed On</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Plan Name</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Duration Period</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Current Status</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Renewed On</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
@@ -429,14 +439,14 @@ export default function MemberView() {
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
                                                         .map((history) => (
                                                             <tr key={history.id} className="hover:bg-muted/30 transition-colors">
-                                                                <td className="py-4 px-4 font-semibold text-foreground">{history.gym_membership_plans?.name || 'Unknown Plan'}</td>
+                                                                <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{history.gym_membership_plans?.name || 'Unknown Plan'}</td>
                                                                 <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
                                                                     <div className="flex flex-col">
                                                                         <span>{format(new Date(history.start_date), "dd MMM yyyy")}</span>
                                                                         <span className="text-xs opacity-60">to {format(new Date(history.end_date), "dd MMM yyyy")}</span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="py-4 px-4">
+                                                                <td className="py-4 px-4 whitespace-nowrap">
                                                                     {(() => {
                                                                         let statusLabel = 'EXPIRED';
                                                                         let statusVariant: "default" | "secondary" | "destructive" | "outline" = 'destructive';
@@ -492,14 +502,14 @@ export default function MemberView() {
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
+                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Staff</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Duration Period</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Rate</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Status</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Staff</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Duration Period</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Rate</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
@@ -507,15 +517,15 @@ export default function MemberView() {
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
                                                         .map((ptHistory) => (
                                                             <tr key={ptHistory.id} className="hover:bg-muted/30 transition-colors">
-                                                                <td className="py-4 px-4 font-semibold text-foreground">{ptHistory.gym_staff?.full_name || 'Assigned Staff'}</td>
+                                                                <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{ptHistory.gym_staff?.full_name || 'Assigned Staff'}</td>
                                                                 <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
                                                                     <div className="flex flex-col">
                                                                         <span>{format(new Date(ptHistory.start_date), "dd MMM yyyy")}</span>
                                                                         <span className="text-xs opacity-60">to {format(new Date(ptHistory.end_date), "dd MMM yyyy")}</span>
                                                                     </div>
                                                                 </td>
-                                                                <td className="py-4 px-4 text-left font-semibold">₹{ptHistory.pt_fee.toLocaleString()}</td>
-                                                                <td className="py-4 px-4">
+                                                                <td className="py-4 px-4 text-left font-semibold whitespace-nowrap">₹{ptHistory.pt_fee.toLocaleString()}</td>
+                                                                <td className="py-4 px-4 whitespace-nowrap">
                                                                     {(() => {
                                                                         const isPast = new Date().getTime() > new Date(ptHistory.end_date).getTime() + 86400000;
                                                                         const isActive = ptHistory.status === 'active' && !isPast;
@@ -588,16 +598,17 @@ export default function MemberView() {
                             <CardContent className="pt-6">
                                 {typeFilteredPayments && typeFilteredPayments.length > 0 ? (
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-thin scrollbar-thumb-muted-foreground/20 cursor-default">
+                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Billing Date</th>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Status</th>
-                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Price</th>
-                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Paid</th>
-                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Due</th>
-                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Actions</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Billing Date</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Mode</th>
+                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground whitespace-nowrap">Price</th>
+                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground whitespace-nowrap">Paid</th>
+                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground whitespace-nowrap">Due</th>
+                                                        <th className="py-3 px-4 text-right font-semibold text-muted-foreground whitespace-nowrap">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
@@ -608,7 +619,7 @@ export default function MemberView() {
                                                                 <td className="py-4 px-4 whitespace-nowrap font-medium">
                                                                     {payment.billing_date ? format(new Date(payment.billing_date), "dd MMM yyyy") : '-'}
                                                                 </td>
-                                                                <td className="py-4 px-4">
+                                                                <td className="py-4 px-4 whitespace-nowrap">
                                                                     <Badge
                                                                         variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'partial' ? 'secondary' : 'destructive'}
                                                                         className={cn("px-2 py-0.5 text-[10px] font-bold uppercase",
@@ -618,10 +629,13 @@ export default function MemberView() {
                                                                         {payment.payment_status}
                                                                     </Badge>
                                                                 </td>
-                                                                <td className="py-4 px-4 text-right font-semibold">₹{payment.total_amount.toLocaleString()}</td>
-                                                                <td className="py-4 px-4 text-right text-emerald-600 font-bold">₹{payment.paid_amount.toLocaleString()}</td>
-                                                                <td className="py-4 px-4 text-right text-destructive font-bold">₹{payment.due_amount.toLocaleString()}</td>
-                                                                <td className="py-4 px-4 text-right">
+                                                                <td className="py-4 px-4 whitespace-nowrap text-muted-foreground font-medium">
+                                                                    {getPaymentModes(payment)}
+                                                                </td>
+                                                                <td className="py-4 px-4 text-right font-semibold whitespace-nowrap">₹{payment.total_amount.toLocaleString()}</td>
+                                                                <td className="py-4 px-4 text-right text-emerald-600 font-bold whitespace-nowrap">₹{payment.paid_amount.toLocaleString()}</td>
+                                                                <td className="py-4 px-4 text-right text-destructive font-bold whitespace-nowrap">₹{payment.due_amount.toLocaleString()}</td>
+                                                                <td className="py-4 px-4 text-right whitespace-nowrap">
                                                                     {payment.payment_status !== 'paid' ? (
                                                                         hasPermission('add_payments') ? (
                                                                             <Button
@@ -706,11 +720,11 @@ export default function MemberView() {
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setRenewDialogOpen(false)} disabled={renewing}>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+                        <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRenewDialogOpen(false)} disabled={renewing}>
                             Cancel
                         </Button>
-                        <Button onClick={handleRenewPTSubmit} disabled={renewing}>
+                        <Button className="w-full sm:w-auto" onClick={handleRenewPTSubmit} disabled={renewing}>
                             {renewing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Confirm Renewal
                         </Button>

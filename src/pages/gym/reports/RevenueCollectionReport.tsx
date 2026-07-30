@@ -133,9 +133,9 @@ const RevenueCollectionReport = () => {
             <p className="text-muted-foreground mt-1">Detailed breakdown of revenue trends for the selected period.</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full md:w-auto">
           <Select value={groupBy} onValueChange={(v: any) => setGroupBy(v)}>
-            <SelectTrigger className="w-[130px] bg-white border border-primary/50 hover:border-primary transition-all shadow-sm text-slate-900 font-medium h-10 px-4 rounded-lg">
+            <SelectTrigger className="w-full sm:w-[130px] bg-white border border-primary/50 hover:border-primary transition-all shadow-sm text-slate-900 font-medium h-10 px-4 rounded-lg">
               <SelectValue placeholder="Group By" />
             </SelectTrigger>
             <SelectContent className="bg-white border-primary/20 text-slate-900">
@@ -143,9 +143,11 @@ const RevenueCollectionReport = () => {
               <SelectItem value="year">Yearly</SelectItem>
             </SelectContent>
           </Select>
-          <DateRangePicker date={date} setDate={setDate} />
+          <div className="w-full sm:w-auto">
+            <DateRangePicker date={date} setDate={setDate} />
+          </div>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExportPDF}
             disabled={!reportData?.details?.length}
           >
@@ -153,7 +155,7 @@ const RevenueCollectionReport = () => {
             PDF Report
           </Button>
           <Button 
-            className="gradient-primary shadow-glow h-10"
+            className="gradient-primary shadow-glow h-10 w-full sm:w-auto"
             onClick={handleExport}
             disabled={!reportData?.details?.length}
           >
@@ -172,14 +174,14 @@ const RevenueCollectionReport = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="h-[400px] w-full">
+            <div className="h-[220px] sm:h-[320px] md:h-[400px] w-full">
               {isLoading ? (
                 <div className="h-full w-full flex items-center justify-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : reportData?.summary?.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={reportData?.summary || []}>
+                  <BarChart data={reportData?.summary || []} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
                     <defs>
                       <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#0ea5e9" stopOpacity={1} />
@@ -197,8 +199,9 @@ const RevenueCollectionReport = () => {
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#888888', fontSize: 12 }}
-                      tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                      width={45}
+                      tick={{ fill: '#888888', fontSize: 11 }}
+                      tickFormatter={(value) => `₹${(value / 1000)}k`}
                     />
                     <Tooltip
                       cursor={{ fill: 'rgba(255,255,255,0.05)' }}
@@ -237,25 +240,25 @@ const RevenueCollectionReport = () => {
             <CardDescription>Breakdown for the selected period</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative w-full overflow-auto">
+            <div className="relative w-full overflow-auto scrollbar-none">
               <table className="w-full caption-bottom text-sm">
                 <thead className="[&_tr]:border-b border-white/10">
                   <tr className="border-b transition-colors hover:bg-muted/50">
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Period</th>
-                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Total Collection</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Period</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Total Collection</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">
                   {reportData?.summary?.length > 0 ? (
                     reportData.summary.map((row: any, idx: number) => (
                       <tr key={idx} className="border-b transition-colors hover:bg-white/5">
-                        <td className="p-4 align-middle font-medium">{row.label}</td>
-                        <td className="p-4 align-middle text-right font-bold text-primary">₹{row.amount.toLocaleString()}</td>
+                        <td className="p-4 align-middle font-medium whitespace-nowrap">{row.label}</td>
+                        <td className="p-4 align-middle text-right font-bold text-primary whitespace-nowrap">₹{row.amount.toLocaleString()}</td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={2} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={2} className="p-8 text-center text-muted-foreground whitespace-nowrap">
                         No transactions found for the selected period.
                       </td>
                     </tr>
@@ -273,15 +276,15 @@ const RevenueCollectionReport = () => {
             <CardDescription>Individual collection entries for the selected period</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="relative w-full overflow-auto">
+            <div className="relative w-full overflow-auto scrollbar-none">
               <table className="w-full caption-bottom text-sm">
                 <thead className="[&_tr]:border-b border-white/10">
                   <tr className="border-b transition-colors hover:bg-muted/50">
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Date</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Member</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Plan</th>
-                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Amount</th>
-                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Status</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Date</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Member</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Plan</th>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground whitespace-nowrap">Amount</th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground whitespace-nowrap">Status</th>
                   </tr>
                 </thead>
                 <tbody className="[&_tr:last-child]:border-0">
@@ -293,21 +296,21 @@ const RevenueCollectionReport = () => {
                       
                       return (
                         <tr key={idx} className="border-b transition-colors hover:bg-white/5">
-                          <td className="p-4 align-middle text-xs text-muted-foreground">
+                          <td className="p-4 align-middle text-xs text-muted-foreground whitespace-nowrap">
                             {new Date(tx.paid_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                           </td>
-                          <td className="p-4 align-middle font-medium">{memberName}</td>
-                          <td className="p-4 align-middle text-xs text-muted-foreground">{planName}</td>
-                          <td className="p-4 align-middle font-bold text-primary">₹{tx.amount.toLocaleString()}</td>
-                          <td className="p-4 align-middle text-right">
-                            <span className="bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">Received</span>
+                          <td className="p-4 align-middle font-medium whitespace-nowrap">{memberName}</td>
+                          <td className="p-4 align-middle text-xs text-muted-foreground whitespace-nowrap">{planName}</td>
+                          <td className="p-4 align-middle font-bold text-primary whitespace-nowrap">₹{tx.amount.toLocaleString()}</td>
+                          <td className="p-4 align-middle text-right whitespace-nowrap">
+                            <span className="bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider whitespace-nowrap">Received</span>
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={5} className="p-8 text-center text-muted-foreground whitespace-nowrap">
                         No individual records found.
                       </td>
                     </tr>

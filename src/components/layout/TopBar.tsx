@@ -142,21 +142,23 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
 
   return (
     <header className="h-16 border-b border-border bg-card/50 backdrop-blur-xl sticky top-0 z-30 flex items-center justify-between px-4 lg:px-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {!hideMenuButton && (
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden shrink-0"
             onClick={onMenuClick}
           >
             <Menu className="h-5 w-5" />
           </Button>
         )}
-        <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate max-w-[140px] min-[390px]:max-w-[200px] sm:max-w-none" title={title}>
+          {title}
+        </h1>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Search */}
         <div className="hidden md:flex relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

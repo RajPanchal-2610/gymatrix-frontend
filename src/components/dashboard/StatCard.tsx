@@ -24,26 +24,27 @@ export function StatCard({
 }: StatCardProps) {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 animate-slide-up">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between">
-          <div className="space-y-2 flex-1">
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+      <CardContent className="p-4 sm:p-6">
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-1.5 flex-1 min-w-0">
+            <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate" title={title}>{title}</p>
             {loading ? (
               <div className="space-y-2">
-                <Skeleton className="h-8 w-[100px]" />
-                <Skeleton className="h-4 w-[140px]" />
+                <Skeleton className="h-7 w-[80px]" />
+                <Skeleton className="h-3 w-[100px]" />
               </div>
             ) : (
               <>
-                <p className="text-3xl font-bold tracking-tight">{value}</p>
+                <p className="text-2xl sm:text-3xl font-bold tracking-tight truncate" title={String(value)}>{value}</p>
                 {change && (
                   <p
                     className={cn(
-                      "text-sm font-medium",
+                      "text-xs sm:text-sm font-medium truncate hidden sm:block",
                       changeType === "positive" && "text-success",
                       changeType === "negative" && "text-destructive",
                       changeType === "neutral" && "text-muted-foreground"
                     )}
+                    title={change}
                   >
                     {change}
                   </p>
@@ -53,11 +54,11 @@ export function StatCard({
           </div>
           <div
             className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center shrink-0",
+              "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center shrink-0",
               iconClassName || "bg-primary/10"
             )}
           >
-            <Icon className={cn("h-6 w-6", iconClassName ? "text-white" : "text-primary")} />
+            <Icon className={cn("h-5 w-5 sm:h-6 sm:w-6", iconClassName ? "text-white" : "text-primary")} />
           </div>
         </div>
       </CardContent>

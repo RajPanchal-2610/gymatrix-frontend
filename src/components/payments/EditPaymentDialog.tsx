@@ -217,9 +217,8 @@ export function EditPaymentDialog({ open, onOpenChange, payment, onSuccess }: Ed
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="Cash">Cash</SelectItem>
-                                                    <SelectItem value="Online">Online</SelectItem>
+                                                    <SelectItem value="Online">UPI</SelectItem>
                                                     <SelectItem value="Card">Card</SelectItem>
-                                                    <SelectItem value="Cheque">Cheque</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -251,11 +250,11 @@ export function EditPaymentDialog({ open, onOpenChange, payment, onSuccess }: Ed
                         </p>
                     </div>
                 </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-0">
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSave} disabled={loading} className="gradient-primary">
+                    <Button onClick={handleSave} disabled={loading} className="gradient-primary w-full sm:w-auto">
                         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Changes"}
                     </Button>
                 </DialogFooter>

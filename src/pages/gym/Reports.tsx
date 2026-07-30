@@ -86,22 +86,22 @@ const GymReports = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 sm:gap-6">
         {stats.map((stat, idx) => (
           <Card key={idx} className="bg-sidebar/30 backdrop-blur-sm border-sidebar-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-sm font-medium text-muted-foreground truncate">{stat.title}</p>
+                  <h3 className="text-base sm:text-3xl font-bold mt-0.5 sm:mt-1 truncate">{stat.value}</h3>
                 </div>
-                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center bg-white/5 ${stat.color}`}>
+                <div className={`hidden sm:flex h-12 w-12 shrink-0 rounded-2xl items-center justify-center bg-white/5 ${stat.color}`}>
                   <stat.icon className="h-6 w-6" />
                 </div>
               </div>
-              <div className="flex items-center gap-1 mt-4">
-                <span className="text-xs font-medium text-emerald-500">{stat.trend}</span>
-                <span className="text-xs text-muted-foreground">from last month</span>
+              <div className="flex items-center gap-1 mt-1.5 sm:mt-4 flex-wrap">
+                <span className="text-[10px] sm:text-xs font-medium text-emerald-500">{stat.trend}</span>
+                <span className="hidden sm:inline text-xs text-muted-foreground">from last month</span>
               </div>
             </CardContent>
           </Card>
@@ -109,7 +109,7 @@ const GymReports = () => {
       </div>
 
       {/* Detailed Report Navigation */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {reportCards.map((card, idx) => (
           <Card 
             key={idx} 

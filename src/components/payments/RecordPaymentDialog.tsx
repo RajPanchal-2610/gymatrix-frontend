@@ -157,15 +157,15 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[500px] max-h-[92vh] flex flex-col">
+                <DialogHeader className="shrink-0">
                     <DialogTitle>Record Payment</DialogTitle>
                     <DialogDescription>
                         Recording {payment.remarks || "payment"} for {payment.gym_members?.full_name}
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4 flex-1 overflow-y-auto pr-1">
                     <div className="grid grid-cols-2 gap-4 bg-muted/30 p-3 rounded-lg">
                         <div>
                             <Label className="text-muted-foreground">Due Amount</Label>
@@ -200,9 +200,8 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="Cash">Cash</SelectItem>
-                                            <SelectItem value="Online">Online</SelectItem>
+                                            <SelectItem value="Online">UPI</SelectItem>
                                             <SelectItem value="Card">Card</SelectItem>
-                                            <SelectItem value="Cheque">Cheque</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -231,13 +230,13 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
                     </Button>
                 </div>
 
-                <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6 shrink-0">
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
                     <Button
                         onClick={handleSave}
-                        className="gradient-primary"
+                        className="gradient-primary w-full sm:w-auto"
                         disabled={loading || totalEntered <= 0 || totalEntered > payment.due_amount}
                     >
                         {loading ? (

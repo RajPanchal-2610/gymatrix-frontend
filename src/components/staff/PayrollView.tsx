@@ -276,9 +276,9 @@ export function PayrollView() {
 
     return (
         <div className="space-y-6">
-            <div className="flex gap-4 items-center">
+            <div className="flex flex-row gap-3 items-center w-full">
                 <Select value={month.toString()} onValueChange={(v) => setMonth(Number(v))}>
-                    <SelectTrigger className="w-[150px]">
+                    <SelectTrigger className="w-full sm:w-[150px]">
                         <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -289,7 +289,7 @@ export function PayrollView() {
                 </Select>
 
                 <Select value={year.toString()} onValueChange={(v) => setYear(Number(v))}>
-                    <SelectTrigger className="w-[100px]">
+                    <SelectTrigger className="w-full sm:w-[100px]">
                         <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -305,12 +305,12 @@ export function PayrollView() {
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted">
-                                <TableHead>Staff Name</TableHead>
-                                <TableHead>Base Salary</TableHead>
-                                <TableHead>Present / Total Days</TableHead>
-                                <TableHead>Net Salary</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="whitespace-nowrap">Staff Name</TableHead>
+                                <TableHead className="whitespace-nowrap">Base Salary</TableHead>
+                                <TableHead className="whitespace-nowrap">Present / Total Days</TableHead>
+                                <TableHead className="whitespace-nowrap">Net Salary</TableHead>
+                                <TableHead className="whitespace-nowrap">Status</TableHead>
+                                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -318,12 +318,12 @@ export function PayrollView() {
                                 const record = payrollMap[member.id];
                                 return (
                                     <TableRow key={member.id}>
-                                        <TableCell className="font-medium">{member.full_name}</TableCell>
-                                        <TableCell>₹{record ? record.base_salary : (member.salary || 0)}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="font-medium whitespace-nowrap">{member.full_name}</TableCell>
+                                        <TableCell className="whitespace-nowrap">₹{record ? record.base_salary : (member.salary || 0)}</TableCell>
+                                        <TableCell className="whitespace-nowrap">
                                             {record ? `${record.present_days} / ${record.total_working_days}` : '-'}
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="whitespace-nowrap">
                                             <div className="flex items-center gap-2">
                                                 {record ? `₹${record.net_salary}` : '-'}
                                                 {record && calculatedNetSalaries[member.id] !== undefined && record.net_salary !== calculatedNetSalaries[member.id] && record.payment_status !== 'PAID' && (
@@ -341,19 +341,19 @@ export function PayrollView() {
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell className="whitespace-nowrap">
                                             {record ? (
                                                 <span className={cn(
-                                                    "px-2 py-1 rounded-full text-xs font-semibold",
+                                                    "px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
                                                     record.payment_status === 'PAID' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
                                                 )}>
                                                     {record.payment_status}
                                                 </span>
                                             ) : (
-                                                <span className="text-muted-foreground text-xs">Not Generated</span>
+                                                <span className="text-muted-foreground text-xs whitespace-nowrap">Not Generated</span>
                                             )}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell className="text-right whitespace-nowrap">
                                             {(hasPermission('add_payroll') || hasPermission('edit_payroll')) && (
                                                 <Button
                                                     size="sm"
