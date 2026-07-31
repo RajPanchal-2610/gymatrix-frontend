@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, Shield, IndianRupee, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,7 +72,8 @@ export function StaffList() {
         status: 'active',
         salary: 0,
         role_id: undefined,
-        allow_login: false
+        allow_login: false,
+        join_date: format(new Date(), "yyyy-MM-dd")
     });
     const [editStaff, setEditStaff] = useState<Partial<GymStaff & { password?: string }>>({});
 
@@ -134,7 +136,8 @@ export function StaffList() {
                 status: 'active',
                 salary: 0,
                 role_id: undefined,
-                allow_login: false
+                allow_login: false,
+                join_date: format(new Date(), "yyyy-MM-dd")
             });
         } catch (error: any) {
             console.error("Error creating staff:", error);
@@ -150,7 +153,7 @@ export function StaffList() {
         setEditStaff({
             full_name: member.full_name,
             phone: member.phone,
-            join_date: member.join_date,
+            join_date: member.join_date ? member.join_date.split('T')[0] : '',
             role_id: member.role_id,
             status: member.status,
             salary: member.salary,

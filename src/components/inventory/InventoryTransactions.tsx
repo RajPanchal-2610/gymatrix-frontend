@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import { inventoryService } from "@/services/inventoryService";
 import { InventoryTransaction, InventoryItem, InventoryVendor } from "@/types/inventory";
 import { useGym } from "@/hooks/useGym";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { supabase } from "@/lib/supabase";
 
 export function InventoryTransactions() {
     const { toast } = useToast();
@@ -42,6 +43,7 @@ export function InventoryTransactions() {
     const [vendors, setVendors] = useState<InventoryVendor[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [editingTrxId, setEditingTrxId] = useState<number | null>(null);
 
     // For maintenance record when transaction_type is 'repair'
     const [maintenanceIssue, setMaintenanceIssue] = useState('');
@@ -99,7 +101,7 @@ export function InventoryTransactions() {
         }
 
         try {
-            let purchase_id = undefined;
+            let purchase_id = newTransaction.purchase_id;
 
             const computedTotalCost = newTransaction.unit_cost && newTransaction.quantity
                 ? newTransaction.unit_cost * newTransaction.quantity
@@ -110,41 +112,99 @@ export function InventoryTransactions() {
                 finalQuantity = -finalQuantity;
             }
 
-            // If it's a purchase and they filled out cost/vendor, optionally create a purchase record
-            if (newTransaction.transaction_type === 'purchase' && vendorId) {
-                const purchase = await inventoryService.createPurchase({
-                    gym_id: gymId!,
-                    vendor_id: vendorId as number,
-                    total_amount: computedTotalCost,
-                    purchase_date: new Date().toISOString()
+            if (editingTrxId) {
+                // If purchase and vendor is selected
+                if (newTransaction.transaction_type === 'purchase' && vendorId && vendorId !== 'none') {
+                    if (purchase_id) {
+                        await inventoryService.updatePurchase(purchase_id, {
+                            vendor_id: vendorId as number,
+                            total_amount: computedTotalCost
+                        });
+                    } else {
+                        const purchase = await inventoryService.createPurchase({
+                            gym_id: gymId!,
+                            vendor_id: vendorId as number,
+                            total_amount: computedTotalCost,
+                            purchase_date: new Date().toISOString()
+                        });
+                        purchase_id = purchase.id;
+                    }
+                } else if (purchase_id) {
+                    await supabase.from('gym_inventory_purchases').delete().eq('id', purchase_id);
+                    purchase_id = undefined;
+                }
+
+                let maintenance_id = newTransaction.maintenance_id;
+                if (newTransaction.transaction_type === 'repair') {
+                    if (maintenance_id) {
+                        await inventoryService.updateMaintenance(maintenance_id, {
+                            quantity: finalQuantity,
+                            issue_description: maintenanceIssue,
+                            repaired_by: repairedBy || undefined
+                        });
+                    } else {
+                        const maintenanceRecord = await inventoryService.createMaintenance({
+                            gym_id: gymId!,
+                            item_id: newTransaction.item_id,
+                            quantity: finalQuantity,
+                            issue_description: maintenanceIssue,
+                            repaired_by: repairedBy || undefined,
+                            status: 'pending'
+                        });
+                        maintenance_id = maintenanceRecord.id;
+                    }
+                } else if (maintenance_id) {
+                    await inventoryService.deleteMaintenance(maintenance_id);
+                    maintenance_id = undefined;
+                }
+
+                await inventoryService.updateTransaction(editingTrxId, {
+                    ...newTransaction,
+                    quantity: finalQuantity,
+                    purchase_id: purchase_id || null,
+                    maintenance_id: maintenance_id || null,
+                    total_cost: computedTotalCost
                 });
-                purchase_id = purchase.id;
+
+                toast({ title: "Success", description: "Transaction updated successfully." });
+            } else {
+                // If it's a purchase and they filled out cost/vendor, optionally create a purchase record
+                if (newTransaction.transaction_type === 'purchase' && vendorId && vendorId !== 'none') {
+                    const purchase = await inventoryService.createPurchase({
+                        gym_id: gymId!,
+                        vendor_id: vendorId as number,
+                        total_amount: computedTotalCost,
+                        purchase_date: new Date().toISOString()
+                    });
+                    purchase_id = purchase.id;
+                }
+
+                let maintenance_id = undefined;
+
+                if (newTransaction.transaction_type === 'repair') {
+                    const maintenanceRecord = await inventoryService.createMaintenance({
+                        gym_id: gymId!,
+                        item_id: newTransaction.item_id,
+                        quantity: finalQuantity,
+                        issue_description: maintenanceIssue,
+                        repaired_by: repairedBy || undefined,
+                        status: 'pending'
+                    });
+                    maintenance_id = maintenanceRecord.id;
+                }
+
+                await inventoryService.handleTransaction({
+                    ...newTransaction,
+                    quantity: finalQuantity,
+                    gym_id: gymId!,
+                    purchase_id: purchase_id,
+                    maintenance_id: maintenance_id,
+                    total_cost: computedTotalCost
+                });
+
+                toast({ title: "Success", description: "Transaction logged successfully." });
             }
 
-            let maintenance_id = undefined;
-
-            if (newTransaction.transaction_type === 'repair') {
-                const maintenanceRecord = await inventoryService.createMaintenance({
-                    gym_id: gymId!,
-                    item_id: newTransaction.item_id,
-                    quantity: finalQuantity, // send quantity to maintenance
-                    issue_description: maintenanceIssue,
-                    repaired_by: repairedBy || undefined,
-                    status: 'pending'
-                });
-                maintenance_id = maintenanceRecord.id;
-            }
-
-            await inventoryService.handleTransaction({
-                ...newTransaction,
-                quantity: finalQuantity,
-                gym_id: gymId!,
-                purchase_id: purchase_id,
-                maintenance_id: maintenance_id,
-                total_cost: computedTotalCost
-            });
-
-            toast({ title: "Success", description: "Transaction logged successfully." });
             setDialogOpen(false);
             fetchData();
             // Reset
@@ -153,22 +213,111 @@ export function InventoryTransactions() {
             setMaintenanceIssue('');
             setRepairedBy('');
             setAdjustmentType('add');
+            setEditingTrxId(null);
         } catch (error: any) {
             console.error("Error saving transaction:", error);
             toast({
                 title: "Error",
-                description: error.message || "Failed to log transaction.",
+                description: error.message || "Failed to save transaction.",
                 variant: "destructive",
             });
         }
     };
 
-    const getTransactionColor = (type: string) => {
-        switch (type) {
+    const handleEditClick = async (trx: any) => {
+        setEditingTrxId(trx.id);
+        setNewTransaction({
+            id: trx.id,
+            transaction_type: trx.transaction_type,
+            item_id: trx.item_id,
+            quantity: Math.abs(trx.quantity),
+            unit_cost: trx.unit_cost || (trx.total_cost && trx.quantity ? trx.total_cost / Math.abs(trx.quantity) : 0),
+            total_cost: trx.total_cost,
+            notes: trx.notes,
+            purchase_id: trx.purchase_id,
+            maintenance_id: trx.maintenance_id
+        });
+        setAdjustmentType(trx.quantity < 0 ? 'reduce' : 'add');
+        
+        if (trx.purchase_id) {
+            try {
+                const { data: purchaseData } = await supabase
+                    .from('gym_inventory_purchases')
+                    .select('vendor_id')
+                    .eq('id', trx.purchase_id)
+                    .single();
+                if (purchaseData) setVendorId(purchaseData.vendor_id || '');
+            } catch (err) {
+                console.error(err);
+                setVendorId('');
+            }
+        } else {
+            setVendorId('');
+        }
+
+        if (trx.maintenance_id) {
+            try {
+                const { data: maintenanceData } = await supabase
+                    .from('gym_inventory_maintenance')
+                    .select('issue_description, repaired_by')
+                    .eq('id', trx.maintenance_id)
+                    .single();
+                if (maintenanceData) {
+                    setMaintenanceIssue(maintenanceData.issue_description || '');
+                    setRepairedBy(maintenanceData.repaired_by || '');
+                }
+            } catch (err) {
+                console.error(err);
+                setMaintenanceIssue('');
+                setRepairedBy('');
+            }
+        } else {
+            setMaintenanceIssue('');
+            setRepairedBy('');
+        }
+        
+        setDialogOpen(true);
+    };
+
+    const handleDelete = async (trx: any) => {
+        if (!confirm(`Are you sure you want to delete this ${trx.transaction_type} transaction? This will automatically revert its stock quantity changes!`)) return;
+        try {
+            await inventoryService.deleteTransaction(trx.id);
+            toast({ title: "Success", description: "Transaction deleted." });
+            fetchData();
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: "Error", description: error.message || "Failed to delete transaction.", variant: "destructive" });
+        }
+    };
+
+    const getTransactionLabel = (trx: any) => {
+        if (trx.transaction_type === 'replacement') {
+            if (trx.notes && trx.notes.startsWith('Replaced:')) {
+                return 'Replaced';
+            }
+            return 'Returned from Repair';
+        }
+        switch (trx.transaction_type) {
+            case 'purchase': return 'Purchase';
+            case 'opening_stock': return 'Opening Stock';
+            case 'repair': return 'Sent to Repair';
+            case 'adjustment': return 'Stock Adjustment';
+            default: return trx.transaction_type;
+        }
+    };
+
+    const getTransactionColor = (trx: any) => {
+        if (trx.transaction_type === 'replacement') {
+            if (trx.notes && trx.notes.startsWith('Replaced:')) {
+                return 'bg-green-100 text-green-800 border-green-200';
+            }
+            return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        }
+        switch (trx.transaction_type) {
             case 'purchase': return 'bg-blue-100 text-blue-800 border-blue-200';
             case 'opening_stock': return 'bg-teal-100 text-teal-800 border-teal-200';
             case 'repair': return 'bg-orange-100 text-orange-800 border-orange-200';
-            case 'replacement': return 'bg-green-100 text-green-800 border-green-200';
             case 'adjustment': return 'bg-purple-100 text-purple-800 border-purple-200';
             default: return 'bg-gray-100 text-gray-800 border-gray-200';
         }
@@ -181,14 +330,21 @@ export function InventoryTransactions() {
                 {hasPermission('add_inventory') && (
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gradient-primary shadow-glow">
+                            <Button className="gradient-primary shadow-glow" onClick={() => {
+                                setNewTransaction({ transaction_type: 'purchase', quantity: 1, gym_id: gymId || 0 });
+                                setVendorId('');
+                                setMaintenanceIssue('');
+                                setRepairedBy('');
+                                setAdjustmentType('add');
+                                setEditingTrxId(null);
+                            }}>
                                 <Plus className="h-4 w-4 mr-2" />
                                 Log Transaction
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[450px]">
                             <DialogHeader>
-                                <DialogTitle>Log Stock Movement</DialogTitle>
+                                <DialogTitle>{editingTrxId ? 'Edit Stock Movement' : 'Log Stock Movement'}</DialogTitle>
                             </DialogHeader>
                             <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-2">
                                 <div className="space-y-2">
@@ -202,7 +358,6 @@ export function InventoryTransactions() {
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="purchase">Purchase (Add Stock)</SelectItem>
-                                            <SelectItem value="repair">Send to Repair</SelectItem>
                                             <SelectItem value="adjustment">Stock Adjustment</SelectItem>
                                         </SelectContent>
                                     </Select>
@@ -286,26 +441,7 @@ export function InventoryTransactions() {
                                     </div>
                                 )}
 
-                                {newTransaction.transaction_type === 'repair' && (
-                                    <>
-                                        <div className="space-y-2">
-                                            <Label>Issue Description *</Label>
-                                            <Input
-                                                value={maintenanceIssue}
-                                                onChange={(e) => setMaintenanceIssue(e.target.value)}
-                                                placeholder="What is wrong with the item?"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Repair Vendor / Sent To</Label>
-                                            <Input
-                                                value={repairedBy}
-                                                onChange={(e) => setRepairedBy(e.target.value)}
-                                                placeholder="Where is the item being repaired?"
-                                            />
-                                        </div>
-                                    </>
-                                )}
+
 
                                 <div className="space-y-2">
                                     <Label>Notes</Label>
@@ -336,6 +472,7 @@ export function InventoryTransactions() {
                                 <TableHead>Quantity</TableHead>
                                 <TableHead>Details</TableHead>
                                 <TableHead>Cost</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -345,8 +482,8 @@ export function InventoryTransactions() {
                                         {new Date(trx.created_at).toLocaleDateString()}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="outline" className={`capitalize ${getTransactionColor(trx.transaction_type)}`}>
-                                            {trx.transaction_type}
+                                        <Badge variant="outline" className={`capitalize ${getTransactionColor(trx)}`}>
+                                            {getTransactionLabel(trx)}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="font-medium">
@@ -363,11 +500,25 @@ export function InventoryTransactions() {
                                     <TableCell>
                                         {trx.total_cost ? `₹${Number(trx.total_cost).toFixed(2)}` : '-'}
                                     </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-1">
+                                            {hasPermission('edit_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
+                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(trx)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {hasPermission('delete_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
+                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(trx)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                             {transactions.length === 0 && !loading && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center text-muted-foreground p-6">
+                                    <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
                                         No transactions found. Log one above.
                                     </TableCell>
                                 </TableRow>

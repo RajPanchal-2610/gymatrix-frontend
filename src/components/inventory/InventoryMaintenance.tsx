@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import {
     Dialog,
@@ -41,6 +42,7 @@ export function InventoryMaintenance() {
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [completionAction, setCompletionAction] = useState<'repaired' | 'replaced'>('repaired');
 
     const [editingJob, setEditingJob] = useState<Partial<IMaintenance>>({
         status: 'pending',
@@ -86,6 +88,17 @@ export function InventoryMaintenance() {
                 const { gym_inventory_items, ...updateData } = editingJob as any;
                 await inventoryService.updateMaintenance(editingJob.id, updateData);
 
+                // Sync repair_cost with associated repair transaction
+                try {
+                    await supabase
+                        .from('gym_inventory_transactions')
+                        .update({ total_cost: editingJob.repair_cost || 0 })
+                        .eq('maintenance_id', editingJob.id)
+                        .eq('transaction_type', 'repair');
+                } catch (err) {
+                    console.error("Failed to sync cost with repair transaction", err);
+                }
+
                 if (originalJob && originalJob.status === 'pending' && (editingJob.status === 'completed' || editingJob.status === 'cancelled')) {
                     await inventoryService.handleTransaction({
                         gym_id: gymId!,
@@ -93,8 +106,10 @@ export function InventoryMaintenance() {
                         maintenance_id: editingJob.id,
                         transaction_type: 'replacement',
                         quantity: originalJob.quantity || 1,
-                        notes: editingJob.status === 'completed' ? 'Returned from maintenance' : 'Maintenance cancelled, returned to stock',
-                        total_cost: editingJob.status === 'completed' ? (editingJob.repair_cost || 0) : 0
+                        notes: editingJob.status === 'completed'
+                            ? (completionAction === 'replaced' ? 'Replaced: Replaced with a new item during maintenance' : 'Repaired: Returned same item from maintenance')
+                            : 'Maintenance cancelled, returned to stock',
+                        total_cost: 0 // Avoid double counting
                     });
                 }
 
@@ -112,7 +127,8 @@ export function InventoryMaintenance() {
                     maintenance_id: maintenanceRecord.id,
                     transaction_type: 'repair',
                     quantity: editingJob.quantity || 1,
-                    notes: 'Sent to maintenance: ' + (editingJob.issue_description || 'Unknown issue')
+                    notes: 'Sent to maintenance: ' + (editingJob.issue_description || 'Unknown issue'),
+                    total_cost: editingJob.repair_cost || 0 // Sync cost to repair transaction
                 });
 
                 if (editingJob.status === 'completed' || editingJob.status === 'cancelled') {
@@ -122,8 +138,10 @@ export function InventoryMaintenance() {
                         maintenance_id: maintenanceRecord.id,
                         transaction_type: 'replacement',
                         quantity: editingJob.quantity || 1,
-                        notes: editingJob.status === 'completed' ? 'Returned from maintenance' : 'Maintenance cancelled, returned to stock',
-                        total_cost: editingJob.status === 'completed' ? (editingJob.repair_cost || 0) : 0
+                        notes: editingJob.status === 'completed'
+                            ? (completionAction === 'replaced' ? 'Replaced: Replaced with a new item during maintenance' : 'Repaired: Returned same item from maintenance')
+                            : 'Maintenance cancelled, returned to stock',
+                        total_cost: 0 // Avoid double counting
                     });
                 }
 
@@ -157,8 +175,10 @@ export function InventoryMaintenance() {
     const openDialog = (job?: any) => {
         if (job) {
             setEditingJob(job);
+            setCompletionAction('repaired');
         } else {
             setEditingJob({ status: 'pending', quantity: 1, gym_id: gymId! });
+            setCompletionAction('repaired');
         }
         setDialogOpen(true);
     };
@@ -244,6 +264,24 @@ export function InventoryMaintenance() {
                                         />
                                     </div>
                                 </div>
+
+                                {editingJob.status === 'completed' && (
+                                    <div className="space-y-2">
+                                        <Label>Completion Action</Label>
+                                        <Select
+                                            value={completionAction}
+                                            onValueChange={(val: any) => setCompletionAction(val)}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="repaired">Repaired (Returned same item)</SelectItem>
+                                                <SelectItem value="replaced">Replaced (New item replacement)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
 
                                 <div className="space-y-2">
                                     <Label>Repair Date</Label>

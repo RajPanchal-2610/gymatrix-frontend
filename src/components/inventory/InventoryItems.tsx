@@ -43,6 +43,7 @@ export function InventoryItems() {
     const [categories, setCategories] = useState<InventoryCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [originalOpeningStock, setOriginalOpeningStock] = useState<number>(0);
     const [editingItem, setEditingItem] = useState<Partial<InventoryItem> & { opening_stock?: number }>({
         name: '', brand: '', model: '', condition: 'working', status: 'active', gym_id: gymId || 0, opening_stock: 0
     });
@@ -87,6 +88,12 @@ export function InventoryItems() {
             if (editingItem.id) {
                 const { opening_stock, ...updateData } = editingItem;
                 await inventoryService.updateItem(editingItem.id, updateData);
+                
+                const newOpeningStock = editingItem.opening_stock || 0;
+                if (newOpeningStock !== originalOpeningStock) {
+                    await inventoryService.updateOpeningStock(gymId!, editingItem.id, newOpeningStock, originalOpeningStock);
+                }
+                
                 toast({ title: "Success", description: "Item updated successfully." });
             } else {
                 const { opening_stock, ...createData } = editingItem;
@@ -133,13 +140,25 @@ export function InventoryItems() {
         }
     };
 
-    const openDialog = (item?: InventoryItem) => {
+    const openDialog = async (item?: InventoryItem) => {
         if (item) {
             setEditingItem({ ...item, opening_stock: 0 });
+            setOriginalOpeningStock(0);
+            setDialogOpen(true);
+            try {
+                const transactions = await inventoryService.getItemTransactions(item.gym_id, item.id);
+                const openingTx = transactions.find(t => t.transaction_type === 'opening_stock');
+                const qty = openingTx ? openingTx.quantity : 0;
+                setEditingItem({ ...item, opening_stock: qty });
+                setOriginalOpeningStock(qty);
+            } catch (err) {
+                console.error("Failed to load opening stock", err);
+            }
         } else {
             setEditingItem({ name: '', brand: '', model: '', condition: 'working', status: 'active', gym_id: gymId!, opening_stock: 0 });
+            setOriginalOpeningStock(0);
+            setDialogOpen(true);
         }
-        setDialogOpen(true);
     };
 
     const openFlowchart = (item: any) => {
@@ -209,31 +228,29 @@ export function InventoryItems() {
                                         />
                                     </div>
                                 </div>
-                                {!editingItem.id && (
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="price">Base Purchase Price (₹)</Label>
-                                            <Input
-                                                id="price"
-                                                type="number"
-                                                value={editingItem.purchase_price || ''}
-                                                onChange={(e) => setEditingItem({ ...editingItem, purchase_price: parseFloat(e.target.value) })}
-                                                placeholder="0.00"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="opening_stock">Opening Stock</Label>
-                                            <Input
-                                                id="opening_stock"
-                                                type="number"
-                                                value={editingItem.opening_stock || ''}
-                                                onChange={(e) => setEditingItem({ ...editingItem, opening_stock: parseInt(e.target.value) || 0 })}
-                                                placeholder="0"
-                                                min="0"
-                                            />
-                                        </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="price">Base Purchase Price (₹)</Label>
+                                        <Input
+                                            id="price"
+                                            type="number"
+                                            value={editingItem.purchase_price || ''}
+                                            onChange={(e) => setEditingItem({ ...editingItem, purchase_price: parseFloat(e.target.value) })}
+                                            placeholder="0.00"
+                                        />
                                     </div>
-                                )}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="opening_stock">Opening Stock</Label>
+                                        <Input
+                                            id="opening_stock"
+                                            type="number"
+                                            value={editingItem.opening_stock || ''}
+                                            onChange={(e) => setEditingItem({ ...editingItem, opening_stock: parseInt(e.target.value) || 0 })}
+                                            placeholder="0"
+                                            min="0"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label htmlFor="status">Status</Label>

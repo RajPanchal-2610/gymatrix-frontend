@@ -190,11 +190,14 @@ export const dietWorkoutService = {
         if (deleteError) throw deleteError;
 
         if (items.length > 0) {
-            const itemsWithPlanId = items.map((item, idx) => ({
-                ...item,
-                diet_plan_id: planId,
-                sort_order: item.sort_order ?? idx,
-            }));
+            const itemsWithPlanId = items.map((item, idx) => {
+                const { id, ...itemWithoutId } = item as any;
+                return {
+                    ...itemWithoutId,
+                    diet_plan_id: planId,
+                    sort_order: item.sort_order ?? idx,
+                };
+            });
 
             const { error: insertError } = await supabase
                 .from('gym_diet_plan_items')
@@ -304,11 +307,14 @@ export const dietWorkoutService = {
         if (deleteError) throw deleteError;
 
         if (items.length > 0) {
-            const itemsWithPlanId = items.map((item, idx) => ({
-                ...item,
-                workout_plan_id: planId,
-                sort_order: item.sort_order ?? idx,
-            }));
+            const itemsWithPlanId = items.map((item, idx) => {
+                const { id, ...itemWithoutId } = item as any;
+                return {
+                    ...itemWithoutId,
+                    workout_plan_id: planId,
+                    sort_order: item.sort_order ?? idx,
+                };
+            });
 
             const { error: insertError } = await supabase
                 .from('gym_workout_plan_items')

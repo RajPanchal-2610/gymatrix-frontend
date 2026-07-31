@@ -106,9 +106,10 @@ export const inventoryService = {
     },
 
     async createItem(item: Partial<InventoryItem>): Promise<InventoryItem> {
+        const { gym_inventory_stock, gym_inventory_categories, ...cleanItem } = item as any;
         const { data, error } = await supabase
             .from('gym_inventory_items')
-            .insert(item)
+            .insert(cleanItem)
             .select()
             .single();
         if (error) throw error;
@@ -131,9 +132,10 @@ export const inventoryService = {
     },
 
     async updateItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem> {
+        const { gym_inventory_stock, gym_inventory_categories, ...cleanItem } = item as any;
         const { data, error } = await supabase
             .from('gym_inventory_items')
-            .update(item)
+            .update(cleanItem)
             .eq('id', id)
             .select()
             .single();
@@ -260,6 +262,221 @@ export const inventoryService = {
         return data;
     },
 
+    async updateOpeningStock(gymId: number, itemId: number, newQty: number, oldQty: number): Promise<void> {
+        // 1. Find the opening stock transaction
+        const { data: txData, error: txFetchError } = await supabase
+            .from('gym_inventory_transactions')
+            .select('*')
+            .eq('item_id', itemId)
+            .eq('transaction_type', 'opening_stock')
+            .maybeSingle();
+
+        if (txFetchError) throw txFetchError;
+
+        const diff = newQty - oldQty;
+
+        if (txData) {
+            // Update existing transaction
+            const { error: txUpdateError } = await supabase
+                .from('gym_inventory_transactions')
+                .update({ quantity: newQty, total_cost: txData.unit_cost ? txData.unit_cost * newQty : 0 })
+                .eq('id', txData.id);
+            if (txUpdateError) throw txUpdateError;
+        } else {
+            // Create new transaction
+            const { error: txInsertError } = await supabase
+                .from('gym_inventory_transactions')
+                .insert({
+                    gym_id: gymId,
+                    item_id: itemId,
+                    transaction_type: 'opening_stock',
+                    quantity: newQty,
+                    notes: 'Initial opening stock',
+                    total_cost: 0
+                });
+            if (txInsertError) throw txInsertError;
+        }
+
+        // 2. Fetch current stock
+        const { data: stockData, error: stockFetchError } = await supabase
+            .from('gym_inventory_stock')
+            .select('*')
+            .eq('item_id', itemId)
+            .single();
+
+        if (stockFetchError) throw stockFetchError;
+
+        // 3. Update stock
+        const { error: stockUpdateError } = await supabase
+            .from('gym_inventory_stock')
+            .update({
+                total_quantity: Math.max(0, stockData.total_quantity + diff),
+                available_quantity: Math.max(0, stockData.available_quantity + diff)
+            })
+            .eq('id', stockData.id);
+
+        if (stockUpdateError) throw stockUpdateError;
+    },
+
+    async updatePurchase(id: number, purchase: Partial<InventoryPurchase>): Promise<InventoryPurchase> {
+        const { data, error } = await supabase
+            .from('gym_inventory_purchases')
+            .update(purchase)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteTransaction(id: number): Promise<void> {
+        // 1. Fetch the target transaction
+        const { data: trx, error: trxfError } = await supabase
+            .from('gym_inventory_transactions')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (trxfError) throw trxfError;
+
+        // 2. Fetch current stock
+        const { data: stockData, error: stockFetchError } = await supabase
+            .from('gym_inventory_stock')
+            .select('*')
+            .eq('item_id', trx.item_id)
+            .single();
+        if (stockFetchError) throw stockFetchError;
+
+        // 3. Revert stock levels (inverse of transaction type effects)
+        let updates = { ...stockData };
+        const qty = trx.quantity || 0;
+
+        switch (trx.transaction_type) {
+            case 'purchase':
+            case 'opening_stock':
+            case 'adjustment':
+                updates.total_quantity -= qty;
+                updates.available_quantity -= qty;
+                break;
+            case 'repair':
+                updates.repair_quantity -= qty;
+                updates.available_quantity += qty;
+                break;
+            case 'replacement':
+                updates.repair_quantity += qty;
+                updates.available_quantity -= qty;
+                break;
+        }
+
+        // 4. Update Stock
+        const { error: stockUpdateError } = await supabase
+            .from('gym_inventory_stock')
+            .update({
+                total_quantity: Math.max(0, updates.total_quantity),
+                available_quantity: Math.max(0, updates.available_quantity),
+                damaged_quantity: Math.max(0, updates.damaged_quantity),
+                repair_quantity: Math.max(0, updates.repair_quantity),
+            })
+            .eq('id', stockData.id);
+        if (stockUpdateError) throw stockUpdateError;
+
+        // 5. Delete linked purchase or maintenance if present
+        if (trx.purchase_id) {
+            await supabase.from('gym_inventory_purchases').delete().eq('id', trx.purchase_id);
+        }
+        if (trx.maintenance_id) {
+            await supabase.from('gym_inventory_maintenance').delete().eq('id', trx.maintenance_id);
+        }
+
+        // 6. Delete transaction record
+        const { error: deleteError } = await supabase
+            .from('gym_inventory_transactions')
+            .delete()
+            .eq('id', id);
+        if (deleteError) throw deleteError;
+    },
+
+    async updateTransaction(id: number, updates: Partial<InventoryTransaction>): Promise<InventoryTransaction> {
+        // 1. Fetch original transaction
+        const { data: oldTrx, error: oldTrxfError } = await supabase
+            .from('gym_inventory_transactions')
+            .select('*')
+            .eq('id', id)
+            .single();
+        if (oldTrxfError) throw oldTrxfError;
+
+        // 2. Fetch current stock
+        const { data: stockData, error: stockFetchError } = await supabase
+            .from('gym_inventory_stock')
+            .select('*')
+            .eq('item_id', oldTrx.item_id)
+            .single();
+        if (stockFetchError) throw stockFetchError;
+
+        // 3. First, revert original transaction effect
+        let stockUpdates = { ...stockData };
+        const oldQty = oldTrx.quantity || 0;
+
+        switch (oldTrx.transaction_type) {
+            case 'purchase':
+            case 'opening_stock':
+            case 'adjustment':
+                stockUpdates.total_quantity -= oldQty;
+                stockUpdates.available_quantity -= oldQty;
+                break;
+            case 'repair':
+                stockUpdates.repair_quantity -= oldQty;
+                stockUpdates.available_quantity += oldQty;
+                break;
+            case 'replacement':
+                stockUpdates.repair_quantity += oldQty;
+                stockUpdates.available_quantity -= oldQty;
+                break;
+        }
+
+        // 4. Next, apply new transaction effect
+        const newType = updates.transaction_type || oldTrx.transaction_type;
+        const newQty = updates.quantity !== undefined ? updates.quantity : oldTrx.quantity;
+
+        switch (newType) {
+            case 'purchase':
+            case 'opening_stock':
+            case 'adjustment':
+                stockUpdates.total_quantity += newQty;
+                stockUpdates.available_quantity += newQty;
+                break;
+            case 'repair':
+                stockUpdates.repair_quantity += newQty;
+                stockUpdates.available_quantity -= newQty;
+                break;
+            case 'replacement':
+                stockUpdates.repair_quantity -= newQty;
+                stockUpdates.available_quantity += newQty;
+                break;
+        }
+
+        // 5. Update Stock
+        const { error: stockUpdateError } = await supabase
+            .from('gym_inventory_stock')
+            .update({
+                total_quantity: Math.max(0, stockUpdates.total_quantity),
+                available_quantity: Math.max(0, stockUpdates.available_quantity),
+                damaged_quantity: Math.max(0, stockUpdates.damaged_quantity),
+                repair_quantity: Math.max(0, stockUpdates.repair_quantity),
+            })
+            .eq('id', stockData.id);
+        if (stockUpdateError) throw stockUpdateError;
+
+        // 6. Update Transaction Record
+        const { data, error } = await supabase
+            .from('gym_inventory_transactions')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+        if (error) throw error;
+        return data;
+    },
+
     // --- MAINTENANCE ---
     async getMaintenance(gymId: number): Promise<(InventoryMaintenance & { gym_inventory_items?: InventoryItem })[]> {
         const { data, error } = await supabase
@@ -296,6 +513,68 @@ export const inventoryService = {
     },
 
     async deleteMaintenance(id: number): Promise<void> {
+        // 1. Fetch all transactions associated with this maintenance_id
+        const { data: transactions, error: trxError } = await supabase
+            .from('gym_inventory_transactions')
+            .select('*')
+            .eq('maintenance_id', id);
+ 
+        if (trxError) throw trxError;
+ 
+        // 2. Revert stock effects for each transaction
+        if (transactions && transactions.length > 0) {
+            const itemId = transactions[0].item_id;
+ 
+            // Fetch current stock
+            const { data: stockData, error: stockFetchError } = await supabase
+                .from('gym_inventory_stock')
+                .select('*')
+                .eq('item_id', itemId)
+                .single();
+ 
+            if (!stockFetchError && stockData) {
+                let updates = { ...stockData };
+                for (const trx of transactions) {
+                    const qty = trx.quantity || 0;
+                    switch (trx.transaction_type) {
+                        case 'purchase':
+                        case 'opening_stock':
+                        case 'adjustment':
+                            updates.total_quantity -= qty;
+                            updates.available_quantity -= qty;
+                            break;
+                        case 'repair':
+                            updates.repair_quantity -= qty;
+                            updates.available_quantity += qty;
+                            break;
+                        case 'replacement':
+                            updates.repair_quantity += qty;
+                            updates.available_quantity -= qty;
+                            break;
+                    }
+                }
+ 
+                // Update stock
+                await supabase
+                    .from('gym_inventory_stock')
+                    .update({
+                        total_quantity: Math.max(0, updates.total_quantity),
+                        available_quantity: Math.max(0, updates.available_quantity),
+                        damaged_quantity: Math.max(0, updates.damaged_quantity),
+                        repair_quantity: Math.max(0, updates.repair_quantity),
+                    })
+                    .eq('id', stockData.id);
+            }
+ 
+            // 3. Delete those transactions
+            const { error: deleteTrxError } = await supabase
+                .from('gym_inventory_transactions')
+                .delete()
+                .eq('maintenance_id', id);
+            if (deleteTrxError) throw deleteTrxError;
+        }
+ 
+        // 4. Delete the maintenance record
         const { error } = await supabase
             .from('gym_inventory_maintenance')
             .delete()
