@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -203,9 +203,29 @@ export default function Profile() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [showOnWebsite, setShowOnWebsite] = useState(false);
+  const [title, setTitle] = useState("");
+  const [bio, setBio] = useState("");
+  const [specialties, setSpecialties] = useState("");
+  const [experienceYears, setExperienceYears] = useState<number | "">("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [initialData, setInitialData] = useState({ fullName: "", phone: "" });
+  const [initialData, setInitialData] = useState({
+    fullName: "",
+    phone: "",
+    showOnWebsite: false,
+    title: "",
+    bio: "",
+    specialties: "",
+    experienceYears: "" as number | "",
+    instagramUrl: "",
+    linkedinUrl: "",
+    avatarUrl: ""
+  });
 
   // Notification preferences states
   const [preferences, setPreferences] = useState({
@@ -225,7 +245,7 @@ export default function Profile() {
         if (user) {
           const { data: profile, error } = await supabase
             .from('profiles')
-            .select('full_name, email, phone, notification_preferences')
+            .select('full_name, email, phone, notification_preferences, show_on_website, title, bio, specialties, experience_years, social_links, avatar_url')
             .eq('user_id', user.id)
             .maybeSingle();
 
@@ -234,10 +254,39 @@ export default function Profile() {
           if (profile) {
             const nameVal = profile.full_name || "";
             const phoneVal = profile.phone || "";
+            const showOnWebsiteVal = profile.show_on_website || false;
+            const titleVal = profile.title || "";
+            const bioVal = profile.bio || "";
+            const specialtiesVal = profile.specialties ? profile.specialties.join(", ") : "";
+            const experienceYearsVal = profile.experience_years !== undefined && profile.experience_years !== null ? profile.experience_years : "";
+            const instagramVal = profile.social_links?.instagram || "";
+            const linkedinVal = profile.social_links?.linkedin || "";
+            const avatarVal = profile.avatar_url || "";
+
             setFullName(nameVal);
             setEmail(profile.email || user.email || "");
             setPhone(phoneVal);
-            setInitialData({ fullName: nameVal, phone: phoneVal });
+            setShowOnWebsite(showOnWebsiteVal);
+            setTitle(titleVal);
+            setBio(bioVal);
+            setSpecialties(specialtiesVal);
+            setExperienceYears(experienceYearsVal);
+            setInstagramUrl(instagramVal);
+            setLinkedinUrl(linkedinVal);
+            setAvatarUrl(avatarVal);
+
+            setInitialData({
+              fullName: nameVal,
+              phone: phoneVal,
+              showOnWebsite: showOnWebsiteVal,
+              title: titleVal,
+              bio: bioVal,
+              specialties: specialtiesVal,
+              experienceYears: experienceYearsVal,
+              instagramUrl: instagramVal,
+              linkedinUrl: linkedinVal,
+              avatarUrl: avatarVal
+            });
             if (profile.notification_preferences) {
               setPreferences(prev => ({
                 ...prev,
@@ -246,7 +295,18 @@ export default function Profile() {
             }
           } else {
             setEmail(user.email || "");
-            setInitialData({ fullName: "", phone: "" });
+            setInitialData({
+              fullName: "",
+              phone: "",
+              showOnWebsite: false,
+              title: "",
+              bio: "",
+              specialties: "",
+              experienceYears: "",
+              instagramUrl: "",
+              linkedinUrl: "",
+              avatarUrl: ""
+            });
           }
         }
       } catch (error) {
@@ -259,6 +319,44 @@ export default function Profile() {
     };
     fetchUserProfile();
   }, []);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("Image size must be less than 2MB");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No authenticated user found");
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('trainer-avatars')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('trainer-avatars')
+        .getPublicUrl(fileName);
+
+      setAvatarUrl(publicUrl);
+      toast.success("Avatar uploaded successfully!");
+    } catch (error: any) {
+      console.error("Avatar upload error:", error);
+      toast.error("Failed to upload avatar: " + error.message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (phone.trim() !== "") {
@@ -289,14 +387,24 @@ export default function Profile() {
         .maybeSingle();
 
       let error;
+      const specialtiesArray = specialties ? specialties.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const profilePayload = {
+        full_name: fullName,
+        phone: phone,
+        email: email,
+        show_on_website: showOnWebsite,
+        title: title,
+        bio: bio,
+        specialties: specialtiesArray,
+        experience_years: experienceYears === "" ? null : Number(experienceYears),
+        social_links: { instagram: instagramUrl, linkedin: linkedinUrl },
+        avatar_url: avatarUrl
+      };
+
       if (existingProfile) {
         const { error: err } = await supabase
           .from('profiles')
-          .update({
-            full_name: fullName,
-            phone: phone,
-            email: email
-          })
+          .update(profilePayload)
           .eq('user_id', user.id);
         error = err;
       } else {
@@ -304,16 +412,25 @@ export default function Profile() {
           .from('profiles')
           .insert({
             user_id: user.id,
-            full_name: fullName,
-            phone: phone,
-            email: email
+            ...profilePayload
           });
         error = err;
       }
 
       if (error) throw error;
       toast.success("Profile updated successfully!");
-      setInitialData({ fullName: fullName, phone: phone });
+      setInitialData({
+        fullName: fullName,
+        phone: phone,
+        showOnWebsite: showOnWebsite,
+        title: title,
+        bio: bio,
+        specialties: specialties,
+        experienceYears: experienceYears,
+        instagramUrl: instagramUrl,
+        linkedinUrl: linkedinUrl,
+        avatarUrl: avatarUrl
+      });
       window.dispatchEvent(new CustomEvent("profile-updated"));
     } catch (error: any) {
       console.error(error);
@@ -356,7 +473,17 @@ export default function Profile() {
     );
   }
 
-  const isChanged = fullName !== initialData.fullName || phone !== initialData.phone;
+  const isChanged = 
+    fullName !== initialData.fullName || 
+    phone !== initialData.phone ||
+    showOnWebsite !== initialData.showOnWebsite ||
+    title !== initialData.title ||
+    bio !== initialData.bio ||
+    specialties !== initialData.specialties ||
+    experienceYears !== initialData.experienceYears ||
+    instagramUrl !== initialData.instagramUrl ||
+    linkedinUrl !== initialData.linkedinUrl ||
+    avatarUrl !== initialData.avatarUrl;
 
   const initials = initialData.fullName
     ? initialData.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -375,11 +502,28 @@ export default function Profile() {
         {/* Left Card: Summary banner */}
         <Card className="md:col-span-1 border border-border bg-card/50 backdrop-blur-xl">
           <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
-            <Avatar className="h-24 w-24 border-2 border-primary/20 ring-offset-background ring-2 ring-primary/10">
-              <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative group">
+              <Avatar className="h-24 w-24 border-2 border-primary/20 ring-offset-background ring-2 ring-primary/10 transition-transform group-hover:scale-[1.02]">
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />}
+                <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <label 
+                htmlFor="avatar-upload" 
+                className="absolute inset-0 flex items-center justify-center bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity duration-200 text-xs font-semibold"
+              >
+                {uploadingAvatar ? "Uploading..." : "Change Photo"}
+              </label>
+              <input 
+                id="avatar-upload" 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={handleAvatarUpload}
+                disabled={uploadingAvatar}
+              />
+            </div>
             <div className="space-y-1">
               <h2 className="text-xl font-bold">{initialData.fullName || "User Name"}</h2>
               <p className="text-xs text-muted-foreground bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-semibold inline-block capitalize">
@@ -451,6 +595,100 @@ export default function Profile() {
                   />
                 </div>
               </div>
+            </div>
+
+            <Separator className="my-6 bg-border/50" />
+
+            <div className="space-y-6">
+              <div className="flex items-center justify-between p-4 rounded-xl border border-primary/10 bg-primary/5 transition-all">
+                <div className="space-y-0.5 pr-4">
+                  <Label htmlFor="showOnWebsite" className="text-base font-semibold cursor-pointer">
+                    Show Profile on Public Website
+                  </Label>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Allow potential clients and visitors to see your profile and contact details on the gym's public trainers page.
+                  </p>
+                </div>
+                <Switch
+                  id="showOnWebsite"
+                  checked={showOnWebsite}
+                  onCheckedChange={setShowOnWebsite}
+                />
+              </div>
+
+              {showOnWebsite && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="title">Professional Title</Label>
+                    <Input
+                      id="title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. Senior Personal Trainer, Yoga Instructor"
+                      className="focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="experienceYears">Years of Experience</Label>
+                    <Input
+                      id="experienceYears"
+                      type="number"
+                      min="0"
+                      value={experienceYears}
+                      onChange={(e) => setExperienceYears(e.target.value === "" ? "" : Number(e.target.value))}
+                      placeholder="e.g. 5"
+                      className="focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="specialties">Specialties (comma-separated)</Label>
+                    <Input
+                      id="specialties"
+                      value={specialties}
+                      onChange={(e) => setSpecialties(e.target.value)}
+                      placeholder="e.g. Bodybuilding, Weight Loss, Yoga"
+                      className="focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="bio">Biography</Label>
+                    <textarea
+                      id="bio"
+                      value={bio}
+                      onChange={(e) => setBio(e.target.value)}
+                      placeholder="Write a short biography introducing yourself to clients..."
+                      className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="instagramUrl">Instagram Profile URL</Label>
+                    <Input
+                      id="instagramUrl"
+                      type="url"
+                      value={instagramUrl}
+                      onChange={(e) => setInstagramUrl(e.target.value)}
+                      placeholder="https://instagram.com/yourusername"
+                      className="focus-visible:ring-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="linkedinUrl">LinkedIn Profile URL</Label>
+                    <Input
+                      id="linkedinUrl"
+                      type="url"
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://linkedin.com/in/yourusername"
+                      className="focus-visible:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-4 border-t border-border/50">

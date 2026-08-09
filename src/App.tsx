@@ -52,6 +52,7 @@ import GymTournaments from "./pages/gym/Tournaments";
 import GymTournamentDetail from "./pages/gym/TournamentDetail";
 import GymNotifications from "./pages/gym/Notifications";
 import MyAttendancePayroll from "./pages/gym/MyAttendancePayroll";
+import TrainerLeads from "./pages/gym/TrainerLeads";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 const queryClient = new QueryClient();
@@ -172,6 +173,7 @@ const App = () => (
                     <Route path="/notifications" element={<GymNotifications />} />
                     <Route path="/profile" element={<GymProfile />} />
                     <Route path="/my-attendance-payroll" element={<MyAttendancePayroll />} />
+                    <Route path="/trainer-leads" element={<TrainerLeads />} />
                     <Route path="/tournaments" element={
                       <FeatureGuard feature="Tournament">
                         <PermissionGuard permission="view_tournaments">

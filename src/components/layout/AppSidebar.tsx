@@ -67,6 +67,7 @@ import {
 const navItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Notifications", url: "/notifications", icon: Bell },
+  { title: "Inquiries", url: "/trainer-leads", icon: Users },
   { title: "My Attendance & Payroll", url: "/my-attendance-payroll", icon: CalendarCheck },
   { title: "Members", url: "/members", icon: Users },
   { title: "Membership Plans", url: "/plans", icon: CreditCard },
@@ -153,7 +154,12 @@ export function AppSidebar({ collapsed, onCollapsedChange }: AppSidebarProps) {
   const NavItem = ({ item }: { item: typeof navItems[0] }) => {
     const { role } = usePermissions();
     // Hide Attendance, Staff, Pricing, Roles, Diet & Workout, Inventory, and Tournaments for Super Admin (Platform Admin)
-    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/diet-workout" || item.title === "Inventory" || item.title === "Tournaments" || item.title === "My Attendance & Payroll")) {
+    if (isAdmin && (item.url === "/attendance" || item.url === "/staff" || item.url === "/pricing" || item.url === "/roles" || item.url === "/diet-workout" || item.title === "Inventory" || item.title === "Tournaments" || item.title === "My Attendance & Payroll" || item.title === "Inquiries")) {
+      return null;
+    }
+
+    // Hide Trainer Leads for Gym Admins / Owners / other staff who are not trainers
+    if (!isAdmin && item.title === "Inquiries" && role?.name?.toLowerCase() !== "trainer") {
       return null;
     }
 

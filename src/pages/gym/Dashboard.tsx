@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, CreditCard, Activity, CalendarCheck, UserCog, AlertCircle, TrendingUp, IndianRupee, Wrench, Package, Clock, Briefcase } from "lucide-react";
+import { Users, CreditCard, Activity, CalendarCheck, UserCog, AlertCircle, TrendingUp, IndianRupee, Wrench, Package, Clock, Briefcase, Inbox, ChevronRight } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { MembershipChart } from "@/components/dashboard/MembershipChart";
@@ -61,6 +61,7 @@ export default function GymDashboard() {
     const [ptInvoices, setPtInvoices] = useState<UnpaidInvoice[]>([]);
     const [ptClientsList, setPtClientsList] = useState<any[]>([]);
     const [activeDashboard, setActiveDashboard] = useState<"general" | "staff">("general");
+    const [trainerLeads, setTrainerLeads] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchSubscription = async () => {
@@ -132,6 +133,7 @@ export default function GymDashboard() {
         setPtAlerts([]);
         setPtInvoices([]);
         setPtClientsList([]);
+        setTrainerLeads([]);
 
         const fetchStaffDashboardData = async (staffId: number) => {
             try {
@@ -255,6 +257,18 @@ export default function GymDashboard() {
                 setPtAlerts(formattedPtAlerts);
                 setPtInvoices(formattedUnpaidInvoices);
                 setPtClientsList(clientDirectory);
+
+                // Fetch recent trainer leads
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: leadsData } = await supabase
+                        .from('trainer_leads')
+                        .select('*')
+                        .eq('trainer_id', user.id)
+                        .order('created_at', { ascending: false })
+                        .limit(5);
+                    setTrainerLeads(leadsData || []);
+                }
 
             } catch (error) {
                 console.error("Error fetching staff stats:", error);
@@ -667,6 +681,88 @@ export default function GymDashboard() {
                         />
                         <MembershipAlerts members={ptAlerts} loading={dashboardLoading} />
                     </div>
+
+                    {/* Trainer Leads Card */}
+                    {role?.name?.toLowerCase() === "trainer" && (
+                        <Card className="mb-6">
+                            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                        <Inbox className="h-5 w-5 text-primary" />
+                                        Recent Trainer Leads
+                                    </CardTitle>
+                                    <CardDescription>Prospective clients inquiring via public trainers page</CardDescription>
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => navigate("/trainer-leads")}
+                                    className="font-bold text-xs"
+                                >
+                                    View All Leads
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                {trainerLeads.length > 0 ? (
+                                    <div className="border rounded-xl overflow-hidden shadow-sm">
+                                        <div className="overflow-auto max-h-[250px]">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
+                                                    <tr>
+                                                        <th className="py-2.5 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Client</th>
+                                                        <th className="py-2.5 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Contact</th>
+                                                        <th className="py-2.5 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+                                                        <th className="py-2.5 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Date</th>
+                                                        <th className="py-2.5 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Message</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-muted">
+                                                    {trainerLeads.slice(0, 5).map((lead) => (
+                                                        <tr key={lead.id} className="hover:bg-muted/30 transition-colors">
+                                                            <td className="py-3 px-4 font-bold text-foreground whitespace-nowrap">{lead.client_name}</td>
+                                                            <td className="py-3 px-4 text-muted-foreground text-xs whitespace-nowrap">
+                                                                <div className="flex flex-col">
+                                                                    <span>{lead.client_email}</span>
+                                                                    {lead.client_phone && <span>{lead.client_phone}</span>}
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3 px-4">
+                                                                <Badge className={cn(
+                                                                    "px-2 py-0.5 text-[10px] font-bold uppercase border-none text-white",
+                                                                    lead.status === 'new' && "bg-blue-500 hover:bg-blue-600",
+                                                                    lead.status === 'contacted' && "bg-amber-500 hover:bg-amber-600",
+                                                                    lead.status === 'converted' && "bg-emerald-500 hover:bg-emerald-600",
+                                                                    lead.status === 'archived' && "bg-slate-500 hover:bg-slate-600"
+                                                                )}>
+                                                                    {lead.status}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="py-3 px-4 text-muted-foreground text-xs whitespace-nowrap">
+                                                                {new Date(lead.created_at).toLocaleDateString('en-US', {
+                                                                    month: 'short',
+                                                                    day: 'numeric'
+                                                                })}
+                                                            </td>
+                                                            <td className="py-3 px-4 text-muted-foreground text-xs max-w-[200px] truncate" title={lead.message}>
+                                                                {lead.message}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/20">
+                                        <Inbox className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                                        <p className="text-sm font-semibold">No leads found</p>
+                                        <p className="text-xs opacity-60">Inquiries submitted on the website will show up here</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Staff Client Directory */}
                     <Card>
