@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Search, Sun, Moon, Menu, LogOut, User as UserIcon, Dumbbell, Shield } from "lucide-react";
+import { Bell, Sun, Moon, Menu, LogOut, User as UserIcon, Dumbbell, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { GlobalSearch } from "./GlobalSearch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -160,13 +160,7 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
 
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
         {/* Search */}
-        <div className="hidden md:flex relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search members, plans..."
-            className="w-64 pl-9 bg-secondary/50 border-0 focus-visible:ring-1"
-          />
-        </div>
+        <GlobalSearch />
 
         {/* Theme Toggle */}
         <Button

@@ -148,6 +148,11 @@ export default function Members() {
         } else {
             setShowOnlyMyMembers(false);
         }
+
+        const search = searchParams.get('search');
+        if (search) {
+            setSearchQuery(search);
+        }
     }, [searchParams]);
 
     useEffect(() => {
@@ -1674,7 +1679,7 @@ export default function Members() {
                                                             const allPayments = member.gym_membership_payments || [];
                                                             const visibleAllPayments = allPayments.filter(p => {
                                                                 if (p.remarks === 'Personal Training Fee') {
-                                                                    return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
+                                                                     return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
                                                                 }
                                                                 return true;
                                                             });
@@ -1836,7 +1841,8 @@ export default function Members() {
                                                                     const actions = [];
                                                                     // 1. Existing Payments that need attention
                                                                     // Get ALL payments for this member
-                                                                    const allPayments = (member.gym_membership_payments || []).filter(p => {
+                                                                    const allPayments = (member.gym_membership_payments || []);
+                                                                    const visibleAllPayments = allPayments.filter(p => {
                                                                         if (p.remarks === 'Personal Training Fee') {
                                                                             return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
                                                                         }
@@ -1844,7 +1850,7 @@ export default function Members() {
                                                                     });
 
                                                                     // Filter for unpaid or partial
-                                                                    const outstandingPayments = allPayments.filter(p => p.payment_status !== 'paid');
+                                                                    const outstandingPayments = visibleAllPayments.filter(p => p.payment_status !== 'paid');
 
                                                                     // Sort: Most recent first
                                                                     outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
