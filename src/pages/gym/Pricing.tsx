@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { parseISO } from "date-fns";
-import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight, Download, Eye, FileText, AlertTriangle } from "lucide-react";
+import { Check, Loader2, Building2, Users, Calendar, Banknote, Plus, Minus, CreditCard, CornerDownRight, Download, Eye, FileText, AlertTriangle, MessageSquare, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useGym } from "@/hooks/useGym";
 import { Zap } from "lucide-react";
 import { pdfExportService } from "@/services/pdfExportService";
 
@@ -48,6 +49,8 @@ interface Plan {
     description: string | null;
     max_gyms: number;
     max_members: number;
+    whatsapp_quota_monthly?: number;
+    whatsapp_quota_yearly?: number;
     is_active: boolean;
     plan_prices: PlanPrice[];
     plan_features: PlanFeature[];
@@ -120,11 +123,18 @@ export default function Pricing() {
     const [history, setHistory] = useState<SubscriptionHistoryRecord[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
     const { subscription, refreshSubscription } = useSubscription();
+    const { gymId } = useGym();
     const [carryOverCredit, setCarryOverCredit] = useState<number>(0);
     const [extensionCarryOverCredit, setExtensionCarryOverCredit] = useState<number>(0);
     const [activeGymCount, setActiveGymCount] = useState<number>(0);
     const [activeMemberCount, setActiveMemberCount] = useState<number>(0);
     const [confirmConflict, setConfirmConflict] = useState(false);
+
+    // WhatsApp Wallet & Packs State
+    const [waWallet, setWaWallet] = useState<any>(null);
+    const [waPacks, setWaPacks] = useState<any[]>([]);
+    const [loadingWaWallet, setLoadingWaWallet] = useState(false);
+    const [buyingWaPackId, setBuyingWaPackId] = useState<number | null>(null);
 
     // Purchase Dialog States
     const [selectedPlanForPurchase, setSelectedPlanForPurchase] = useState<{ plan: Plan, price: PlanPrice } | null>(null);
@@ -174,6 +184,127 @@ export default function Pricing() {
         });
     };
 
+    const fetchWaWallet = async () => {
+        if (!gymId) return;
+        try {
+            setLoadingWaWallet(true);
+            const response = await fetch(`${BACKEND_URL}/api/whatsapp/wallet/${gymId}`);
+            if (response.ok) {
+                const data = await response.json();
+                setWaWallet(data);
+            }
+        } catch (error) {
+            console.error("Error fetching WhatsApp wallet:", error);
+        } finally {
+            setLoadingWaWallet(false);
+        }
+    };
+
+    const fetchWaPacks = async () => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/whatsapp/packs`);
+            if (response.ok) {
+                const data = await response.json();
+                setWaPacks(data);
+            }
+        } catch (error) {
+            console.error("Error fetching WhatsApp packs:", error);
+        }
+    };
+
+    const handleBuyWaPack = async (pack: any) => {
+        if (!gymId) {
+            toast.error("No active gym selected");
+            return;
+        }
+
+        const isLoaded = await loadRazorpayScript();
+        if (!isLoaded) {
+            toast.error("Razorpay SDK failed to load. Please check your internet connection.");
+            return;
+        }
+
+        try {
+            setBuyingWaPackId(pack.id);
+            const { data: { user } } = await supabase.auth.getUser();
+
+            const orderRes = await fetch(`${BACKEND_URL}/api/whatsapp/packs/create-order`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    gymId,
+                    packId: pack.id,
+                    userId: user?.id
+                })
+            });
+
+            if (!orderRes.ok) {
+                const err = await orderRes.json();
+                throw new Error(err.error || "Failed to create order");
+            }
+
+            const orderData = await orderRes.json();
+
+            const options = {
+                key: orderData.keyId,
+                amount: orderData.amount,
+                currency: orderData.currency,
+                name: "Gymatrix",
+                description: `Purchase ${pack.name} (${pack.message_count.toLocaleString()} WhatsApp messages)`,
+                order_id: orderData.orderId,
+                handler: async (response: any) => {
+                    const verifyToast = toast.loading("Verifying payment and crediting messages...");
+                    try {
+                        const verifyRes = await fetch(`${BACKEND_URL}/api/whatsapp/packs/verify-payment`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                                gymId,
+                                packId: pack.id
+                            })
+                        });
+
+                        toast.dismiss(verifyToast);
+                        const verifyData = await verifyRes.json();
+
+                        if (verifyRes.ok) {
+                            toast.success(`Success! Added ${pack.message_count.toLocaleString()} extra WhatsApp messages to your account.`);
+                            fetchWaWallet();
+                        } else {
+                            toast.error(verifyData.error || "Payment verification failed");
+                        }
+                    } catch (e: any) {
+                        toast.dismiss(verifyToast);
+                        toast.error(e.message || "Payment verification failed");
+                    } finally {
+                        setBuyingWaPackId(null);
+                    }
+                },
+                prefill: {
+                    name: user?.user_metadata?.full_name || '',
+                    email: user?.email || '',
+                },
+                theme: {
+                    color: getThemeColorHex()
+                },
+                modal: {
+                    ondismiss: () => {
+                        setBuyingWaPackId(null);
+                    }
+                }
+            };
+
+            const rzp = new (window as any).Razorpay(options);
+            rzp.open();
+        } catch (err: any) {
+            toast.error(err.message || "Error initiating pack purchase");
+            setBuyingWaPackId(null);
+        }
+    };
+
     useEffect(() => {
         const init = async () => {
             await checkSubscription();
@@ -183,7 +314,14 @@ export default function Pricing() {
         };
         init();
         fetchExtensionPricing();
+        fetchWaPacks();
     }, []);
+
+    useEffect(() => {
+        if (gymId) {
+            fetchWaWallet();
+        }
+    }, [gymId]);
 
     const fetchExtensionPricing = async () => {
         try {
@@ -950,6 +1088,123 @@ export default function Pricing() {
                 </div>
             )}
 
+            {/* WhatsApp Messaging Quota & Add-on Packs Store (Monthly & Yearly) */}
+            <div className="max-w-7xl mx-auto mb-16 w-full">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                                <MessageSquare className="h-5 w-5" />
+                            </div>
+                            <h3 className="text-2xl font-bold tracking-tight text-foreground">
+                                WhatsApp Messaging & Top-Up Store
+                            </h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Send automated welcome messages, membership expiry notices, and payment reminders via Meta WhatsApp Cloud API.
+                        </p>
+                    </div>
+
+                    {/* Wallet Summary */}
+                    {waWallet && (
+                        <div className="flex flex-wrap items-center gap-3 bg-card border border-border/70 p-3 rounded-2xl shadow-sm">
+                            <div className="text-right sm:text-left pr-3 border-r border-border/50">
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Plan Allowance</span>
+                                <span className="text-sm font-extrabold text-foreground">
+                                    {waWallet.plan_quota_used} / {waWallet.plan_monthly_quota} used
+                                </span>
+                            </div>
+                            <div className="text-right sm:text-left pr-3 border-r border-border/50">
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Extra Credits</span>
+                                <span className="text-sm font-extrabold text-amber-500">
+                                    +{Number(waWallet.addon_credits_balance || 0).toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="text-right sm:text-left">
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Available</span>
+                                <span className="text-base font-black text-emerald-600 dark:text-emerald-400">
+                                    {(Math.max(0, (waWallet.plan_monthly_quota || 0) - (waWallet.plan_quota_used || 0)) + (waWallet.addon_credits_balance || 0)).toLocaleString()} msgs
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* WhatsApp Top-Up Packs Grid */}
+                {waPacks.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                Available {billingInterval === 'year' ? 'Yearly (Annual Saver ~20% OFF)' : 'Monthly'} Top-Up Packs
+                            </span>
+                            <div className="flex gap-1 bg-muted/60 p-1 rounded-lg text-xs">
+                                <button
+                                    onClick={() => setBillingInterval('month')}
+                                    className={`px-3 py-1 rounded-md transition-all font-medium ${billingInterval === 'month' ? 'bg-background shadow-xs text-foreground font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    Monthly
+                                </button>
+                                <button
+                                    onClick={() => setBillingInterval('year')}
+                                    className={`px-3 py-1 rounded-md transition-all font-medium ${billingInterval === 'year' ? 'bg-background shadow-xs text-foreground font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                                >
+                                    Yearly (Annual Saver)
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {waPacks
+                                .filter(p => p.duration_unit === billingInterval)
+                                .map((pack) => (
+                                    <Card key={pack.id} className="relative overflow-hidden border border-border/80 hover:border-emerald-500/60 hover:shadow-lg transition-all duration-300">
+                                        <div className="absolute top-3 right-3">
+                                            <Badge variant={pack.duration_unit === 'year' ? 'default' : 'secondary'} className="text-[10px] font-bold">
+                                                {pack.duration_unit === 'year' ? '1 Year Validity' : '1 Month Validity'}
+                                            </Badge>
+                                        </div>
+                                        <CardHeader className="pb-3">
+                                            <CardTitle className="text-lg font-bold">{pack.name}</CardTitle>
+                                            <CardDescription className="text-xs line-clamp-1">{pack.description}</CardDescription>
+                                        </CardHeader>
+                                        <CardContent className="space-y-3 pb-3">
+                                            <div className="flex items-baseline justify-between">
+                                                <div>
+                                                    <span className="text-3xl font-black text-foreground">₹{pack.price}</span>
+                                                    <span className="text-xs text-muted-foreground ml-1">/ {pack.duration_unit}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg block">
+                                                        +{Number(pack.message_count).toLocaleString()} msgs
+                                                    </span>
+                                                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                                                        ₹{(pack.price / pack.message_count).toFixed(2)}/msg
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                        <CardFooter className="pt-2">
+                                            <Button
+                                                className="w-full gradient-primary shadow-glow h-10 text-xs font-bold"
+                                                disabled={buyingWaPackId === pack.id}
+                                                onClick={() => handleBuyWaPack(pack)}
+                                            >
+                                                {buyingWaPackId === pack.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                                ) : (
+                                                    <CreditCard className="h-4 w-4 mr-2" />
+                                                )}
+                                                Buy {Number(pack.message_count).toLocaleString()} Messages
+                                            </Button>
+                                        </CardFooter>
+                                    </Card>
+                                ))}
+                        </div>
+                    </div>
+                )}
+                <Separator className="mt-12" />
+            </div>
+
             {loading ? (
                 <div className="flex justify-center items-center h-64">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1026,6 +1281,20 @@ export default function Pricing() {
                                             <div>
                                                 <p className="font-medium text-foreground">Up to {plan.max_members} Members</p>
                                                 <p className="text-xs text-muted-foreground">Active member capacity</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 text-sm">
+                                            <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                                                <MessageSquare className="h-4 w-4 text-emerald-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-foreground">
+                                                    {billingInterval === 'year'
+                                                        ? `${plan.whatsapp_quota_yearly ?? ((plan.whatsapp_quota_monthly ?? 100) * 12)} WhatsApp Msgs / yr`
+                                                        : `${plan.whatsapp_quota_monthly ?? 100} WhatsApp Msgs / mo`}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">Automated welcome, expiry & dues</p>
                                             </div>
                                         </div>
 

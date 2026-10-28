@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, Users, Check, Banknote, Building2, Loader2, Calendar } from "lucide-react";
+import { Plus, Edit, Trash2, Users, Check, Banknote, Building2, Loader2, Calendar, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +56,8 @@ interface Plan {
   description: string | null;
   max_gyms: number;
   max_members: number;
+  whatsapp_quota_monthly?: number;
+  whatsapp_quota_yearly?: number;
   is_active: boolean;
   is_trial_plan: boolean;
   created_at?: string;
@@ -77,6 +79,8 @@ export default function MembershipPlans() {
     description: "",
     max_gyms: "1",
     max_members: "10",
+    whatsapp_quota_monthly: "100",
+    whatsapp_quota_yearly: "1200",
     is_active: true,
     is_trial_plan: false,
     // Price related fields
@@ -137,6 +141,8 @@ export default function MembershipPlans() {
       description: "",
       max_gyms: "1",
       max_members: "10",
+      whatsapp_quota_monthly: "100",
+      whatsapp_quota_yearly: "1200",
       is_active: true,
       is_trial_plan: false,
       monthlyPrice: "",
@@ -156,11 +162,16 @@ export default function MembershipPlans() {
     const monthly = plan.plan_prices?.find(p => p.duration_unit === 'month' && p.duration_value === 1);
     const yearly = plan.plan_prices?.find(p => p.duration_unit === 'year' && p.duration_value === 1);
 
+    const monthlyQuota = plan.whatsapp_quota_monthly ?? 100;
+    const yearlyQuota = plan.whatsapp_quota_yearly ?? (monthlyQuota * 12);
+
     setFormData({
       name: plan.name,
       description: plan.description || "",
       max_gyms: (plan.max_gyms || 1).toString(),
       max_members: (plan.max_members || 10).toString(),
+      whatsapp_quota_monthly: monthlyQuota.toString(),
+      whatsapp_quota_yearly: yearlyQuota.toString(),
       is_active: plan.is_active,
       is_trial_plan: plan.is_trial_plan || false,
       monthlyPrice: monthly ? monthly.price.toString() : "",
@@ -204,6 +215,8 @@ export default function MembershipPlans() {
         description: formData.description,
         max_gyms: parseInt(formData.max_gyms),
         max_members: parseInt(formData.max_members),
+        whatsapp_quota_monthly: parseInt(formData.whatsapp_quota_monthly) || 0,
+        whatsapp_quota_yearly: parseInt(formData.whatsapp_quota_yearly) || 0,
         is_active: formData.is_active,
         is_trial_plan: formData.is_trial_plan
       };
@@ -447,6 +460,10 @@ export default function MembershipPlans() {
                       <Users className="h-4 w-4 text-primary" />
                       <span>Up to <strong>{plan.max_members}</strong> Member(s)</span>
                     </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <MessageSquare className="h-4 w-4 text-emerald-500" />
+                      <span><strong>{plan.whatsapp_quota_monthly ?? 100}</strong> msgs/mo · <strong>{plan.whatsapp_quota_yearly ?? ((plan.whatsapp_quota_monthly ?? 100) * 12)}</strong> msgs/yr</span>
+                    </div>
                   </div>
 
                   <div className="flex gap-2 pt-4 mt-auto">
@@ -521,6 +538,35 @@ export default function MembershipPlans() {
                   placeholder="10"
                   value={formData.max_members}
                   onChange={(e) => handleInputChange("max_members", e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp_quota">WhatsApp Messages / Mo</Label>
+                <Input
+                  id="whatsapp_quota"
+                  type="number"
+                  placeholder="100"
+                  value={formData.whatsapp_quota_monthly}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    handleInputChange("whatsapp_quota_monthly", val);
+                    const num = parseInt(val);
+                    if (!isNaN(num)) {
+                      handleInputChange("whatsapp_quota_yearly", (num * 12).toString());
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="whatsapp_quota_yearly">WhatsApp Messages / Yr</Label>
+                <Input
+                  id="whatsapp_quota_yearly"
+                  type="number"
+                  placeholder="1200"
+                  value={formData.whatsapp_quota_yearly}
+                  onChange={(e) => handleInputChange("whatsapp_quota_yearly", e.target.value)}
                 />
               </div>
 

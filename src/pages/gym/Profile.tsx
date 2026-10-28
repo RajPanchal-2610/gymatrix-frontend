@@ -13,6 +13,7 @@ import { useGym } from "@/hooks/useGym";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import ChangePasswordCard from "@/components/ChangePasswordCard";
 import type { GymNotificationSettings } from "@/types/gym";
 
 const DEFAULT_NOTIFICATION_SETTINGS: GymNotificationSettings = {
@@ -710,6 +711,9 @@ export default function Profile() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Security & Password Card */}
+      <ChangePasswordCard />
 
       {/* Notification Preferences Card */}
       <Card className="border border-border bg-card/50 backdrop-blur-xl">

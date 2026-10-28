@@ -194,6 +194,15 @@ export default function GymLogin() {
               Register
             </Link>
           </div>
+
+          <div className="mt-4 pt-3 border-t border-border/50 text-center">
+            <Link
+              to="/member/login"
+              className="text-xs text-primary font-semibold hover:underline inline-flex items-center gap-1.5"
+            >
+              🏋️ Gym Member? Access Member Portal & Passes
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

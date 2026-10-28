@@ -31,6 +31,9 @@ import GymLogin from "./pages/gym/GymLogin";
 import GymRegister from "./pages/gym/GymRegister";
 import GymForgotPassword from "./pages/gym/GymForgotPassword";
 import GymResetPassword from "./pages/gym/GymResetPassword";
+import MemberLogin from "./pages/member/MemberLogin";
+import MemberRegister from "./pages/member/MemberRegister";
+import MemberDashboard from "./pages/member/MemberDashboard";
 import GymDashboard from "./pages/gym/Dashboard";
 import GymDashboard2 from "./pages/gym/Dashboard2";
 import GymInventory from "./pages/gym/Inventory";
@@ -196,6 +199,11 @@ const App = () => (
                 <Route path="/auth/register" element={<GymRegister />} />
                 <Route path="/auth/forgot-password" element={<GymForgotPassword />} />
                 <Route path="/auth/reset-password" element={<GymResetPassword />} />
+
+                {/* Gym Member Portal Routes */}
+                <Route path="/member/login" element={<MemberLogin />} />
+                <Route path="/member/register" element={<MemberRegister />} />
+                <Route path="/member/dashboard" element={<MemberDashboard />} />
 
                 {/* Super Admin Routes - Protected */}
                 <Route element={<PrivateRoute allowedRoles={['SUPER_ADMIN']} />}>

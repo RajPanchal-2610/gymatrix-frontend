@@ -24,10 +24,13 @@ import {
     UserCheck,
     UserX,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -824,6 +827,29 @@ export default function Members() {
                             if (notifErr) console.error("Error creating registration notification:", notifErr);
                         });
                 });
+
+                // Automated WhatsApp Welcome message via Meta Cloud API
+                if (newMember?.phone) {
+                    const plan = plans.find(p => p.id === payload.membership_plan_id);
+                    fetch(`${BACKEND_URL}/api/whatsapp/send`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            gymId,
+                            recipientPhone: newMember.phone,
+                            recipientName: newMember.full_name,
+                            eventType: "welcome",
+                            variables: [
+                                currentGym?.name || "Our Gym",
+                                newMember.full_name,
+                                plan ? plan.name : "Membership",
+                                payload.join_date,
+                                payload.expiry_date || "N/A",
+                                currentGym?.name || "Front Desk"
+                            ]
+                        })
+                    }).catch(err => console.error("Error triggering welcome WhatsApp message:", err));
+                }
 
                 // Add history entry for new member if plan is selected
                 if (newMember && payload.membership_plan_id && payload.expiry_date) {

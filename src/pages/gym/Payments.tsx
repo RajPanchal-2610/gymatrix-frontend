@@ -58,6 +58,7 @@ export default function GymPayments() {
                     *,
                     gym_members (
                         full_name,
+                        phone,
                         image_url,
                         assigned_staff_id,
                         is_active,
