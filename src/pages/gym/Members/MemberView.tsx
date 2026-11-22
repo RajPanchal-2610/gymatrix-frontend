@@ -52,11 +52,25 @@ export default function MemberView() {
     const getPaymentModes = (payment: GymMembershipPayment) => {
         const txns = payment.gym_payment_transactions || [];
         if (txns.length === 0) return "-";
-        const modeStrings = txns.map(t => {
-            const label = t.payment_mode === 'Online' ? 'UPI' : t.payment_mode;
-            return `${label} (₹${t.amount.toLocaleString()})`;
-        });
-        return modeStrings.join(" + ");
+        return (
+            <div className="flex flex-col gap-1">
+                {txns.map((t, idx) => {
+                    const label = t.payment_mode === 'Online' ? 'UPI' : t.payment_mode;
+                    return (
+                        <div key={idx} className="flex items-center gap-1.5 flex-wrap">
+                            <span>
+                                {label} (₹{t.amount.toLocaleString()})
+                            </span>
+                            {t.transaction_reference && (
+                                <span className="inline-flex items-center text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                    UTR: {t.transaction_reference}
+                                </span>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        );
     };
 
     // PT Renewal State
@@ -431,49 +445,72 @@ export default function MemberView() {
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Plan Name</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Duration Period</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Current Status</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Payment Status</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Renewed On</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
                                                     {member.gym_membership_history
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-                                                        .map((history) => (
-                                                            <tr key={history.id} className="hover:bg-muted/30 transition-colors">
-                                                                <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{history.gym_membership_plans?.name || 'Unknown Plan'}</td>
-                                                                <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
-                                                                    <div className="flex flex-col">
-                                                                        <span>{format(new Date(history.start_date), "dd MMM yyyy")}</span>
-                                                                        <span className="text-xs opacity-60">to {format(new Date(history.end_date), "dd MMM yyyy")}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="py-4 px-4 whitespace-nowrap">
-                                                                    {(() => {
-                                                                        let statusLabel = 'EXPIRED';
-                                                                        let statusVariant: "default" | "secondary" | "destructive" | "outline" = 'destructive';
-                                                                        let statusClassName = '';
+                                                        .map((history) => {
+                                                            const paymentRecord = member.gym_membership_payments?.find(
+                                                                (p: any) => p.membership_history_id === history.id
+                                                            );
+                                                            const payStatus = paymentRecord?.payment_status || history.payment_status || 'unpaid';
 
-                                                                        const isPast = new Date().getTime() > new Date(history.end_date).getTime() + 86400000;
+                                                            return (
+                                                                <tr key={history.id} className="hover:bg-muted/30 transition-colors">
+                                                                    <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{history.gym_membership_plans?.name || 'Unknown Plan'}</td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
+                                                                        <div className="flex flex-col">
+                                                                            <span>{format(new Date(history.start_date), "dd MMM yyyy")}</span>
+                                                                            <span className="text-xs opacity-60">to {format(new Date(history.end_date), "dd MMM yyyy")}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap">
+                                                                        {(() => {
+                                                                            let statusLabel = 'EXPIRED';
+                                                                            let statusVariant: "default" | "secondary" | "destructive" | "outline" = 'destructive';
+                                                                            let statusClassName = '';
 
-                                                                        if (history.is_active && !isPast) {
-                                                                            statusLabel = 'ACTIVE';
-                                                                            statusVariant = 'default';
-                                                                            statusClassName = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
-                                                                        }
+                                                                            const isPast = new Date().getTime() > new Date(history.end_date).getTime() + 86400000;
 
-                                                                        return (
-                                                                            <Badge variant={statusVariant} className={cn("px-2 py-0.5 text-[10px] font-bold", statusClassName)}>
-                                                                                {statusLabel}
-                                                                            </Badge>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                                <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
-                                                                    {history.renewed_at ? format(new Date(history.renewed_at), "dd MMM yyyy") : (
-                                                                        <span className="opacity-40 italic">Not renewed</span>
-                                                                    )}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                                            if (history.is_active && !isPast) {
+                                                                                statusLabel = 'ACTIVE';
+                                                                                statusVariant = 'default';
+                                                                                statusClassName = 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                                                                            }
+
+                                                                            return (
+                                                                                <Badge variant={statusVariant} className={cn("px-2 py-0.5 text-[10px] font-bold", statusClassName)}>
+                                                                                    {statusLabel}
+                                                                                </Badge>
+                                                                            );
+                                                                        })()}
+                                                                    </td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap">
+                                                                        <Badge
+                                                                            variant={payStatus === 'paid' ? 'default' : payStatus === 'partial' ? 'secondary' : 'destructive'}
+                                                                            className={cn(
+                                                                                "px-2 py-0.5 text-[10px] font-bold uppercase",
+                                                                                payStatus === 'paid'
+                                                                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                                    : payStatus === 'partial'
+                                                                                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                                    : ""
+                                                                            )}
+                                                                        >
+                                                                            {payStatus}
+                                                                        </Badge>
+                                                                    </td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
+                                                                        {history.renewed_at ? format(new Date(history.renewed_at), "dd MMM yyyy") : (
+                                                                            <span className="opacity-40 italic">Not renewed</span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -510,34 +547,57 @@ export default function MemberView() {
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Duration Period</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Rate</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Payment Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-muted">
                                                     {member.gym_pt_history
                                                         .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
-                                                        .map((ptHistory) => (
-                                                            <tr key={ptHistory.id} className="hover:bg-muted/30 transition-colors">
-                                                                <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{ptHistory.gym_staff?.full_name || 'Assigned Staff'}</td>
-                                                                <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
-                                                                    <div className="flex flex-col">
-                                                                        <span>{format(new Date(ptHistory.start_date), "dd MMM yyyy")}</span>
-                                                                        <span className="text-xs opacity-60">to {format(new Date(ptHistory.end_date), "dd MMM yyyy")}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="py-4 px-4 text-left font-semibold whitespace-nowrap">₹{ptHistory.pt_fee.toLocaleString()}</td>
-                                                                <td className="py-4 px-4 whitespace-nowrap">
-                                                                    {(() => {
-                                                                        const isPast = new Date().getTime() > new Date(ptHistory.end_date).getTime() + 86400000;
-                                                                        const isActive = ptHistory.status === 'active' && !isPast;
-                                                                        return (
-                                                                            <Badge variant={isActive ? 'default' : 'destructive'} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", isActive ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}>
-                                                                                {isActive ? 'ACTIVE' : 'EXPIRED'}
-                                                                            </Badge>
-                                                                        );
-                                                                    })()}
-                                                                </td>
-                                                            </tr>
-                                                        ))}
+                                                        .map((ptHistory) => {
+                                                            const ptPayment = member.gym_membership_payments?.find(
+                                                                (p: any) => p.remarks === 'Personal Training Fee' && p.billing_date === ptHistory.start_date
+                                                            );
+                                                            const ptPayStatus = ptPayment?.payment_status || 'unpaid';
+
+                                                            return (
+                                                                <tr key={ptHistory.id} className="hover:bg-muted/30 transition-colors">
+                                                                    <td className="py-4 px-4 font-semibold text-foreground whitespace-nowrap">{ptHistory.gym_staff?.full_name || 'Assigned Staff'}</td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap text-muted-foreground">
+                                                                        <div className="flex flex-col">
+                                                                            <span>{format(new Date(ptHistory.start_date), "dd MMM yyyy")}</span>
+                                                                            <span className="text-xs opacity-60">to {format(new Date(ptHistory.end_date), "dd MMM yyyy")}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="py-4 px-4 text-left font-semibold whitespace-nowrap">₹{ptHistory.pt_fee.toLocaleString()}</td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap">
+                                                                        {(() => {
+                                                                            const isPast = new Date().getTime() > new Date(ptHistory.end_date).getTime() + 86400000;
+                                                                            const isActive = ptHistory.status === 'active' && !isPast;
+                                                                            return (
+                                                                                <Badge variant={isActive ? 'default' : 'destructive'} className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", isActive ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}>
+                                                                                    {isActive ? 'ACTIVE' : 'EXPIRED'}
+                                                                                </Badge>
+                                                                            );
+                                                                        })()}
+                                                                    </td>
+                                                                    <td className="py-4 px-4 whitespace-nowrap">
+                                                                        <Badge
+                                                                            variant={ptPayStatus === 'paid' ? 'default' : ptPayStatus === 'partial' ? 'secondary' : 'destructive'}
+                                                                            className={cn(
+                                                                                "px-2 py-0.5 text-[10px] font-bold uppercase",
+                                                                                ptPayStatus === 'paid'
+                                                                                    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                                    : ptPayStatus === 'partial'
+                                                                                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                                    : ""
+                                                                            )}
+                                                                        >
+                                                                            {ptPayStatus}
+                                                                        </Badge>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -602,7 +662,7 @@ export default function MemberView() {
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
-                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Billing Date</th>
+                                                        <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Due Date</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
                                                         <th className="py-3 px-4 text-left font-semibold text-muted-foreground whitespace-nowrap">Mode</th>
                                                         <th className="py-3 px-4 text-right font-semibold text-muted-foreground whitespace-nowrap">Price</th>
@@ -705,7 +765,7 @@ export default function MemberView() {
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="start_date">Billing Date</Label>
+                            <Label htmlFor="start_date">Invoice Due Date</Label>
                             <Input
                                 id="start_date"
                                 type="date"

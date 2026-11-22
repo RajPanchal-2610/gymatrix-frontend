@@ -226,13 +226,19 @@ export interface GymNotificationSettings {
     membership_expiry: {
         preferred_time?: string;
         before_days: number[];
-        on_day: boolean;
-        after_days: number[];
+        on_day?: boolean;
+        after_days?: number[];
+        followup_interval?: number;
     };
     overdue_payment: {
         preferred_time?: string;
+        before_days?: number[];
+        on_day?: boolean;
         reminder_interval_days: number;
         max_reminders: number;
+        payment_due_grace_days?: number;
+        new_member_due_days?: number;
     };
+    upi_settings?: any;
 }
 

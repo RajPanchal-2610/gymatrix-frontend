@@ -17,6 +17,11 @@ export interface MemberSessionData {
   status: string;
   expiry_date?: string;
   plan_name?: string;
+  upi_settings?: {
+    upi_id?: string;
+    upi_name?: string;
+    qr_url?: string;
+  };
 }
 
 export const memberAuthService = {
@@ -130,6 +135,32 @@ export const memberAuthService = {
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.error || 'Failed to change password');
+    }
+
+    return data;
+  },
+
+  async submitPaymentReference(params: {
+    invoiceId?: number;
+    amount: number;
+    utrNumber: string;
+    planName?: string;
+  }) {
+    const token = this.getStoredToken();
+    if (!token) throw new Error('Not authenticated');
+
+    const res = await fetch(`${BACKEND_URL}/api/members/submit-payment-reference`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(params),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'Failed to submit payment reference');
     }
 
     return data;

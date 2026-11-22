@@ -17,6 +17,7 @@ export interface Gym {
 interface GymContextType {
     gyms: Gym[];
     gymId: number | null;
+    currentGym: Gym | undefined;
     loading: boolean;
     switchGym: (id: number) => void;
     refreshGyms: () => Promise<void>;
@@ -270,7 +271,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
     const isGymInactive = currentGym?.is_active === false;
 
     return (
-        <GymContext.Provider value={{ gyms, gymId, loading, switchGym, refreshGyms: fetchGyms, isGymInactive }}>
+        <GymContext.Provider value={{ gyms, gymId, currentGym, loading, switchGym, refreshGyms: fetchGyms, isGymInactive }}>
             {children}
         </GymContext.Provider>
     );

@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useGym } from "@/hooks/useGym";
+import { supabase } from "@/lib/supabase";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
@@ -41,6 +42,7 @@ export function SendWhatsAppDialog({
   const [eventType, setEventType] = useState<'welcome' | 'membership_expiring' | 'payment_reminder'>(defaultEventType);
   const [sendingMeta, setSendingMeta] = useState(false);
   const [wallet, setWallet] = useState<any>(null);
+  const [integration, setIntegration] = useState<any>(null);
 
   useEffect(() => {
     if (defaultEventType) {
@@ -50,10 +52,25 @@ export function SendWhatsAppDialog({
 
   useEffect(() => {
     if (open && gymId) {
-      fetch(`${BACKEND_URL}/api/whatsapp/wallet/${gymId}`)
-        .then(res => res.json())
-        .then(data => setWallet(data))
-        .catch(err => console.error("Error fetching wallet in dialog:", err));
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          fetch(`${BACKEND_URL}/api/whatsapp/status`, {
+            headers: { Authorization: `Bearer ${session.access_token}` }
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.is_connected && data.integration) {
+                setIntegration(data.integration);
+              } else {
+                setIntegration(null);
+              }
+              if (data.wallet) {
+                setWallet(data.wallet);
+              }
+            })
+            .catch(err => console.error("Error fetching status in dialog:", err));
+        }
+      });
     }
   }, [open, gymId]);
 
@@ -64,21 +81,23 @@ export function SendWhatsAppDialog({
   const startDate = member.start_date || "Today";
   const expiryDate = member.expiry_date || "N/A";
   const dueAmount = member.due_amount || 0;
-  const dueDate = member.billing_date || "Immediate";
+  const dueDate = member.billing_date
+    ? new Date(member.billing_date).toLocaleDateString()
+    : "Immediate";
 
   // Build message preview text
   let previewText = "";
   let templateVariables: string[] = [];
 
   if (eventType === 'welcome') {
-    previewText = `Welcome to ${gymName}, ${member.full_name}! 🏋️‍♂️ Your ${planName} membership is confirmed and is valid from ${startDate} to ${expiryDate}. We're excited to have you with us. If you have any questions, reach out to front desk.`;
-    templateVariables = [gymName, member.full_name, planName, startDate, expiryDate, gymName];
+    previewText = `Hi ${member.full_name}, welcome to ${gymName}! Your ${planName} membership is active from ${startDate} to ${expiryDate}. To access your member portal on Gymatrix, please register with your mobile number, set your password, and log in to track your fitness journey. We’re excited to have you with us!`;
+    templateVariables = [member.full_name, gymName, planName, startDate, expiryDate];
   } else if (eventType === 'membership_expiring') {
-    previewText = `Hello ${member.full_name}, this is an update from ${gymName}. Your ${planName} membership will expire / expired on ${expiryDate}. Renew today to keep your fitness journey going uninterrupted! For renewal, contact the front desk.`;
-    templateVariables = [member.full_name, gymName, planName, expiryDate, gymName];
+    previewText = `Hello ${member.full_name}, this is a reminder from ${gymName}. Your ${planName} membership is set to expire on ${expiryDate}. Renew today to keep your fitness journey going uninterrupted! Log in to your member portal on Gymatrix to renew and view your plan details.`;
+    templateVariables = [member.full_name, gymName, planName, expiryDate];
   } else {
-    previewText = `Dear ${member.full_name}, this is a payment reminder from ${gymName}. You have a pending balance of ₹${dueAmount} for your ${planName} membership (Due Date: ${dueDate}). Please clear the pending amount at your earliest convenience. Thank you!`;
-    templateVariables = [member.full_name, gymName, String(dueAmount), planName, dueDate, gymName];
+    previewText = `Dear ${member.full_name}, this is a payment reminder from ${gymName}. You have a pending balance of ₹${dueAmount} for your ${planName} membership, due on ${dueDate}. Log in to your member portal on Gymatrix to scan the payment QR code and clear your dues. Thank you!`;
+    templateVariables = [member.full_name, gymName, String(dueAmount), planName, dueDate];
   }
 
   // 1. Send from Owner Mobile via wa.me deeplink
@@ -101,14 +120,27 @@ export function SendWhatsAppDialog({
 
     try {
       setSendingMeta(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch(`${BACKEND_URL}/api/whatsapp/send`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           gymId,
           recipientPhone: member.phone,
           recipientName: member.full_name,
           eventType,
+          templateName:
+            eventType === 'welcome'
+              ? 'gym_member_welcome_v1'
+              : eventType === 'membership_expiring'
+              ? 'gym_membership_expiry_v1'
+              : 'gym_payment_reminder_v1',
+          languageCode: 'en_US',
           variables: templateVariables
         })
       });
@@ -158,33 +190,30 @@ export function SendWhatsAppDialog({
               <button
                 type="button"
                 onClick={() => setEventType('welcome')}
-                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${
-                  eventType === 'welcome'
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${eventType === 'welcome'
                     ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
                     : 'border-border/60 hover:bg-muted text-muted-foreground'
-                }`}
+                  }`}
               >
                 🌟 Welcome
               </button>
               <button
                 type="button"
                 onClick={() => setEventType('membership_expiring')}
-                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${
-                  eventType === 'membership_expiring'
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${eventType === 'membership_expiring'
                     ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
                     : 'border-border/60 hover:bg-muted text-muted-foreground'
-                }`}
+                  }`}
               >
                 ⏰ Expiry Alert
               </button>
               <button
                 type="button"
                 onClick={() => setEventType('payment_reminder')}
-                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${
-                  eventType === 'payment_reminder'
+                className={`py-2 px-2.5 rounded-xl border text-xs font-semibold transition-all text-center ${eventType === 'payment_reminder'
                     ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold shadow-xs'
                     : 'border-border/60 hover:bg-muted text-muted-foreground'
-                }`}
+                  }`}
               >
                 💰 Payment Due
               </button>
@@ -204,6 +233,24 @@ export function SendWhatsAppDialog({
             <div className="p-3.5 rounded-xl bg-muted/40 border border-border/70 text-xs text-foreground/90 leading-relaxed font-sans whitespace-pre-wrap">
               {previewText}
             </div>
+          </div>
+
+          {/* Connected Sender Status */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/60 text-xs">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 text-primary" />
+              Sending From:
+            </span>
+            {integration ? (
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px] font-semibold">
+                {integration.display_phone_number || "Your WhatsApp Business"}
+                {integration.integration_type === "business_app_coexistence" && " (Coexistence)"}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                Gymatrix Central Gateway (Default)
+              </Badge>
+            )}
           </div>
 
           {/* Wallet Balance Notification */}

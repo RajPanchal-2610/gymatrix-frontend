@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Sun, Moon, Menu, LogOut, User as UserIcon, Dumbbell, Shield } from "lucide-react";
+import { Bell, Sun, Moon, Menu, LogOut, User as UserIcon, Dumbbell, Shield, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { GlobalSearch } from "./GlobalSearch";
+import { InstallAppDialog } from "@/components/pwa/InstallAppDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,7 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState<{ full_name: string; email: string } | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showInstallDialog, setShowInstallDialog] = useState(false);
 
   const { gymId } = useGym();
   const { hasPermission, role, refreshPermissions } = usePermissions();
@@ -159,6 +161,18 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        {/* Install Desktop App Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowInstallDialog(true)}
+          className="hidden sm:inline-flex items-center gap-1.5 text-xs font-semibold h-9 border-primary/20 hover:bg-primary/10 hover:text-primary transition-colors"
+          title="Install Gymatrix Desktop App"
+        >
+          <Download className="h-3.5 w-3.5 text-primary" />
+          <span>Install App</span>
+        </Button>
+
         {/* Search */}
         <GlobalSearch />
 
@@ -271,6 +285,10 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
               <UserIcon className="mr-2 h-4 w-4" />
               <span>My Profile</span>
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowInstallDialog(true)} className="cursor-pointer">
+              <Download className="mr-2 h-4 w-4 text-primary" />
+              <span>Install Desktop App</span>
+            </DropdownMenuItem>
             {role?.isOwner && role?.hasStaffRecord && (
               <>
                 <DropdownMenuSeparator />
@@ -312,6 +330,12 @@ export function TopBar({ onMenuClick, title = "Dashboard", hideMenuButton }: Top
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <InstallAppDialog
+        open={showInstallDialog}
+        onOpenChange={setShowInstallDialog}
+        showBanner={false}
+      />
     </header>
   );
 }

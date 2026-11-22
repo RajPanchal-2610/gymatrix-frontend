@@ -25,7 +25,10 @@ import {
     UserX,
     ChevronLeft,
     ChevronRight,
-    MessageSquare
+    MessageSquare,
+    X,
+    SlidersHorizontal,
+    RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -88,7 +91,8 @@ import {
 export default function Members() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { gymId, gyms, loading: gymLoading, isGymInactive } = useGym();
+    const { gymId, gyms, currentGym: contextGym, loading: gymLoading, isGymInactive } = useGym();
+    const currentGym = contextGym || gyms.find(g => g.id === gymId);
     const { hasPermission, role, permissions } = usePermissions();
     const { subscription } = useSubscription();
     const isOwnerOrSuperAdmin = role?.isOwner || permissions?.includes('*');
@@ -98,6 +102,11 @@ export default function Members() {
     const [currentStaff, setCurrentStaff] = useState<GymStaff | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [paymentFilter, setPaymentFilter] = useState<string>("all");
+    const [planFilter, setPlanFilter] = useState<string>("all");
+    const [staffFilter, setStaffFilter] = useState<string>("all");
+    const [genderFilter, setGenderFilter] = useState<string>("all");
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<GymMember | null>(null);
     const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -148,9 +157,16 @@ export default function Members() {
         const filter = searchParams.get('filter');
         if (filter === 'my') {
             setShowOnlyMyMembers(true);
+        } else if (filter === 'due' || filter === 'unpaid') {
+            setStatusFilter('due');
+        } else if (filter === 'active' || filter === 'expired' || filter === 'expiring_soon' || filter === 'paused') {
+            setStatusFilter(filter);
         } else {
             setShowOnlyMyMembers(false);
         }
+
+        const planParam = searchParams.get('plan');
+        if (planParam) setPlanFilter(planParam);
 
         const search = searchParams.get('search');
         if (search) {
@@ -178,7 +194,7 @@ export default function Members() {
                         `)
                         .eq('id', role.staff_id)
                         .maybeSingle();
-                    
+
                     if (staffData) {
                         let fullName = staffData.full_name;
                         if (staffData.user_id) {
@@ -223,16 +239,16 @@ export default function Members() {
 
     const getAssignedStaffDisplayText = (member: GymMember | null = editingMember) => {
         if (!member?.assigned_staff_id) return "No Assigned Staff";
-        
-        const staffObj = staffList.find(s => s.id === member.assigned_staff_id) 
+
+        const staffObj = staffList.find(s => s.id === member.assigned_staff_id)
             || member.gym_staff;
-            
+
         if (staffObj) {
             const roleName = staffObj.gym_roles?.name?.replace(/_/g, ' ');
             const formattedRoleName = roleName ? ` (${roleName.charAt(0).toUpperCase() + roleName.slice(1)})` : '';
             return `${staffObj.full_name}${formattedRoleName}`;
         }
-        
+
         return "Assigned Staff";
     };
 
@@ -454,7 +470,7 @@ export default function Members() {
 
     const handleRenewSubmit = async () => {
         if (!gymId || !renewingMember) return;
-        
+
         // If not renewing PT only, plan_id is required
         if (renewalType !== "pt" && !renewFormData.plan_id) {
             toast.error("Please select a plan");
@@ -484,6 +500,19 @@ export default function Members() {
                     return;
                 }
 
+                // Calculate renewal invoice due date based on gym's global grace period setting
+                const dueGraceDays = currentGym?.notification_settings?.overdue_payment?.payment_due_grace_days !== undefined
+                    ? Number(currentGym.notification_settings.overdue_payment.payment_due_grace_days)
+                    : (currentGym?.notification_settings?.overdue_payment?.new_member_due_days !== undefined
+                        ? Number(currentGym.notification_settings.overdue_payment.new_member_due_days)
+                        : 3);
+                let renewalBillingDate = renewFormData.start_date || new Date().toISOString().split('T')[0];
+                if (dueGraceDays > 0 && renewFormData.start_date) {
+                    const d = new Date(renewFormData.start_date);
+                    d.setDate(d.getDate() + dueGraceDays);
+                    renewalBillingDate = d.toISOString().split('T')[0];
+                }
+
                 // Insert only the PT Payment record linked to that history
                 const { error: ptError } = await supabase
                     .from("gym_membership_payments")
@@ -495,7 +524,7 @@ export default function Members() {
                         paid_amount: 0,
                         due_amount: renewingMember.pt_fee,
                         payment_status: 'unpaid',
-                        billing_date: renewFormData.start_date,
+                        billing_date: renewalBillingDate,
                         remarks: 'Personal Training Fee'
                     });
 
@@ -567,6 +596,19 @@ export default function Members() {
                 // 3. Create Payment Record (Unpaid)
                 const plan = plans.find(p => p.id === parseInt(renewFormData.plan_id));
                 if (plan) {
+                    // Calculate renewal invoice due date based on gym's global grace period setting
+                    const dueGraceDays = currentGym?.notification_settings?.overdue_payment?.payment_due_grace_days !== undefined
+                        ? Number(currentGym.notification_settings.overdue_payment.payment_due_grace_days)
+                        : (currentGym?.notification_settings?.overdue_payment?.new_member_due_days !== undefined
+                            ? Number(currentGym.notification_settings.overdue_payment.new_member_due_days)
+                            : 3);
+                    let renewalBillingDate = renewFormData.start_date || new Date().toISOString().split('T')[0];
+                    if (dueGraceDays > 0 && renewFormData.start_date) {
+                        const d = new Date(renewFormData.start_date);
+                        d.setDate(d.getDate() + dueGraceDays);
+                        renewalBillingDate = d.toISOString().split('T')[0];
+                    }
+
                     await supabase
                         .from("gym_membership_payments")
                         .insert({
@@ -577,7 +619,7 @@ export default function Members() {
                             paid_amount: 0,
                             due_amount: plan.price,
                             payment_status: 'unpaid',
-                            billing_date: renewFormData.start_date,
+                            billing_date: renewalBillingDate,
                             remarks: 'Membership Subscription'
                         });
 
@@ -592,7 +634,7 @@ export default function Members() {
                                 paid_amount: 0,
                                 due_amount: renewingMember.pt_fee,
                                 payment_status: 'unpaid',
-                                billing_date: renewFormData.start_date,
+                                billing_date: renewalBillingDate,
                                 remarks: 'Personal Training Fee'
                             });
 
@@ -611,7 +653,7 @@ export default function Members() {
                             });
                     }
                 }
-                
+
                 // Create in-app notification
                 supabase.auth.getUser().then(({ data: { user } }) => {
                     supabase
@@ -754,8 +796,8 @@ export default function Members() {
                 savedMemberId = editingMember.id;
 
                 // Check if they are newly assigned a staff during update
-                const isNewlyAssignedStaff = 
-                    (!editingMember.assigned_staff_id || editingMember.assigned_staff_id === null) && 
+                const isNewlyAssignedStaff =
+                    (!editingMember.assigned_staff_id || editingMember.assigned_staff_id === null) &&
                     (payload.assigned_staff_id !== null && payload.pt_fee > 0);
 
                 if (isNewlyAssignedStaff) {
@@ -839,13 +881,14 @@ export default function Members() {
                             recipientPhone: newMember.phone,
                             recipientName: newMember.full_name,
                             eventType: "welcome",
+                            templateName: "gym_member_welcome_v1",
+                            languageCode: "en_US",
                             variables: [
-                                currentGym?.name || "Our Gym",
                                 newMember.full_name,
+                                currentGym?.name || "Our Gym",
                                 plan ? plan.name : "Membership",
-                                payload.join_date,
-                                payload.expiry_date || "N/A",
-                                currentGym?.name || "Front Desk"
+                                payload.join_date || new Date().toISOString().split('T')[0],
+                                payload.expiry_date || "N/A"
                             ]
                         })
                     }).catch(err => console.error("Error triggering welcome WhatsApp message:", err));
@@ -870,6 +913,19 @@ export default function Members() {
                     if (!historyError && historyData) {
                         const plan = plans.find(p => p.id === payload.membership_plan_id);
                         if (plan) {
+                            // Calculate initial invoice due date based on gym's global grace period setting
+                            const dueGraceDays = currentGym?.notification_settings?.overdue_payment?.payment_due_grace_days !== undefined
+                                ? Number(currentGym.notification_settings.overdue_payment.payment_due_grace_days)
+                                : (currentGym?.notification_settings?.overdue_payment?.new_member_due_days !== undefined
+                                    ? Number(currentGym.notification_settings.overdue_payment.new_member_due_days)
+                                    : 3);
+                            let initialBillingDate = payload.join_date || new Date().toISOString().split('T')[0];
+                            if (dueGraceDays > 0 && payload.join_date) {
+                                const d = new Date(payload.join_date);
+                                d.setDate(d.getDate() + dueGraceDays);
+                                initialBillingDate = d.toISOString().split('T')[0];
+                            }
+
                             await supabase
                                 .from("gym_membership_payments")
                                 .insert({
@@ -880,7 +936,7 @@ export default function Members() {
                                     paid_amount: 0,
                                     due_amount: plan.price,
                                     payment_status: 'unpaid',
-                                    billing_date: payload.join_date,
+                                    billing_date: initialBillingDate,
                                     remarks: 'Membership Subscription'
                                 });
 
@@ -895,7 +951,7 @@ export default function Members() {
                                         paid_amount: 0,
                                         due_amount: payload.pt_fee,
                                         payment_status: 'unpaid',
-                                        billing_date: payload.join_date,
+                                        billing_date: initialBillingDate,
                                         remarks: 'Personal Training Fee'
                                     });
 
@@ -1023,15 +1079,74 @@ export default function Members() {
     };
 
     const filteredMembers = members.filter(member => {
-        const matchesSearch = member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            member.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            member.phone?.includes(searchQuery);
-
-        if (showOnlyMyMembers && role?.staff_id) {
-            return matchesSearch && member.assigned_staff_id === role.staff_id;
+        // 1. Search Query (Name, Phone, Email)
+        const query = searchQuery.trim().toLowerCase();
+        if (query) {
+            const matchesSearch =
+                member.full_name?.toLowerCase().includes(query) ||
+                member.email?.toLowerCase().includes(query) ||
+                member.phone?.includes(query);
+            if (!matchesSearch) return false;
         }
 
-        return matchesSearch;
+        // 2. Staff filter (My Members or assigned staff dropdown)
+        if (showOnlyMyMembers && role?.staff_id) {
+            if (member.assigned_staff_id !== role.staff_id) return false;
+        }
+
+        if (staffFilter !== "all") {
+            if (staffFilter === "unassigned") {
+                if (member.assigned_staff_id) return false;
+            } else {
+                if (String(member.assigned_staff_id) !== staffFilter) return false;
+            }
+        }
+
+        // 3. Plan filter
+        if (planFilter !== "all") {
+            if (String(member.membership_plan_id) !== planFilter) return false;
+        }
+
+        // 4. Gender filter
+        if (genderFilter !== "all") {
+            if (member.gender?.toLowerCase() !== genderFilter.toLowerCase()) return false;
+        }
+
+        // 5. Membership Status filter
+        const daysUntilExpiry = member.expiry_date
+            ? differenceInCalendarDays(new Date(member.expiry_date), new Date())
+            : null;
+        const isPaused = member.is_active === false || member.status === 'paused' || member.status === 'cancelled';
+        const isExpired = member.status === 'expired' || (daysUntilExpiry !== null && daysUntilExpiry < 0);
+        const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry >= 0 && daysUntilExpiry <= 7 && !isPaused;
+
+        if (statusFilter === "active") {
+            if (isPaused || isExpired) return false;
+        } else if (statusFilter === "expiring_soon") {
+            if (!isExpiringSoon) return false;
+        } else if (statusFilter === "expired") {
+            if (!isExpired) return false;
+        } else if (statusFilter === "paused") {
+            if (!isPaused) return false;
+        }
+
+        // 6. Payment Status filter
+        if (paymentFilter !== "all") {
+            const payments = member.gym_membership_payments || [];
+            const totalDue = payments.reduce((sum, p) => sum + (p.payment_status !== 'paid' ? (p.due_amount || 0) : 0), 0);
+            const hasUnpaid = payments.some(p => p.payment_status === 'unpaid' && (p.due_amount || 0) > 0);
+            const hasPartial = payments.some(p => p.payment_status === 'partial');
+
+            if (paymentFilter === "due") {
+                if (totalDue <= 0 && !hasUnpaid) return false;
+            } else if (paymentFilter === "paid") {
+                if (totalDue > 0 || hasUnpaid || hasPartial) return false;
+            } else if (paymentFilter === "partial") {
+                if (!hasPartial) return false;
+            }
+        }
+
+        return true;
     });
 
     // Statistics calculations
@@ -1042,13 +1157,31 @@ export default function Members() {
     const totalMembersCount = statsMembers.length;
 
     const activeMembersCount = statsMembers.filter(member => {
-        const status = getMemberStatusDisplay(member);
-        return status.label === "Active" || status.label.startsWith("Expires in");
+        const isPaused = member.is_active === false || member.status === 'paused' || member.status === 'cancelled';
+        const days = member.expiry_date ? differenceInCalendarDays(new Date(member.expiry_date), new Date()) : null;
+        const isExpired = member.status === 'expired' || (days !== null && days < 0);
+        return !isPaused && !isExpired;
+    }).length;
+
+    const expiringSoonMembersCount = statsMembers.filter(member => {
+        if (!member.expiry_date) return false;
+        const isPaused = member.is_active === false || member.status === 'paused' || member.status === 'cancelled';
+        const days = differenceInCalendarDays(new Date(member.expiry_date), new Date());
+        return !isPaused && days >= 0 && days <= 7;
     }).length;
 
     const expiredMembersCount = statsMembers.filter(member => {
-        const status = getMemberStatusDisplay(member);
-        return status.label === "Expired" || status.label === "Expires Today";
+        const days = member.expiry_date ? differenceInCalendarDays(new Date(member.expiry_date), new Date()) : null;
+        return member.status === 'expired' || (days !== null && days < 0);
+    }).length;
+
+    const paymentDueMembersCount = statsMembers.filter(member => {
+        const payments = member.gym_membership_payments || [];
+        return payments.some(p => p.payment_status !== 'paid' && (p.due_amount || 0) > 0);
+    }).length;
+
+    const pausedMembersCount = statsMembers.filter(member => {
+        return member.is_active === false || member.status === 'paused' || member.status === 'cancelled';
     }).length;
 
     const pendingDuesTotal = statsMembers.reduce((sum, member) => {
@@ -1061,6 +1194,21 @@ export default function Members() {
         const unpaid = payments.reduce((pSum, p) => pSum + (p.payment_status !== 'paid' ? (p.due_amount || 0) : 0), 0);
         return sum + unpaid;
     }, 0);
+
+    const activeFilterCount = (searchQuery ? 1 : 0) +
+        (statusFilter !== "all" ? 1 : 0) +
+        (planFilter !== "all" ? 1 : 0) +
+        (staffFilter !== "all" ? 1 : 0) +
+        (genderFilter !== "all" ? 1 : 0);
+
+    const handleClearAllFilters = () => {
+        setSearchQuery("");
+        setStatusFilter("all");
+        setPlanFilter("all");
+        setStaffFilter("all");
+        setGenderFilter("all");
+        setCurrentPage(1);
+    };
 
     // Pagination calculations
     const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
@@ -1081,14 +1229,26 @@ export default function Members() {
                         <div className="flex-1 w-full sm:max-w-md relative">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search members..."
-                                className="pl-9"
+                                placeholder="Search by name, phone, email..."
+                                className="pl-9 pr-8"
                                 value={searchQuery}
                                 onChange={(e) => {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
                             />
+                            {searchQuery && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setSearchQuery("");
+                                        setCurrentPage(1);
+                                    }}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                             {role?.staff_id && (
@@ -1125,12 +1285,12 @@ export default function Members() {
                                     if (isGymInactive && open) {
                                         toast.error("This gym is inactive due to plan limits. Cannot add members.");
                                         return;
-                                        }
+                                    }
                                     setDialogOpen(open);
                                 }}>
                                     <DialogTrigger asChild>
-                                        <Button 
-                                            className="gradient-primary shadow-glow h-10 px-4 w-full sm:w-auto order-1 sm:order-3"  
+                                        <Button
+                                            className="gradient-primary shadow-glow h-10 px-4 w-full sm:w-auto order-1 sm:order-3"
                                             onClick={(e) => {
                                                 if (isGymInactive) {
                                                     e.preventDefault();
@@ -1148,7 +1308,7 @@ export default function Members() {
                                         <DialogHeader className="p-6 pb-2 shrink-0">
                                             <DialogTitle>{editingMember ? "Edit Member" : "Register New Member"}</DialogTitle>
                                         </DialogHeader>
-                                        
+
                                         <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
                                             <div className="space-y-6 mt-4">
                                                 {/* Profile Image Section */}
@@ -1289,7 +1449,7 @@ export default function Members() {
                                                             </Select>
                                                         )}
                                                     </div>
-                                                     {((role?.staff_id && formData.assigned_staff_id?.toString() === role.staff_id.toString())) && (
+                                                    {((role?.staff_id && formData.assigned_staff_id?.toString() === role.staff_id.toString())) && (
                                                         <div className="space-y-2">
                                                             <Label htmlFor="ptFee">PT Fee (Monthly)</Label>
                                                             <div className="relative">
@@ -1329,14 +1489,14 @@ export default function Members() {
                                             </div>
                                         </div>
 
-                                         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 p-6 border-t bg-muted/50 shrink-0">
-                                             <Button variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
-                                                 Cancel
-                                             </Button>
-                                             <Button className="gradient-primary w-full sm:w-auto" onClick={handleSubmit}>
-                                                 {editingMember ? "Update Member" : "Register Member"}
-                                             </Button>
-                                         </div>
+                                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 p-6 border-t bg-muted/50 shrink-0">
+                                            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setDialogOpen(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button className="gradient-primary w-full sm:w-auto" onClick={handleSubmit}>
+                                                {editingMember ? "Update Member" : "Register Member"}
+                                            </Button>
+                                        </div>
                                     </DialogContent>
                                 </Dialog>
                             )}
@@ -1353,7 +1513,7 @@ export default function Members() {
                                         <Label>Member</Label>
                                         <div className="font-medium">{renewingMember?.full_name}</div>
                                     </div>
-                                     {renewingMember?.pt_fee && (renewingMember.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
+                                    {renewingMember?.pt_fee && (renewingMember.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
                                         <div className="space-y-2">
                                             <Label>Renewal Option</Label>
                                             <Select
@@ -1399,18 +1559,18 @@ export default function Members() {
                                         />
                                     </div>
                                 </div>
-                                 <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-                                     <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
-                                     <Button className="gradient-primary w-full sm:w-auto" onClick={handleRenewSubmit}>
-                                         Confirm Renewal
-                                     </Button>
-                                 </div>
+                                <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setRenewDialogOpen(false)}>Cancel</Button>
+                                    <Button className="gradient-primary w-full sm:w-auto" onClick={handleRenewSubmit}>
+                                        Confirm Renewal
+                                    </Button>
+                                </div>
                             </DialogContent>
                         </Dialog>
 
                         {/* History Dialog */}
                         <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                             <DialogContent className="sm:max-w-[700px] max-h-[92vh] flex flex-col">
+                            <DialogContent className="sm:max-w-[700px] max-h-[92vh] flex flex-col">
                                 <DialogHeader className="shrink-0">
                                     <DialogTitle>Membership History - {viewingMember?.full_name}</DialogTitle>
                                 </DialogHeader>
@@ -1425,92 +1585,92 @@ export default function Members() {
                                         </div>
                                     ) : (
                                         <div className="overflow-x-auto scrollbar-none">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="whitespace-nowrap">Plan</TableHead>
-                                                    <TableHead className="whitespace-nowrap">Start Date</TableHead>
-                                                    <TableHead className="whitespace-nowrap">End Date</TableHead>
-                                                    <TableHead className="whitespace-nowrap">Renewed At</TableHead>
-                                                    <TableHead className="whitespace-nowrap">Payment Status</TableHead>
-                                                    <TableHead className="whitespace-nowrap">Status</TableHead>
-                                                    <TableHead className="text-right whitespace-nowrap">Action</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {memberHistory.map((history) => {
-                                                    const payment = history.gym_membership_payments?.[0];
-                                                    return (
-                                                        <TableRow key={history.id}>
-                                                             <TableCell className="font-medium whitespace-nowrap">
-                                                                 {history.gym_membership_plans?.name || "Unknown Plan"}
-                                                             </TableCell>
-                                                             <TableCell className="whitespace-nowrap">{history.start_date}</TableCell>
-                                                             <TableCell className="whitespace-nowrap">{history.end_date}</TableCell>
-                                                             <TableCell className="whitespace-nowrap">
-                                                                 {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
-                                                             </TableCell>
-                                                             <TableCell className="whitespace-nowrap">
-                                                                 {payment ? (
-                                                                     <div className="flex flex-col gap-1.5">
-                                                                         {payment.payment_status === 'paid' && (
-                                                                             <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
-                                                                                 <CheckCircle className="w-3 h-3 mr-1" /> Paid
-                                                                             </Badge>
-                                                                         )}
-                                                                         {payment.payment_status === 'partial' && (
-                                                                             <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
-                                                                                 <Clock className="w-3 h-3 mr-1" /> Partial
-                                                                             </Badge>
-                                                                         )}
-                                                                         {payment.payment_status === 'unpaid' && (
-                                                                             <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
-                                                                                 <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
-                                                                             </Badge>
-                                                                         )}
-                                                                         <span className="text-xs text-muted-foreground font-medium">
-                                                                             ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
-                                                                         </span>
-                                                                     </div>
-                                                                 ) : (
-                                                                     <span className="text-muted-foreground text-sm">-</span>
-                                                                 )}
-                                                             </TableCell>
-                                                             <TableCell className="whitespace-nowrap">
-                                                                 <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
-                                                                     {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
-                                                                 </Badge>
-                                                             </TableCell>
-                                                             <TableCell className="text-right whitespace-nowrap">
-                                                                 {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
-                                                                     <Button
-                                                                         size="sm"
-                                                                         variant="outline"
-                                                                         className="h-7 text-xs"
-                                                                         onClick={() => {
-                                                                             if (viewingMember) {
-                                                                                 setSelectedPaymentMember({
-                                                                                     ...payment,
-                                                                                     gym_members: viewingMember
-                                                                                 } as any);
-                                                                                 setRecordPaymentOpen(true);
-                                                                             }
-                                                                         }}
-                                                                     >
-                                                                         Pay
-                                                                     </Button>
-                                                                 ) : (payment && payment.payment_status === 'paid') ? (
-                                                                     <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
-                                                                         <CheckCircle className="h-3.5 w-3.5" />
-                                                                         Done
-                                                                     </div>
-                                                                 ) : null}
-                                                             </TableCell>
-                                                         </TableRow>
-                                                    );
-                                                })}
-                                            </TableBody>
-                                        </Table>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="whitespace-nowrap">Plan</TableHead>
+                                                        <TableHead className="whitespace-nowrap">Start Date</TableHead>
+                                                        <TableHead className="whitespace-nowrap">End Date</TableHead>
+                                                        <TableHead className="whitespace-nowrap">Renewed At</TableHead>
+                                                        <TableHead className="whitespace-nowrap">Payment Status</TableHead>
+                                                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                                                        <TableHead className="text-right whitespace-nowrap">Action</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {memberHistory.map((history) => {
+                                                        const payment = history.gym_membership_payments?.[0];
+                                                        return (
+                                                            <TableRow key={history.id}>
+                                                                <TableCell className="font-medium whitespace-nowrap">
+                                                                    {history.gym_membership_plans?.name || "Unknown Plan"}
+                                                                </TableCell>
+                                                                <TableCell className="whitespace-nowrap">{history.start_date}</TableCell>
+                                                                <TableCell className="whitespace-nowrap">{history.end_date}</TableCell>
+                                                                <TableCell className="whitespace-nowrap">
+                                                                    {history.renewed_at ? format(new Date(history.renewed_at), "MMM d, yyyy") : "-"}
+                                                                </TableCell>
+                                                                <TableCell className="whitespace-nowrap">
+                                                                    {payment ? (
+                                                                        <div className="flex flex-col gap-1.5">
+                                                                            {payment.payment_status === 'paid' && (
+                                                                                <Badge variant="outline" className="w-fit bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800">
+                                                                                    <CheckCircle className="w-3 h-3 mr-1" /> Paid
+                                                                                </Badge>
+                                                                            )}
+                                                                            {payment.payment_status === 'partial' && (
+                                                                                <Badge variant="outline" className="w-fit bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:border-yellow-800">
+                                                                                    <Clock className="w-3 h-3 mr-1" /> Partial
+                                                                                </Badge>
+                                                                            )}
+                                                                            {payment.payment_status === 'unpaid' && (
+                                                                                <Badge variant="outline" className="w-fit bg-red-50 text-red-700 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-800">
+                                                                                    <AlertCircle className="w-3 h-3 mr-1" /> Unpaid
+                                                                                </Badge>
+                                                                            )}
+                                                                            <span className="text-xs text-muted-foreground font-medium">
+                                                                                ₹{payment.paid_amount} <span className="text-muted-foreground/60">/</span> ₹{payment.total_amount}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-muted-foreground text-sm">-</span>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="whitespace-nowrap">
+                                                                    <Badge variant={differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "secondary" : "default"}>
+                                                                        {differenceInCalendarDays(new Date(history.end_date), new Date()) < 0 ? "Expired" : "Active"}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right whitespace-nowrap">
+                                                                    {(payment && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial')) ? (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-7 text-xs"
+                                                                            onClick={() => {
+                                                                                if (viewingMember) {
+                                                                                    setSelectedPaymentMember({
+                                                                                        ...payment,
+                                                                                        gym_members: viewingMember
+                                                                                    } as any);
+                                                                                    setRecordPaymentOpen(true);
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Pay
+                                                                        </Button>
+                                                                    ) : (payment && payment.payment_status === 'paid') ? (
+                                                                        <div className="flex items-center justify-end text-emerald-600 text-xs font-medium opacity-80 gap-1 pr-2">
+                                                                            <CheckCircle className="h-3.5 w-3.5" />
+                                                                            Done
+                                                                        </div>
+                                                                    ) : null}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        );
+                                                    })}
+                                                </TableBody>
+                                            </Table>
                                         </div>
                                     )}
                                 </div>
@@ -1518,45 +1678,264 @@ export default function Members() {
                         </Dialog>
                     </div>
 
-                    {/* Member Statistics Grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-6">
-                        <StatCard
-                            title="Total Members"
-                            value={totalMembersCount}
-                            change="All registered members"
-                            changeType="neutral"
-                            icon={Users}
-                            iconClassName="gradient-primary"
-                            loading={loading}
-                        />
-                        <StatCard
-                            title="Active Members"
-                            value={activeMembersCount}
-                            change="Active membership status"
-                            changeType="positive"
-                            icon={UserCheck}
-                            iconClassName="bg-success"
-                            loading={loading}
-                        />
-                        <StatCard
-                            title="Expired Members"
-                            value={expiredMembersCount}
-                            change="Memberships requiring renewal"
-                            changeType="negative"
-                            icon={UserX}
-                            iconClassName="bg-destructive"
-                            loading={loading}
-                        />
-                        <StatCard
-                            title="Pending Dues"
-                            value={`₹${pendingDuesTotal.toLocaleString()}`}
-                            change="Outstanding member payments"
-                            changeType={pendingDuesTotal > 0 ? "negative" : "neutral"}
-                            icon={IndianRupee}
-                            iconClassName="bg-warning"
-                            loading={loading}
-                        />
+                    {/* Member Statistics Grid (Interactive Shortcuts) */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4">
+                        <div
+                            onClick={() => {
+                                setStatusFilter("all");
+                                setPaymentFilter("all");
+                                setCurrentPage(1);
+                            }}
+                            className={cn(
+                                "cursor-pointer rounded-xl transition-all",
+                                statusFilter === "all" && paymentFilter === "all" ? "ring-2 ring-primary ring-offset-2" : "hover:opacity-90"
+                            )}
+                            title="Click to view all members"
+                        >
+                            <StatCard
+                                title="Total Members"
+                                value={totalMembersCount}
+                                change="All registered members"
+                                changeType="neutral"
+                                icon={Users}
+                                iconClassName="gradient-primary"
+                                loading={loading}
+                            />
+                        </div>
+                        <div
+                            onClick={() => {
+                                setStatusFilter("active");
+                                setPaymentFilter("all");
+                                setCurrentPage(1);
+                            }}
+                            className={cn(
+                                "cursor-pointer rounded-xl transition-all",
+                                statusFilter === "active" ? "ring-2 ring-emerald-500 ring-offset-2" : "hover:opacity-90"
+                            )}
+                            title="Click to filter active members"
+                        >
+                            <StatCard
+                                title="Active Members"
+                                value={activeMembersCount}
+                                change="Active membership status"
+                                changeType="positive"
+                                icon={UserCheck}
+                                iconClassName="bg-success"
+                                loading={loading}
+                            />
+                        </div>
+                        <div
+                            onClick={() => {
+                                setStatusFilter("expired");
+                                setPaymentFilter("all");
+                                setCurrentPage(1);
+                            }}
+                            className={cn(
+                                "cursor-pointer rounded-xl transition-all",
+                                statusFilter === "expired" ? "ring-2 ring-rose-500 ring-offset-2" : "hover:opacity-90"
+                            )}
+                            title="Click to filter expired members"
+                        >
+                            <StatCard
+                                title="Expired Members"
+                                value={expiredMembersCount}
+                                change="Memberships requiring renewal"
+                                changeType="negative"
+                                icon={UserX}
+                                iconClassName="bg-destructive"
+                                loading={loading}
+                            />
+                        </div>
+                        <div
+                            onClick={() => {
+                                setPaymentFilter("due");
+                                setStatusFilter("all");
+                                setCurrentPage(1);
+                            }}
+                            className={cn(
+                                "cursor-pointer rounded-xl transition-all",
+                                paymentFilter === "due" ? "ring-2 ring-amber-500 ring-offset-2" : "hover:opacity-90"
+                            )}
+                            title="Click to filter members with pending dues"
+                        >
+                            <StatCard
+                                title="Pending Dues"
+                                value={`₹${pendingDuesTotal.toLocaleString()}`}
+                                change="Outstanding member payments"
+                                changeType={pendingDuesTotal > 0 ? "negative" : "neutral"}
+                                icon={IndianRupee}
+                                iconClassName="bg-warning"
+                                loading={loading}
+                            />
+                        </div>
                     </div>
+
+                    {/* General Required Filters Toolbar Card */}
+                    <Card className="mb-4 border border-border/80 shadow-sm">
+                        <CardContent className="p-3.5 sm:p-4 space-y-3">
+                            {/* Filter Dropdown Selectors */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 items-center">
+                                {/* Membership Status Filter (with Payment Due) */}
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={(val) => {
+                                        setStatusFilter(val);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="All Statuses" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Statuses</SelectItem>
+                                        <SelectItem value="active">Active Members</SelectItem>
+                                        <SelectItem value="due">Payment Due</SelectItem>
+                                        <SelectItem value="expiring_soon">Expiring Soon (≤ 7 Days)</SelectItem>
+                                        <SelectItem value="expired">Expired Members</SelectItem>
+                                        <SelectItem value="paused">Paused / Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Plan Filter */}
+                                <Select
+                                    value={planFilter}
+                                    onValueChange={(val) => {
+                                        setPlanFilter(val);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="All Plans" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Plans</SelectItem>
+                                        {plans.map((p) => (
+                                            <SelectItem key={p.id} value={String(p.id)}>
+                                                {p.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Staff / Trainer Filter */}
+                                <Select
+                                    value={staffFilter}
+                                    onValueChange={(val) => {
+                                        setStaffFilter(val);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="All Staff / Trainers" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Staff / Trainers</SelectItem>
+                                        <SelectItem value="unassigned">No Assigned Staff</SelectItem>
+                                        {staffList.map((s) => (
+                                            <SelectItem key={s.id} value={String(s.id)}>
+                                                {s.full_name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Gender Filter */}
+                                <Select
+                                    value={genderFilter}
+                                    onValueChange={(val) => {
+                                        setGenderFilter(val);
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-9 text-xs">
+                                        <SelectValue placeholder="All Genders" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Genders</SelectItem>
+                                        <SelectItem value="male">Male</SelectItem>
+                                        <SelectItem value="female">Female</SelectItem>
+                                        <SelectItem value="other">Other</SelectItem>
+                                    </SelectContent>
+                                </Select>
+
+                                {/* Reset Filters Button / Member Count */}
+                                <div className="flex items-center justify-end">
+                                    {activeFilterCount > 0 ? (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleClearAllFilters}
+                                            className="h-9 px-3 text-xs w-full text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 gap-1.5 transition-colors font-medium border border-rose-500/20"
+                                        >
+                                            <RotateCcw className="h-3.5 w-3.5" />
+                                            Reset Filters ({activeFilterCount})
+                                        </Button>
+                                    ) : (
+                                        <div className="text-[11px] text-muted-foreground w-full text-center sm:text-right font-medium">
+                                            {filteredMembers.length} member{filteredMembers.length === 1 ? "" : "s"}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Active Filter Badges */}
+                            {activeFilterCount > 0 && (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-2 text-xs text-muted-foreground border-t border-border/40">
+                                    <span className="font-semibold text-foreground text-[11px] mr-1">Active:</span>
+                                    {searchQuery && (
+                                        <Badge variant="secondary" className="text-[11px] gap-1 font-normal pl-2 pr-1 py-0.5">
+                                            Search: "{searchQuery}"
+                                            <button type="button" onClick={() => setSearchQuery("")} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
+                                    {statusFilter !== "all" && (
+                                        <Badge variant="secondary" className="text-[11px] gap-1 font-normal pl-2 pr-1 py-0.5">
+                                            Status: {
+                                                statusFilter === "expiring_soon"
+                                                    ? "Expiring Soon (≤ 7d)"
+                                                    : statusFilter === "due"
+                                                        ? "Payment Due"
+                                                        : statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)
+                                            }
+                                            <button type="button" onClick={() => setStatusFilter("all")} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
+                                    {planFilter !== "all" && (
+                                        <Badge variant="secondary" className="text-[11px] gap-1 font-normal pl-2 pr-1 py-0.5">
+                                            Plan: {plans.find(p => String(p.id) === planFilter)?.name || planFilter}
+                                            <button type="button" onClick={() => setPlanFilter("all")} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
+                                    {staffFilter !== "all" && (
+                                        <Badge variant="secondary" className="text-[11px] gap-1 font-normal pl-2 pr-1 py-0.5">
+                                            Staff: {staffFilter === "unassigned" ? "Unassigned" : staffList.find(s => String(s.id) === staffFilter)?.full_name || staffFilter}
+                                            <button type="button" onClick={() => setStaffFilter("all")} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
+                                    {genderFilter !== "all" && (
+                                        <Badge variant="secondary" className="text-[11px] gap-1 font-normal pl-2 pr-1 py-0.5">
+                                            Gender: {genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)}
+                                            <button type="button" onClick={() => setGenderFilter("all")} className="hover:bg-muted-foreground/20 rounded-full p-0.5">
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    )}
+                                    <span className="text-[11px] ml-auto">
+                                        Showing <strong className="text-foreground">{filteredMembers.length}</strong> of {totalMembersCount} members
+                                    </span>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     <Card className="overflow-hidden">
                         <CardContent className="p-0">
@@ -1574,423 +1953,436 @@ export default function Members() {
                                             <TableHead className="text-right whitespace-nowrap">Action</TableHead>
                                         </TableRow>
                                     </TableHeader>
-                                <TableBody>
-                                    {filteredMembers.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                                                No members found.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        paginatedMembers.map((member) => {
-                                            const isMemberPaused = member.is_active === false || member.status === 'paused';
-                                            return (
-                                                <TableRow
-                                                key={member.id}
-                                                className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
-                                                onClick={() => navigate(`/members/${member.id}`)}
-                                            >
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="h-10 w-10">
-                                                            <AvatarImage src={member.image_url || undefined} />
-                                                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                                                                {member.full_name.substring(0, 2).toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="font-semibold">{member.full_name}</div>
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                        {member.email && (
-                                                            <span className="flex items-center gap-1">
-                                                                <Mail className="h-3.5 w-3.5" />
-                                                                {member.email}
-                                                            </span>
-                                                        )}
-                                                        {member.phone ? (
-                                                            <span className="flex items-center gap-1">
-                                                                <Phone className="h-3.5 w-3.5" />
-                                                                {member.phone}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="flex items-center gap-1 text-muted-foreground/50">
-                                                                <Phone className="h-3.5 w-3.5 opacity-50" />
-                                                                -
-                                                            </span>
+                                    <TableBody>
+                                        {filteredMembers.length === 0 ? (
+                                            <TableRow>
+                                                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                                                    <div className="flex flex-col items-center justify-center gap-2">
+                                                        <p className="font-medium text-foreground">No members found matching the selected filters.</p>
+                                                        {activeFilterCount > 0 && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={handleClearAllFilters}
+                                                                className="h-8 text-xs gap-1.5"
+                                                            >
+                                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                                Reset Filters
+                                                            </Button>
                                                         )}
                                                     </div>
                                                 </TableCell>
-
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                        {member.gym_membership_plans ? (
-                                                            <span className="flex items-center gap-1">
-                                                                <Calendar className="h-3.5 w-3.5" />
-                                                                {member.gym_membership_plans.name}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">-</span>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                                        {member.expiry_date ? (
-                                                            <span className="flex items-center gap-1">
-                                                                <Clock className="h-3.5 w-3.5" />
-                                                                {member.expiry_date}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">-</span>
-                                                        )}
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex flex-col gap-1">
-                                                        {member.gym_staff ? (
-                                                            <span className="flex items-center gap-1 text-primary text-sm font-medium">
-                                                                <User className="h-3.5 w-3.5" />
-                                                                {member.gym_staff.full_name}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground text-sm">-</span>
-                                                        )}
-                                                        {member.pt_fee && member.pt_fee > 0 && (member.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
-                                                            <div className="flex flex-col gap-1 mt-1">
-                                                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                                                    <IndianRupee className="h-2.5 w-2.5" />
-                                                                    PT Fee: ₹{member.pt_fee}
-                                                                </span>
-                                                                {(() => {
-                                                                    const ptPayment = member.gym_membership_payments?.find(p => 
-                                                                        p.remarks === 'Personal Training Fee' && 
-                                                                        p.payment_status !== 'paid'
-                                                                    );
-                                                                    if (ptPayment) {
-                                                                        return (
-                                                                            <Button 
-                                                                                size="sm" 
-                                                                                variant="outline" 
-                                                                                className="h-6 text-[10px] w-fit px-2 border-primary/30 text-primary hover:bg-primary/5"
-                                                                                onClick={(e) => {
-                                                                                    if (isGymInactive || isMemberPaused) {
-                                                                                        e.preventDefault();
-                                                                                        return;
-                                                                                    }
-                                                                                    e.stopPropagation();
-                                                                                    setSelectedPaymentMember({ ...ptPayment, gym_members: member } as any);
-                                                                                    setRecordPaymentOpen(true);
-                                                                                }}
-                                                                                disabled={isGymInactive || isMemberPaused}
-                                                                            >
-                                                                                Pay PT Fee
-                                                                            </Button>
-                                                                        );
-                                                                    }
-                                                                    return null;
-                                                                })()}
+                                            </TableRow>
+                                        ) : (
+                                            paginatedMembers.map((member) => {
+                                                const isMemberPaused = member.is_active === false || member.status === 'paused';
+                                                return (
+                                                    <TableRow
+                                                        key={member.id}
+                                                        className="hover:bg-muted/50 transition-colors animate-fade-in cursor-pointer"
+                                                        onClick={() => navigate(`/members/${member.id}`)}
+                                                    >
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex items-center gap-3">
+                                                                <Avatar className="h-10 w-10">
+                                                                    <AvatarImage src={member.image_url || undefined} />
+                                                                    <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+                                                                        {member.full_name.substring(0, 2).toUpperCase()}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                                <div className="font-semibold">{member.full_name}</div>
                                                             </div>
-                                                        ) : null}
-                                                    </div>
-                                                </TableCell>
- 
-                                                <TableCell className="whitespace-nowrap">
-                                                    <div className="flex flex-col items-start gap-1">
-                                                        {(() => {
-                                                            const allPayments = member.gym_membership_payments || [];
-                                                            const visibleAllPayments = allPayments.filter(p => {
-                                                                if (p.remarks === 'Personal Training Fee') {
-                                                                     return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
-                                                                }
-                                                                return true;
-                                                            });
-                                                            // 1. Identify "Current" Payments (linked to latest history)
-                                                            const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
-                                                            const latestHistory = sortedHistory[0];
+                                                        </TableCell>
 
-                                                            const currentPayments = visibleAllPayments.filter(p => p.membership_history_id === latestHistory?.id);
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                                {member.email && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Mail className="h-3.5 w-3.5" />
+                                                                        {member.email}
+                                                                    </span>
+                                                                )}
+                                                                {member.phone ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Phone className="h-3.5 w-3.5" />
+                                                                        {member.phone}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-1 text-muted-foreground/50">
+                                                                        <Phone className="h-3.5 w-3.5 opacity-50" />
+                                                                        -
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
 
-                                                            const badges = [];
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                                {member.gym_membership_plans ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Calendar className="h-3.5 w-3.5" />
+                                                                        {member.gym_membership_plans.name}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">-</span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
 
-                                                            // 1. Current/Latest Payments Status
-                                                            if (currentPayments.length > 0) {
-                                                                currentPayments.forEach((payment, idx) => {
-                                                                    let colorClass = "bg-secondary text-secondary-foreground";
-                                                                    if (payment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
-                                                                    if (payment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
-                                                                    if (payment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+                                                                {member.expiry_date ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Clock className="h-3.5 w-3.5" />
+                                                                        {member.expiry_date}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground">-</span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
 
-                                                                    badges.push(
-                                                                        <span key={`current-${payment.id}`} className="flex items-center">
-                                                                            <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
-                                                                                {payment.remarks ? `${payment.remarks}: ` : ""}
-                                                                                {payment.payment_status.toUpperCase()}
-                                                                                {payment.payment_status !== 'paid' && ` (₹${payment.due_amount})`}
-                                                                            </Badge>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex flex-col gap-1">
+                                                                {member.gym_staff ? (
+                                                                    <span className="flex items-center gap-1 text-primary text-sm font-medium">
+                                                                        <User className="h-3.5 w-3.5" />
+                                                                        {member.gym_staff.full_name}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-muted-foreground text-sm">-</span>
+                                                                )}
+                                                                {member.pt_fee && member.pt_fee > 0 && (member.assigned_staff_id?.toString() === role?.staff_id?.toString()) ? (
+                                                                    <div className="flex flex-col gap-1 mt-1">
+                                                                        <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                                            <IndianRupee className="h-2.5 w-2.5" />
+                                                                            PT Fee: ₹{member.pt_fee}
                                                                         </span>
-                                                                    );
-                                                                });
-                                                            } else if (latestHistory && latestHistory.payment_status) {
-                                                                // Fallback to history status if payment record missing
-                                                                let colorClass = "bg-secondary text-secondary-foreground";
-                                                                if (latestHistory.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
-                                                                if (latestHistory.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
-                                                                if (latestHistory.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+                                                                        {(() => {
+                                                                            const ptPayment = member.gym_membership_payments?.find(p =>
+                                                                                p.remarks === 'Personal Training Fee' &&
+                                                                                p.payment_status !== 'paid'
+                                                                            );
+                                                                            if (ptPayment) {
+                                                                                return (
+                                                                                    <Button
+                                                                                        size="sm"
+                                                                                        variant="outline"
+                                                                                        className="h-6 text-[10px] w-fit px-2 border-primary/30 text-primary hover:bg-primary/5"
+                                                                                        onClick={(e) => {
+                                                                                            if (isGymInactive || isMemberPaused) {
+                                                                                                e.preventDefault();
+                                                                                                return;
+                                                                                            }
+                                                                                            e.stopPropagation();
+                                                                                            setSelectedPaymentMember({ ...ptPayment, gym_members: member } as any);
+                                                                                            setRecordPaymentOpen(true);
+                                                                                        }}
+                                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                                    >
+                                                                                        Pay PT Fee
+                                                                                    </Button>
+                                                                                );
+                                                                            }
+                                                                            return null;
+                                                                        })()}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        </TableCell>
 
-                                                                badges.push(
-                                                                    <span key="history-status" className="flex items-center">
-                                                                        <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
-                                                                            {latestHistory.payment_status.toUpperCase()}
-                                                                        </Badge>
-                                                                    </span>
-                                                                );
-                                                            }
-
-                                                            // 2. Check for Previous Unpaid/Partial Payments
-                                                            const previousUnpaid = visibleAllPayments.filter(p => 
-                                                                !currentPayments.some(cp => cp.id === p.id) && 
-                                                                (p.payment_status === 'unpaid' || p.payment_status === 'partial')
-                                                            );
-
-                                                            if (previousUnpaid.length > 0) {
-                                                                const totalPreviousDue = previousUnpaid.reduce((sum, p) => sum + (p.due_amount || 0), 0);
-
-                                                                badges.push(
-                                                                    <span key="previous-dues" className="flex items-center">
-                                                                        <Badge variant="outline" className="h-5 text-[10px] px-1.5 text-destructive bg-destructive/10 border-destructive/20 border-dashed">
-                                                                            PREVIOUS DUE (₹{totalPreviousDue})
-                                                                        </Badge>
-                                                                    </span>
-                                                                );
-                                                            }
-
-                                                            return badges;
-                                                        })()}
-                                                    </div>
-                                                </TableCell>
-
-                                                <TableCell className="whitespace-nowrap">
-                                                    {(() => {
-                                                        const status = getMemberStatusDisplay(member);
-                                                        return <Badge
-                                                            variant={status.variant as "default" | "secondary" | "destructive" | "outline"}
-                                                            className={status.className}
-                                                        >
-                                                            {status.label}
-                                                        </Badge>
-                                                            ;
-                                                    })()}
-                                                </TableCell>
-
-                                                <TableCell className="text-right whitespace-nowrap">
-                                                    <div className="flex justify-end items-center gap-2">
-                                                        {hasPermission('edit_members') && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleOpenDialog(member);
-                                                                }}
-                                                                disabled={isGymInactive || isMemberPaused}
-                                                                title="Edit Member"
-                                                            >
-                                                                <Edit className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-                                                        {hasPermission('delete_members') && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="text-destructive hover:bg-destructive/10"
-                                                                onClick={(e) => {
-                                                                    if (isGymInactive || isMemberPaused) {
-                                                                        e.preventDefault();
-                                                                        return;
-                                                                    }
-                                                                    e.stopPropagation();
-                                                                    handleDelete(member.id);
-                                                                }}
-                                                                disabled={isGymInactive || isMemberPaused}
-                                                                title="Delete Member"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        )}
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                                                                {hasPermission('view_membership_history') && (
-                                                                    <DropdownMenuItem onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleViewHistory(member);
-                                                                    }}>
-                                                                        <Eye className="h-4 w-4 mr-2" />
-                                                                        View History
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                                {hasPermission('edit_members') && (
-                                                                    <DropdownMenuItem 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleOpenAssignStaff(member);
-                                                                        }}
-                                                                        disabled={isGymInactive || isMemberPaused}
-                                                                    >
-                                                                        <User className="h-4 w-4 mr-2" />
-                                                                        Assign Staff
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                                {hasPermission('renew_membership') && (
-                                                                    <DropdownMenuItem 
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            handleOpenRenewDialog(member);
-                                                                        }}
-                                                                        disabled={isGymInactive || isMemberPaused}
-                                                                    >
-                                                                        <RefreshCw className="h-4 w-4 mr-2" />
-                                                                        Renew
-                                                                    </DropdownMenuItem>
-                                                                )}
-                                                                {/* Payment Action */}
-                                                                {(hasPermission('add_payments') || (member.assigned_staff_id && member.assigned_staff_id.toString() === role?.staff_id?.toString())) && (() => {
-                                                                    const actions = [];
-                                                                    // 1. Existing Payments that need attention
-                                                                    // Get ALL payments for this member
-                                                                    const allPayments = (member.gym_membership_payments || []);
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <div className="flex flex-col items-start gap-1">
+                                                                {(() => {
+                                                                    const allPayments = member.gym_membership_payments || [];
                                                                     const visibleAllPayments = allPayments.filter(p => {
                                                                         if (p.remarks === 'Personal Training Fee') {
                                                                             return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
                                                                         }
                                                                         return true;
                                                                     });
-
-                                                                    // Filter for unpaid or partial
-                                                                    const outstandingPayments = visibleAllPayments.filter(p => p.payment_status !== 'paid');
-
-                                                                    // Sort: Most recent first
-                                                                    outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
-
-                                                                    // Find the active or most recent history to identify which one is "Current"
+                                                                    // 1. Identify "Current" Payments (linked to latest history)
                                                                     const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
                                                                     const latestHistory = sortedHistory[0];
 
-                                                                    // Render actions for existing payments
-                                                                    outstandingPayments.forEach(payment => {
-                                                                        const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
-                                                                        const label = isLatest
-                                                                            ? (payment.remarks || `Record Payment`)
-                                                                            : (payment.remarks ? `Pay ${payment.remarks} (Previous)` : `Pay Previous Due`);
+                                                                    const currentPayments = visibleAllPayments.filter(p => p.membership_history_id === latestHistory?.id);
 
-                                                                        actions.push(
-                                                                            <DropdownMenuItem 
-                                                                                key={`pay-${payment.id}`} 
-                                                                                onClick={(e) => {
-                                                                                    e.stopPropagation();
-                                                                                    const paymentWithMember = { ...payment, gym_members: member };
-                                                                                    setSelectedPaymentMember(paymentWithMember as any);
-                                                                                    setRecordPaymentOpen(true);
-                                                                                }}
-                                                                                disabled={isGymInactive || isMemberPaused}
-                                                                            >
-                                                                                <IndianRupee className="h-4 w-4 mr-2" />
-                                                                                {label} (₹{payment.due_amount})
-                                                                            </DropdownMenuItem>
+                                                                    const badges = [];
+
+                                                                    // 1. Current/Latest Payments Status
+                                                                    if (currentPayments.length > 0) {
+                                                                        currentPayments.forEach((payment, idx) => {
+                                                                            let colorClass = "bg-secondary text-secondary-foreground";
+                                                                            if (payment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                                            if (payment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                                            if (payment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                                                            badges.push(
+                                                                                <span key={`current-${payment.id}`} className="flex items-center">
+                                                                                    <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                                                        {payment.remarks ? `${payment.remarks}: ` : ""}
+                                                                                        {payment.payment_status.toUpperCase()}
+                                                                                        {payment.payment_status !== 'paid' && ` (₹${payment.due_amount})`}
+                                                                                    </Badge>
+                                                                                </span>
+                                                                            );
+                                                                        });
+                                                                    } else if (latestHistory && latestHistory.payment_status) {
+                                                                        // Fallback to history status if payment record missing
+                                                                        let colorClass = "bg-secondary text-secondary-foreground";
+                                                                        if (latestHistory.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                                        if (latestHistory.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                                        if (latestHistory.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                                                        badges.push(
+                                                                            <span key="history-status" className="flex items-center">
+                                                                                <Badge variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                                                    {latestHistory.payment_status.toUpperCase()}
+                                                                                </Badge>
+                                                                            </span>
                                                                         );
-                                                                    });
+                                                                    }
 
-                                                                    // 2. Missing Invoices (History exists as unpaid/partial, but no payment record)
-                                                                    // This happens if a user deleted the payment record manually but history remains
-                                                                    const paidHistoryIds = allPayments.map(p => p.membership_history_id);
-
-                                                                    // Find histories that are unpaid/partial but NOT in the payments list
-                                                                    const orphanHistories = sortedHistory.filter(h =>
-                                                                        (h.payment_status === 'unpaid' || h.payment_status === 'partial') &&
-                                                                        !paidHistoryIds.includes(h.id)
+                                                                    // 2. Check for Previous Unpaid/Partial Payments
+                                                                    const previousUnpaid = visibleAllPayments.filter(p =>
+                                                                        !currentPayments.some(cp => cp.id === p.id) &&
+                                                                        (p.payment_status === 'unpaid' || p.payment_status === 'partial')
                                                                     );
 
-                                                                    orphanHistories.forEach(history => {
-                                                                        const isLatest = history.id === latestHistory?.id;
-                                                                        const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
+                                                                    if (previousUnpaid.length > 0) {
+                                                                        const totalPreviousDue = previousUnpaid.reduce((sum, p) => sum + (p.due_amount || 0), 0);
 
-                                                                        actions.push(
-                                                                            <DropdownMenuItem 
-                                                                                key={`regen-${history.id}`} 
-                                                                                onClick={async (e) => {
+                                                                        badges.push(
+                                                                            <span key="previous-dues" className="flex items-center">
+                                                                                <Badge variant="outline" className="h-5 text-[10px] px-1.5 text-destructive bg-destructive/10 border-destructive/20 border-dashed">
+                                                                                    PREVIOUS DUE (₹{totalPreviousDue})
+                                                                                </Badge>
+                                                                            </span>
+                                                                        );
+                                                                    }
+
+                                                                    return badges;
+                                                                })()}
+                                                            </div>
+                                                        </TableCell>
+
+                                                        <TableCell className="whitespace-nowrap">
+                                                            {(() => {
+                                                                const status = getMemberStatusDisplay(member);
+                                                                return <Badge
+                                                                    variant={status.variant as "default" | "secondary" | "destructive" | "outline"}
+                                                                    className={status.className}
+                                                                >
+                                                                    {status.label}
+                                                                </Badge>
+                                                                    ;
+                                                            })()}
+                                                        </TableCell>
+
+                                                        <TableCell className="text-right whitespace-nowrap">
+                                                            <div className="flex justify-end items-center gap-2">
+                                                                {hasPermission('edit_members') && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenDialog(member);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                        title="Edit Member"
+                                                                    >
+                                                                        <Edit className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                {hasPermission('delete_members') && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className="text-destructive hover:bg-destructive/10"
+                                                                        onClick={(e) => {
+                                                                            if (isGymInactive || isMemberPaused) {
+                                                                                e.preventDefault();
+                                                                                return;
+                                                                            }
+                                                                            e.stopPropagation();
+                                                                            handleDelete(member.id);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                        title="Delete Member"
+                                                                    >
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                )}
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                                                                            <MoreHorizontal className="h-4 w-4" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                        {hasPermission('view_membership_history') && (
+                                                                            <DropdownMenuItem onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleViewHistory(member);
+                                                                            }}>
+                                                                                <Eye className="h-4 w-4 mr-2" />
+                                                                                View History
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        {hasPermission('edit_members') && (
+                                                                            <DropdownMenuItem
+                                                                                onClick={(e) => {
                                                                                     e.stopPropagation();
-                                                                                    try {
-                                                                                        // Find plan details to get price
-                                                                                        const plan = plans.find(p => p.id === history.plan_id);
-                                                                                        if (!plan) {
-                                                                                            toast.error("Plan details not found, cannot regenerate invoice.");
-                                                                                            return;
-                                                                                        }
-
-                                                                                        const loadingToast = toast.loading("Regenerating invoice...");
-
-                                                                                        // Create new Payment Record
-                                                                                        const { data: newPayment, error } = await supabase
-                                                                                            .from("gym_membership_payments")
-                                                                                            .insert({
-                                                                                                membership_history_id: history.id,
-                                                                                                member_id: member.id,
-                                                                                                gym_id: gymId,
-                                                                                                total_amount: plan.price,
-                                                                                                paid_amount: 0,
-                                                                                                due_amount: plan.price,
-                                                                                                payment_status: 'unpaid',
-                                                                                                billing_date: new Date().toISOString()
-                                                                                            })
-                                                                                            .select()
-                                                                                            .single();
-
-                                                                                        if (error) throw error;
-
-                                                                                        toast.dismiss(loadingToast);
-                                                                                        toast.success("Invoice regenerated");
-
-                                                                                        // Refresh list then open dialog
-                                                                                        await fetchMembers();
-
-                                                                                        const paymentWithMember = { ...newPayment, gym_members: member };
-                                                                                        setSelectedPaymentMember(paymentWithMember as any);
-                                                                                        setRecordPaymentOpen(true);
-
-                                                                                    } catch (err: any) {
-                                                                                        toast.error("Failed to regenerate invoice: " + err.message);
-                                                                                    }
+                                                                                    handleOpenAssignStaff(member);
                                                                                 }}
                                                                                 disabled={isGymInactive || isMemberPaused}
                                                                             >
-                                                                                <IndianRupee className="h-4 w-4 mr-2" />
-                                                                                {label}
+                                                                                <User className="h-4 w-4 mr-2" />
+                                                                                Assign Staff
                                                                             </DropdownMenuItem>
-                                                                        );
-                                                                    });
+                                                                        )}
+                                                                        {hasPermission('renew_membership') && (
+                                                                            <DropdownMenuItem
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    handleOpenRenewDialog(member);
+                                                                                }}
+                                                                                disabled={isGymInactive || isMemberPaused}
+                                                                            >
+                                                                                <RefreshCw className="h-4 w-4 mr-2" />
+                                                                                Renew
+                                                                            </DropdownMenuItem>
+                                                                        )}
+                                                                        {/* Payment Action */}
+                                                                        {(hasPermission('add_payments') || (member.assigned_staff_id && member.assigned_staff_id.toString() === role?.staff_id?.toString())) && (() => {
+                                                                            const actions = [];
+                                                                            // 1. Existing Payments that need attention
+                                                                            // Get ALL payments for this member
+                                                                            const allPayments = (member.gym_membership_payments || []);
+                                                                            const visibleAllPayments = allPayments.filter(p => {
+                                                                                if (p.remarks === 'Personal Training Fee') {
+                                                                                    return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
+                                                                                }
+                                                                                return true;
+                                                                            });
 
-                                                                    return actions;
-                                                                })()}
+                                                                            // Filter for unpaid or partial
+                                                                            const outstandingPayments = visibleAllPayments.filter(p => p.payment_status !== 'paid');
 
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
+                                                                            // Sort: Most recent first
+                                                                            outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+
+                                                                            // Find the active or most recent history to identify which one is "Current"
+                                                                            const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
+                                                                            const latestHistory = sortedHistory[0];
+
+                                                                            // Render actions for existing payments
+                                                                            outstandingPayments.forEach(payment => {
+                                                                                const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
+                                                                                const label = isLatest
+                                                                                    ? (payment.remarks || `Record Payment`)
+                                                                                    : (payment.remarks ? `Pay ${payment.remarks} (Previous)` : `Pay Previous Due`);
+
+                                                                                actions.push(
+                                                                                    <DropdownMenuItem
+                                                                                        key={`pay-${payment.id}`}
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const paymentWithMember = { ...payment, gym_members: member };
+                                                                                            setSelectedPaymentMember(paymentWithMember as any);
+                                                                                            setRecordPaymentOpen(true);
+                                                                                        }}
+                                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                                    >
+                                                                                        <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                        {label} (₹{payment.due_amount})
+                                                                                    </DropdownMenuItem>
+                                                                                );
+                                                                            });
+
+                                                                            // 2. Missing Invoices (History exists as unpaid/partial, but no payment record)
+                                                                            // This happens if a user deleted the payment record manually but history remains
+                                                                            const paidHistoryIds = allPayments.map(p => p.membership_history_id);
+
+                                                                            // Find histories that are unpaid/partial but NOT in the payments list
+                                                                            const orphanHistories = sortedHistory.filter(h =>
+                                                                                (h.payment_status === 'unpaid' || h.payment_status === 'partial') &&
+                                                                                !paidHistoryIds.includes(h.id)
+                                                                            );
+
+                                                                            orphanHistories.forEach(history => {
+                                                                                const isLatest = history.id === latestHistory?.id;
+                                                                                const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
+
+                                                                                actions.push(
+                                                                                    <DropdownMenuItem
+                                                                                        key={`regen-${history.id}`}
+                                                                                        onClick={async (e) => {
+                                                                                            e.stopPropagation();
+                                                                                            try {
+                                                                                                // Find plan details to get price
+                                                                                                const plan = plans.find(p => p.id === history.plan_id);
+                                                                                                if (!plan) {
+                                                                                                    toast.error("Plan details not found, cannot regenerate invoice.");
+                                                                                                    return;
+                                                                                                }
+
+                                                                                                const loadingToast = toast.loading("Regenerating invoice...");
+
+                                                                                                // Create new Payment Record
+                                                                                                const { data: newPayment, error } = await supabase
+                                                                                                    .from("gym_membership_payments")
+                                                                                                    .insert({
+                                                                                                        membership_history_id: history.id,
+                                                                                                        member_id: member.id,
+                                                                                                        gym_id: gymId,
+                                                                                                        total_amount: plan.price,
+                                                                                                        paid_amount: 0,
+                                                                                                        due_amount: plan.price,
+                                                                                                        payment_status: 'unpaid',
+                                                                                                        billing_date: new Date().toISOString()
+                                                                                                    })
+                                                                                                    .select()
+                                                                                                    .single();
+
+                                                                                                if (error) throw error;
+
+                                                                                                toast.dismiss(loadingToast);
+                                                                                                toast.success("Invoice regenerated");
+
+                                                                                                // Refresh list then open dialog
+                                                                                                await fetchMembers();
+
+                                                                                                const paymentWithMember = { ...newPayment, gym_members: member };
+                                                                                                setSelectedPaymentMember(paymentWithMember as any);
+                                                                                                setRecordPaymentOpen(true);
+
+                                                                                            } catch (err: any) {
+                                                                                                toast.error("Failed to regenerate invoice: " + err.message);
+                                                                                            }
+                                                                                        }}
+                                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                                    >
+                                                                                        <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                        {label}
+                                                                                    </DropdownMenuItem>
+                                                                                );
+                                                                            });
+
+                                                                            return actions;
+                                                                        })()}
+
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        )}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </CardContent>
                     </Card>
@@ -2129,12 +2521,12 @@ export default function Members() {
                                     )}
                                 </div>
                             </div>
-                             <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
-                                 <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAssignStaffOpen(false)}>Cancel</Button>
-                                 <Button className="gradient-primary w-full sm:w-auto" onClick={handleAssignStaffSubmit}>
-                                     Save Assignment
-                                 </Button>
-                             </div>
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 mt-6">
+                                <Button variant="outline" className="w-full sm:w-auto" onClick={() => setAssignStaffOpen(false)}>Cancel</Button>
+                                <Button className="gradient-primary w-full sm:w-auto" onClick={handleAssignStaffSubmit}>
+                                    Save Assignment
+                                </Button>
+                            </div>
                         </DialogContent>
                     </Dialog>
 

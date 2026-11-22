@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   QrCode,
@@ -73,19 +73,42 @@ type MenuSection = "overview" | "digital-pass" | "attendance" | "workout" | "die
 
 interface NavItem {
   id: MenuSection;
+  path: string;
   title: string;
   icon: any;
   badge?: string;
 }
 
+const sectionRoutes: Record<string, MenuSection> = {
+  "/member/dashboard": "overview",
+  "/member/pass": "digital-pass",
+  "/member/attendance": "attendance",
+  "/member/workouts": "workout",
+  "/member/workout": "workout",
+  "/member/diet": "diet",
+  "/member/payments": "payments",
+  "/member/profile": "security",
+  "/member/security": "security",
+};
+
+const sectionToPath: Record<MenuSection, string> = {
+  "overview": "/member/dashboard",
+  "digital-pass": "/member/pass",
+  "attendance": "/member/attendance",
+  "workout": "/member/workouts",
+  "diet": "/member/diet",
+  "payments": "/member/payments",
+  "security": "/member/profile",
+};
+
 const navItems: NavItem[] = [
-  { id: "overview", title: "Dashboard", icon: LayoutDashboard },
-  { id: "digital-pass", title: "Digital Pass & QR", icon: QrCode },
-  { id: "attendance", title: "Attendance History", icon: CalendarCheck },
-  { id: "workout", title: "Workout Routine", icon: Dumbbell },
-  { id: "diet", title: "Diet & Nutrition", icon: Apple },
-  { id: "payments", title: "Payments & Invoices", icon: Receipt },
-  { id: "security", title: "Security & Profile", icon: Lock },
+  { id: "overview", path: "/member/dashboard", title: "Dashboard", icon: LayoutDashboard },
+  { id: "digital-pass", path: "/member/pass", title: "Digital Pass & QR", icon: QrCode },
+  { id: "attendance", path: "/member/attendance", title: "Attendance History", icon: CalendarCheck },
+  { id: "workout", path: "/member/workouts", title: "Workout Routine", icon: Dumbbell },
+  { id: "diet", path: "/member/diet", title: "Diet & Nutrition", icon: Apple },
+  { id: "payments", path: "/member/payments", title: "Payments & Invoices", icon: Receipt },
+  { id: "security", path: "/member/profile", title: "Security & Profile", icon: Lock },
 ];
 
 const DAY_NAMES: Record<number, string> = {
@@ -98,12 +121,39 @@ const DAY_NAMES: Record<number, string> = {
   7: "Sunday",
 };
 
-export default function MemberDashboard() {
+interface MemberDashboardProps {
+  defaultSection?: MenuSection;
+}
+
+export default function MemberDashboard({ defaultSection }: MemberDashboardProps = {}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const getSectionFromPath = (path: string): MenuSection => {
+    return sectionRoutes[path] || defaultSection || "overview";
+  };
+
   const [member, setMember] = useState<MemberSessionData | null>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeSection, setActiveSection] = useState<MenuSection>("overview");
+  const [activeSection, setActiveSection] = useState<MenuSection>(() => getSectionFromPath(location.pathname));
+
+  useEffect(() => {
+    const matched = getSectionFromPath(location.pathname);
+    if (matched && matched !== activeSection) {
+      setActiveSection(matched);
+    }
+  }, [location.pathname, defaultSection]);
+
+  const handleNavigateSection = (section: MenuSection) => {
+    setActiveSection(section);
+    const targetPath = sectionToPath[section] || "/member/dashboard";
+    if (location.pathname !== targetPath) {
+      navigate(targetPath);
+    }
+    setMobileOpen(false);
+  };
 
   // Layout states (matching Gym Dashboard)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -119,8 +169,6 @@ export default function MemberDashboard() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
-
-  const navigate = useNavigate();
 
   const loadData = async () => {
     try {
@@ -257,7 +305,7 @@ export default function MemberDashboard() {
               "flex items-center gap-3 overflow-hidden transition-all duration-200 cursor-pointer",
               sidebarCollapsed ? "justify-center w-full" : "flex-1"
             )}
-            onClick={() => setActiveSection("overview")}
+            onClick={() => handleNavigateSection("overview")}
           >
             <div className="h-10 w-10 rounded-lg bg-white p-1 border border-border flex items-center justify-center flex-shrink-0 shadow-sm overflow-hidden">
               <img
@@ -316,8 +364,7 @@ export default function MemberDashboard() {
                 <button
                   key={item.id}
                   onClick={() => {
-                    setActiveSection(item.id);
-                    setMobileOpen(false);
+                    handleNavigateSection(item.id);
                   }}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group relative",
@@ -393,11 +440,11 @@ export default function MemberDashboard() {
             <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setActiveSection("digital-pass")}>
+              <DropdownMenuItem onClick={() => handleNavigateSection("digital-pass")}>
                 <QrCode className="h-4 w-4 mr-2" />
                 Digital Pass
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveSection("security")}>
+              <DropdownMenuItem onClick={() => handleNavigateSection("security")}>
                 <Lock className="h-4 w-4 mr-2" />
                 Security Settings
               </DropdownMenuItem>
@@ -645,7 +692,7 @@ export default function MemberDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setActiveSection("attendance")}
+                      onClick={() => handleNavigateSection("attendance")}
                       className="text-xs gap-1 text-primary"
                     >
                       View All <ArrowRight className="h-3 w-3" />
@@ -692,7 +739,7 @@ export default function MemberDashboard() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setActiveSection("workout")}
+                      onClick={() => handleNavigateSection("workout")}
                       className="text-xs gap-1 text-primary"
                     >
                       Full Plan <ArrowRight className="h-3 w-3" />
@@ -1085,9 +1132,10 @@ export default function MemberDashboard() {
                           pay.gym_membership_history?.gym_membership_plans?.name ||
                           pay.remarks ||
                           "Gym Membership";
-                        const invoiceDate = pay.billing_date
+                        const invoiceDate = new Date(pay.created_at).toLocaleDateString();
+                        const dueDate = pay.billing_date
                           ? new Date(pay.billing_date).toLocaleDateString()
-                          : new Date(pay.created_at).toLocaleDateString();
+                          : null;
                         const isFullyPaid =
                           pay.payment_status === "paid" || Number(pay.due_amount || 0) <= 0;
 
@@ -1106,7 +1154,8 @@ export default function MemberDashboard() {
                                     {planName}
                                   </h4>
                                   <p className="text-xs text-muted-foreground">
-                                    Invoice Date: {invoiceDate} • ID: INV-{String(pay.id).padStart(5, "0")}
+                                    Invoice Date: {invoiceDate}
+                                    {dueDate ? ` • Due Date: ${dueDate}` : ""} • ID: INV-{String(pay.id).padStart(5, "0")}
                                   </p>
                                 </div>
                               </div>
@@ -1338,8 +1387,13 @@ export default function MemberDashboard() {
                     INV-{String(selectedInvoice.id).padStart(5, "0")}
                   </Badge>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    {selectedInvoice.billing_date || new Date(selectedInvoice.created_at).toLocaleDateString()}
+                    Invoice Date: {new Date(selectedInvoice.created_at).toLocaleDateString()}
                   </p>
+                  {selectedInvoice.billing_date && (
+                    <p className="text-[11px] font-medium text-foreground mt-0.5">
+                      Due Date: {new Date(selectedInvoice.billing_date).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
 

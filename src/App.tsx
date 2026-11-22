@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { InstallAppDialog } from "@/components/pwa/InstallAppDialog";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { PrivateRoute } from "./components/PrivateRoute";
@@ -33,7 +34,14 @@ import GymForgotPassword from "./pages/gym/GymForgotPassword";
 import GymResetPassword from "./pages/gym/GymResetPassword";
 import MemberLogin from "./pages/member/MemberLogin";
 import MemberRegister from "./pages/member/MemberRegister";
-import MemberDashboard from "./pages/member/MemberDashboard";
+import MemberLayout from "./pages/member/MemberLayout";
+import MemberOverview from "./pages/member/MemberOverview";
+import MemberPass from "./pages/member/MemberPass";
+import MemberAttendance from "./pages/member/MemberAttendance";
+import MemberWorkouts from "./pages/member/MemberWorkouts";
+import MemberDiet from "./pages/member/MemberDiet";
+import MemberPayments from "./pages/member/MemberPayments";
+import MemberProfile from "./pages/member/MemberProfile";
 import GymDashboard from "./pages/gym/Dashboard";
 import GymDashboard2 from "./pages/gym/Dashboard2";
 import GymInventory from "./pages/gym/Inventory";
@@ -65,6 +73,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <InstallAppDialog />
       <SubscriptionProvider>
         <PermissionsProvider>
           <GymProvider>
@@ -203,7 +212,19 @@ const App = () => (
                 {/* Gym Member Portal Routes */}
                 <Route path="/member/login" element={<MemberLogin />} />
                 <Route path="/member/register" element={<MemberRegister />} />
-                <Route path="/member/dashboard" element={<MemberDashboard />} />
+
+                <Route path="/member" element={<MemberLayout />}>
+                  <Route index element={<MemberOverview />} />
+                  <Route path="dashboard" element={<MemberOverview />} />
+                  <Route path="pass" element={<MemberPass />} />
+                  <Route path="attendance" element={<MemberAttendance />} />
+                  <Route path="workouts" element={<MemberWorkouts />} />
+                  <Route path="workout" element={<MemberWorkouts />} />
+                  <Route path="diet" element={<MemberDiet />} />
+                  <Route path="payments" element={<MemberPayments />} />
+                  <Route path="profile" element={<MemberProfile />} />
+                  <Route path="security" element={<MemberProfile />} />
+                </Route>
 
                 {/* Super Admin Routes - Protected */}
                 <Route element={<PrivateRoute allowedRoles={['SUPER_ADMIN']} />}>

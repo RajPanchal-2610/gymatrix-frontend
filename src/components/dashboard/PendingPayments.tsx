@@ -86,7 +86,7 @@ export function PendingPayments({ invoices, loading, totalAmount }: PendingPayme
                                 <div className="flex-1 min-w-0">
                                     <p className="font-medium truncate">{invoice.memberName}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        Due since: {invoice.billingDate}
+                                        Due Date: {invoice.billingDate}
                                     </p>
                                 </div>
                                 <div className="flex flex-col items-end gap-2">

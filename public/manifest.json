@@ -1,0 +1,38 @@
+{
+  "name": "Gymatrix - Gym Management",
+  "short_name": "Gymatrix",
+  "description": "Gym Management Simplified — Members, Plans, Attendance, Payroll & Reports",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "499x499",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["business", "productivity", "fitness"]
+}
+

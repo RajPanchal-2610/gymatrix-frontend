@@ -69,6 +69,13 @@ export default function GymPayments() {
                         gym_membership_plans (
                             name
                         )
+                    ),
+                    gym_payment_transactions (
+                        id,
+                        payment_mode,
+                        amount,
+                        transaction_reference,
+                        paid_at
                     )
                 `)
                 .eq('gym_id', gymId)
@@ -261,10 +268,23 @@ export default function GymPayments() {
                                 ) : (
                                     filteredPayments.map((payment) => {
                                         const isMemberPaused = payment.gym_members?.is_active === false || payment.gym_members?.status === 'paused';
+                                        const pendingTxn = payment.gym_payment_transactions?.find(
+                                            t => t.transaction_reference
+                                        );
+                                        const latestUtr = pendingTxn?.transaction_reference;
                                         return (
                                             <tr key={payment.id} className="hover:bg-muted/50 transition-colors">
                                                 <td className="px-4 py-3 font-medium whitespace-nowrap">
-                                                    {payment.gym_members?.full_name}
+                                                    <div>
+                                                        <span>{payment.gym_members?.full_name}</span>
+                                                        {latestUtr && (
+                                                            <div className="flex items-center gap-1 mt-0.5">
+                                                                <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                                                                    UTR: {latestUtr}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm whitespace-nowrap">
                                                     {payment.gym_membership_history?.gym_membership_plans?.name || 'Unknown Plan'}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,29 @@ export function RecordPaymentDialog({ open, onOpenChange, payment, onSuccess }: 
         { id: '1', amount: "", mode: "Cash", reference: "" }
     ]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (open && payment) {
+            const pendingTxn = payment.gym_payment_transactions?.find(
+                t => t.transaction_reference
+            );
+            if (pendingTxn && pendingTxn.transaction_reference) {
+                setSplits([{
+                    id: '1',
+                    amount: payment.due_amount ? payment.due_amount.toString() : (pendingTxn.amount ? pendingTxn.amount.toString() : ""),
+                    mode: 'Online',
+                    reference: pendingTxn.transaction_reference
+                }]);
+            } else {
+                setSplits([{
+                    id: '1',
+                    amount: payment.due_amount ? payment.due_amount.toString() : "",
+                    mode: 'Cash',
+                    reference: ''
+                }]);
+            }
+        }
+    }, [open, payment]);
 
     if (!payment) return null;
 
