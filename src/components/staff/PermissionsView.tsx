@@ -178,41 +178,80 @@ export function PermissionsView() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Feature</TableHead>
-                                <TableHead>Action</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {Object.entries(groupedPermissions).flatMap(([featureName, perms]) => 
-                                perms.map((perm, index) => (
-                                    <TableRow key={perm.id} className={index === 0 ? "border-t border-border" : ""}>
-                                        <TableCell className="font-medium text-muted-foreground">
-                                            {index === 0 ? featureName : ''}
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">{perm.action}</TableCell>
-                                        <TableCell>{perm.description}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => openDialog(perm)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Feature</TableHead>
+                                    <TableHead>Action</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {Object.entries(groupedPermissions).flatMap(([featureName, perms]) => 
+                                    perms.map((perm, index) => (
+                                        <TableRow key={perm.id} className={index === 0 ? "border-t border-border" : ""}>
+                                            <TableCell className="font-medium text-muted-foreground">
+                                                {index === 0 ? featureName : ''}
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm">{perm.action}</TableCell>
+                                            <TableCell>{perm.description}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => openDialog(perm)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                                {permissions.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center text-muted-foreground p-6">
+                                            No permissions found.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                            {permissions.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground p-6">
-                                        No permissions found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {loading ? (
+                            <div className="p-6 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">Loading permissions...</div>
+                        ) : permissions.length === 0 ? (
+                            <div className="p-6 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">No permissions found.</div>
+                        ) : (
+                            Object.entries(groupedPermissions).map(([featureName, perms]) => (
+                                <div key={featureName} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                    <h4 className="text-xs font-bold text-primary uppercase tracking-wider bg-primary/10 px-2 py-1 rounded inline-block">
+                                        {featureName}
+                                    </h4>
+                                    <div className="space-y-2">
+                                        {perms.map((perm) => (
+                                            <div key={perm.id} className="p-3 rounded-lg border bg-muted/20 flex items-start justify-between gap-2">
+                                                <div className="min-w-0">
+                                                    <div className="font-mono text-xs font-semibold text-foreground truncate">
+                                                        {perm.action}
+                                                    </div>
+                                                    {perm.description && (
+                                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                                            {perm.description}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground" onClick={() => openDialog(perm)}>
+                                                    <Edit className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

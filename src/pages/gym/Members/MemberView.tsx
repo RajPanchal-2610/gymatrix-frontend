@@ -438,7 +438,8 @@ export default function MemberView() {
                             <CardContent className="pt-6">
                                 {member.gym_membership_history && member.gym_membership_history.length > 0 ? (
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
+                                        {/* Desktop Table */}
+                                        <div className="hidden md:block overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
@@ -514,6 +515,62 @@ export default function MemberView() {
                                                 </tbody>
                                             </table>
                                         </div>
+
+                                        {/* Mobile Card List */}
+                                        <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                                            {member.gym_membership_history
+                                                .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+                                                .map((history) => {
+                                                    const paymentRecord = member.gym_membership_payments?.find(
+                                                        (p: any) => p.membership_history_id === history.id
+                                                    );
+                                                    const payStatus = paymentRecord?.payment_status || history.payment_status || 'unpaid';
+                                                    const isPast = new Date().getTime() > new Date(history.end_date).getTime() + 86400000;
+                                                    const isActive = history.is_active && !isPast;
+
+                                                    return (
+                                                        <div key={history.id} className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div>
+                                                                    <h4 className="font-semibold text-foreground text-sm">
+                                                                        {history.gym_membership_plans?.name || 'Unknown Plan'}
+                                                                    </h4>
+                                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                                        {format(new Date(history.start_date), "dd MMM yyyy")} - {format(new Date(history.end_date), "dd MMM yyyy")}
+                                                                    </div>
+                                                                </div>
+                                                                <Badge
+                                                                    variant={isActive ? 'default' : 'destructive'}
+                                                                    className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", isActive ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}
+                                                                >
+                                                                    {isActive ? 'ACTIVE' : 'EXPIRED'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-muted-foreground text-[11px]">Payment:</span>
+                                                                    <Badge
+                                                                        variant={payStatus === 'paid' ? 'default' : payStatus === 'partial' ? 'secondary' : 'destructive'}
+                                                                        className={cn(
+                                                                            "px-1.5 py-0 text-[10px] font-bold uppercase",
+                                                                            payStatus === 'paid'
+                                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                                : payStatus === 'partial'
+                                                                                ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                                : ""
+                                                                        )}
+                                                                    >
+                                                                        {payStatus}
+                                                                    </Badge>
+                                                                </div>
+                                                                <span className="text-muted-foreground text-[11px]">
+                                                                    {history.renewed_at ? `Renewed: ${format(new Date(history.renewed_at), "dd MMM yyyy")}` : 'Not renewed'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/20">
@@ -539,7 +596,8 @@ export default function MemberView() {
                                 </CardHeader>
                                 <CardContent className="pt-6">
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
+                                        {/* Desktop Table */}
+                                        <div className="hidden md:block overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
@@ -601,6 +659,62 @@ export default function MemberView() {
                                                 </tbody>
                                             </table>
                                         </div>
+
+                                        {/* Mobile Card List */}
+                                        <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                                            {member.gym_pt_history
+                                                .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+                                                .map((ptHistory) => {
+                                                    const ptPayment = member.gym_membership_payments?.find(
+                                                        (p: any) => p.remarks === 'Personal Training Fee' && p.billing_date === ptHistory.start_date
+                                                    );
+                                                    const ptPayStatus = ptPayment?.payment_status || 'unpaid';
+                                                    const isPast = new Date().getTime() > new Date(ptHistory.end_date).getTime() + 86400000;
+                                                    const isActive = ptHistory.status === 'active' && !isPast;
+
+                                                    return (
+                                                        <div key={ptHistory.id} className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm">
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div>
+                                                                    <h4 className="font-semibold text-foreground text-sm">
+                                                                        {ptHistory.gym_staff?.full_name || 'Assigned Staff'}
+                                                                    </h4>
+                                                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                                                        {format(new Date(ptHistory.start_date), "dd MMM yyyy")} - {format(new Date(ptHistory.end_date), "dd MMM yyyy")}
+                                                                    </div>
+                                                                </div>
+                                                                <Badge
+                                                                    variant={isActive ? 'default' : 'destructive'}
+                                                                    className={cn("px-2 py-0.5 text-[10px] font-bold uppercase", isActive ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "")}
+                                                                >
+                                                                    {isActive ? 'ACTIVE' : 'EXPIRED'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40">
+                                                                <span className="font-semibold text-foreground">
+                                                                    ₹{ptHistory.pt_fee.toLocaleString()}
+                                                                </span>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className="text-muted-foreground text-[11px]">Payment:</span>
+                                                                    <Badge
+                                                                        variant={ptPayStatus === 'paid' ? 'default' : ptPayStatus === 'partial' ? 'secondary' : 'destructive'}
+                                                                        className={cn(
+                                                                            "px-1.5 py-0 text-[10px] font-bold uppercase",
+                                                                            ptPayStatus === 'paid'
+                                                                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                                                                                : ptPayStatus === 'partial'
+                                                                                ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                                                                                : ""
+                                                                        )}
+                                                                    >
+                                                                        {ptPayStatus}
+                                                                    </Badge>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -658,7 +772,8 @@ export default function MemberView() {
                             <CardContent className="pt-6">
                                 {typeFilteredPayments && typeFilteredPayments.length > 0 ? (
                                     <div className="border rounded-xl overflow-hidden shadow-sm">
-                                        <div className="overflow-auto max-h-[400px] scrollbar-none cursor-default">
+                                        {/* Desktop Table */}
+                                        <div className="hidden md:block overflow-auto max-h-[400px] scrollbar-none cursor-default">
                                             <table className="w-full text-sm">
                                                 <thead className="bg-muted/50 sticky top-0 z-10 backdrop-blur-sm">
                                                     <tr>
@@ -726,6 +841,83 @@ export default function MemberView() {
                                                         ))}
                                                 </tbody>
                                             </table>
+                                        </div>
+
+                                        {/* Mobile Card List */}
+                                        <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                                            {typeFilteredPayments
+                                                .sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+                                                .map((payment) => (
+                                                    <div key={payment.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div>
+                                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground block">Due Date</span>
+                                                                <span className="font-semibold text-foreground text-sm">
+                                                                    {payment.billing_date ? format(new Date(payment.billing_date), "dd MMM yyyy") : '-'}
+                                                                </span>
+                                                            </div>
+                                                            <Badge
+                                                                variant={payment.payment_status === 'paid' ? 'default' : payment.payment_status === 'partial' ? 'secondary' : 'destructive'}
+                                                                className={cn("px-2 py-0.5 text-[10px] font-bold uppercase shrink-0",
+                                                                    payment.payment_status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : ''
+                                                                )}
+                                                            >
+                                                                {payment.payment_status}
+                                                            </Badge>
+                                                        </div>
+
+                                                        {/* Mode */}
+                                                        <div className="text-xs text-muted-foreground">
+                                                            <span className="font-medium text-foreground">Mode: </span>
+                                                            {getPaymentModes(payment)}
+                                                        </div>
+
+                                                        {/* Amounts */}
+                                                        <div className="grid grid-cols-3 gap-2 py-2 px-3 rounded-lg bg-muted/40 text-xs text-center">
+                                                            <div>
+                                                                <span className="text-muted-foreground block text-[11px]">Price</span>
+                                                                <span className="font-semibold text-foreground">₹{payment.total_amount.toLocaleString()}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-muted-foreground block text-[11px]">Paid</span>
+                                                                <span className="font-semibold text-emerald-600">₹{payment.paid_amount.toLocaleString()}</span>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-muted-foreground block text-[11px]">Due</span>
+                                                                <span className="font-semibold text-destructive">₹{payment.due_amount.toLocaleString()}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Actions */}
+                                                        <div className="flex items-center justify-start pt-1 border-t border-border/40">
+                                                            {payment.payment_status !== 'paid' ? (
+                                                                hasPermission('add_payments') ? (
+                                                                    <Button
+                                                                        variant="outline"
+                                                                        size="sm"
+                                                                        className="h-8 px-4 text-xs font-bold border-primary/20 hover:bg-primary/5 text-primary"
+                                                                        disabled={isPaused}
+                                                                        onClick={() => {
+                                                                            const paymentWithMember = { ...payment, gym_members: member };
+                                                                            setSelectedPaymentMember(paymentWithMember as any);
+                                                                            setRecordPaymentOpen(true);
+                                                                        }}
+                                                                    >
+                                                                        <IndianRupee className="h-3 w-3 mr-1" />
+                                                                        Pay Due
+                                                                    </Button>
+                                                                ) : (
+                                                                    <div className="text-destructive text-xs font-bold">UNPAID</div>
+                                                                )
+                                                            ) : (
+                                                                <div className="flex items-center text-emerald-600 text-xs font-bold gap-1">
+                                                                    <CheckCircle className="h-4 w-4" />
+                                                                    PAID
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
                                         </div>
                                     </div>
                                 ) : (

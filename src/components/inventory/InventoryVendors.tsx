@@ -170,48 +170,94 @@ export function InventoryVendors() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Contact</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Address</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {vendors.map((vendor) => (
-                                <TableRow key={vendor.id}>
-                                    <TableCell className="font-medium">{vendor.name}</TableCell>
-                                    <TableCell>{vendor.phone || '-'}</TableCell>
-                                    <TableCell>{vendor.email || '-'}</TableCell>
-                                    <TableCell>{vendor.address || '-'}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Contact</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Address</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {vendors.map((vendor) => (
+                                    <TableRow key={vendor.id}>
+                                        <TableCell className="font-medium">{vendor.name}</TableCell>
+                                        <TableCell>{vendor.phone || '-'}</TableCell>
+                                        <TableCell>{vendor.email || '-'}</TableCell>
+                                        <TableCell>{vendor.address || '-'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission('edit_inventory') && (
+                                                    <Button variant="ghost" size="icon" onClick={() => openDialog(vendor)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_inventory') && (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(vendor.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {vendors.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center text-muted-foreground p-6">
+                                            No vendors found. Create one above.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {vendors.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No vendors found. Create one above.
+                            </div>
+                        ) : (
+                            vendors.map((vendor) => (
+                                <div key={vendor.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div>
+                                            <h4 className="font-semibold text-foreground text-sm">{vendor.name}</h4>
+                                            {vendor.phone && (
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Phone: {vendor.phone}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
                                             {hasPermission('edit_inventory') && (
-                                                <Button variant="ghost" size="icon" onClick={() => openDialog(vendor)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openDialog(vendor)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                             )}
                                             {hasPermission('delete_inventory') && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(vendor.id)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(vendor.id)}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {vendors.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground p-6">
-                                        No vendors found. Create one above.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    </div>
+
+                                    {(vendor.email || vendor.address) && (
+                                        <div className="space-y-1 text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-lg">
+                                            {vendor.email && <div><span className="font-medium text-foreground">Email:</span> {vendor.email}</div>}
+                                            {vendor.address && <div><span className="font-medium text-foreground">Address:</span> {vendor.address}</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

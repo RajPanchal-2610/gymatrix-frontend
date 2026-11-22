@@ -312,70 +312,135 @@ export function InventoryMaintenance() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date Logged</TableHead>
-                                <TableHead>Item</TableHead>
-                                <TableHead>Qty</TableHead>
-                                <TableHead>Issue</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Cost</TableHead>
-                                <TableHead>Technician</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {maintenanceJobs.map((job: any) => (
-                                <TableRow key={job.id}>
-                                    <TableCell className="whitespace-nowrap">
-                                        {new Date(job.created_at).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                        {job.gym_inventory_items?.name || `Item #${job.item_id}`}
-                                    </TableCell>
-                                    <TableCell>
-                                        {job.quantity || 1}
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate" title={job.issue_description}>
-                                        {job.issue_description || '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={`capitalize ${job.status === 'completed' ? 'bg-green-100 text-green-800' : job.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100'}`}>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date Logged</TableHead>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead>Qty</TableHead>
+                                    <TableHead>Issue</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Cost</TableHead>
+                                    <TableHead>Technician</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {maintenanceJobs.map((job: any) => (
+                                    <TableRow key={job.id}>
+                                        <TableCell className="whitespace-nowrap">
+                                            {new Date(job.created_at).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            {job.gym_inventory_items?.name || `Item #${job.item_id}`}
+                                        </TableCell>
+                                        <TableCell>
+                                            {job.quantity || 1}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate" title={job.issue_description}>
+                                            {job.issue_description || '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={`capitalize ${job.status === 'completed' ? 'bg-green-100 text-green-800' : job.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100'}`}>
+                                                {job.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {job.repair_cost ? `₹${Number(job.repair_cost).toFixed(2)}` : '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                            {job.repaired_by || '-'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission('edit_inventory') && (
+                                                    <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_inventory') && (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {maintenanceJobs.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
+                                            No maintenance records found.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {maintenanceJobs.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No maintenance records found.
+                            </div>
+                        ) : (
+                            maintenanceJobs.map((job: any) => (
+                                <div key={job.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <h4 className="font-semibold text-foreground text-sm">
+                                                {job.gym_inventory_items?.name || `Item #${job.item_id}`}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Logged: {new Date(job.created_at).toLocaleDateString()} • Qty: {job.quantity || 1}
+                                            </p>
+                                        </div>
+                                        <Badge variant="outline" className={`capitalize text-[10px] shrink-0 ${job.status === 'completed' ? 'bg-green-100 text-green-800' : job.status === 'pending' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100'}`}>
                                             {job.status}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {job.repair_cost ? `₹${Number(job.repair_cost).toFixed(2)}` : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {job.repaired_by || '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
-                                            {hasPermission('edit_inventory') && (
-                                                <Button variant="ghost" size="icon" onClick={() => openDialog(job)}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {hasPermission('delete_inventory') && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(job.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            )}
+                                    </div>
+
+                                    {job.issue_description && (
+                                        <div className="text-xs text-muted-foreground bg-muted/20 p-2 rounded border border-border/30">
+                                            <span className="font-medium text-foreground">Issue: </span>
+                                            {job.issue_description}
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {maintenanceJobs.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
-                                        No maintenance records found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-lg">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Repair Cost</span>
+                                            <span className="font-bold text-foreground mt-0.5 block">
+                                                {job.repair_cost ? `₹${Number(job.repair_cost).toFixed(2)}` : '-'}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Technician</span>
+                                            <span className="font-medium text-foreground mt-0.5 block truncate">
+                                                {job.repaired_by || '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end pt-1 border-t border-border/40 gap-1">
+                                        {hasPermission('edit_inventory') && (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openDialog(job)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                        {hasPermission('delete_inventory') && (
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(job.id)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

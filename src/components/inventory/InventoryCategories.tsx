@@ -151,44 +151,81 @@ export function InventoryCategories() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {categories.map((category) => (
-                                <TableRow key={category.id}>
-                                    <TableCell className="font-medium">{category.name}</TableCell>
-                                    <TableCell>{category.description || '-'}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center justify-end gap-1">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {categories.map((category) => (
+                                    <TableRow key={category.id}>
+                                        <TableCell className="font-medium">{category.name}</TableCell>
+                                        <TableCell>{category.description || '-'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission('edit_inventory') && (
+                                                    <Button variant="ghost" size="icon" onClick={() => openDialog(category)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_inventory') && (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(category.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {categories.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center text-muted-foreground p-6">
+                                            No categories found. Create one above.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {categories.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No categories found. Create one above.
+                            </div>
+                        ) : (
+                            categories.map((category) => (
+                                <div key={category.id} className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm hover:border-primary/30 transition-all">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h4 className="font-semibold text-foreground text-sm truncate">{category.name}</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                                {category.description || 'No description provided'}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
                                             {hasPermission('edit_inventory') && (
-                                                <Button variant="ghost" size="icon" onClick={() => openDialog(category)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openDialog(category)}>
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                             )}
                                             {hasPermission('delete_inventory') && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(category.id)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(category.id)}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {categories.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center text-muted-foreground p-6">
-                                        No categories found. Create one above.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

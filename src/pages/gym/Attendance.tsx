@@ -130,7 +130,8 @@ export default function Attendance() {
           <CardTitle className="text-lg">Check-in Records</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border text-left">
@@ -201,6 +202,66 @@ export default function Attendance() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+            {loading ? (
+              <div className="py-8 text-center bg-card rounded-xl border border-border">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">
+                No attendance records found.
+              </div>
+            ) : (
+              filteredRecords.map((record) => (
+                <div key={record.id} className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm hover:border-primary/30 transition-all">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar className="h-9 w-9 shrink-0">
+                        <AvatarImage src={record.member?.image_url || "/placeholder.svg"} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
+                          {record.member?.full_name?.substring(0, 2).toUpperCase() || "M"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-semibold text-sm truncate">{record.member?.full_name || "Unknown"}</span>
+                    </div>
+                    {record.check_out_time ? (
+                      <Badge variant="secondary" className="shrink-0 text-xs">Completed</Badge>
+                    ) : (
+                      <Badge className="bg-success/10 text-success hover:bg-success/20 shrink-0 text-xs">
+                        In Gym
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 py-2 px-3 rounded-lg bg-muted/40 text-xs text-center">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Check-in</span>
+                      <span className="font-medium text-foreground flex items-center justify-center gap-1 mt-0.5">
+                        <Clock className="h-3 w-3 text-success" />
+                        {record.check_in_time}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Check-out</span>
+                      <span className="font-medium text-foreground flex items-center justify-center gap-1 mt-0.5">
+                        {record.check_out_time ? (
+                          <>
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            {record.check_out_time}
+                          </>
+                        ) : "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Duration</span>
+                      <span className="font-medium text-foreground mt-0.5 block">{record.duration || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

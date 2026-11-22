@@ -302,74 +302,144 @@ export function PayrollView() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted">
-                                <TableHead className="whitespace-nowrap">Staff Name</TableHead>
-                                <TableHead className="whitespace-nowrap">Base Salary</TableHead>
-                                <TableHead className="whitespace-nowrap">Present / Total Days</TableHead>
-                                <TableHead className="whitespace-nowrap">Net Salary</TableHead>
-                                <TableHead className="whitespace-nowrap">Status</TableHead>
-                                <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {staff.map((member) => {
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted">
+                                    <TableHead className="whitespace-nowrap">Staff Name</TableHead>
+                                    <TableHead className="whitespace-nowrap">Base Salary</TableHead>
+                                    <TableHead className="whitespace-nowrap">Present / Total Days</TableHead>
+                                    <TableHead className="whitespace-nowrap">Net Salary</TableHead>
+                                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {staff.map((member) => {
+                                    const record = payrollMap[member.id];
+                                    return (
+                                        <TableRow key={member.id}>
+                                            <TableCell className="font-medium whitespace-nowrap">{member.full_name}</TableCell>
+                                            <TableCell className="whitespace-nowrap">₹{record ? record.base_salary : (member.salary || 0)}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                {record ? `${record.present_days} / ${record.total_working_days}` : '-'}
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    {record ? `₹${record.net_salary}` : '-'}
+                                                    {record && calculatedNetSalaries[member.id] !== undefined && record.net_salary !== calculatedNetSalaries[member.id] && record.payment_status !== 'PAID' && (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger>
+                                                                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>Data updated! New calculated salary: ₹{calculatedNetSalaries[member.id]}</p>
+                                                                    <p>Click "Manage" to update.</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                {record ? (
+                                                    <span className={cn(
+                                                        "px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
+                                                        record.payment_status === 'PAID' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                                                    )}>
+                                                        {record.payment_status}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-xs whitespace-nowrap">Not Generated</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-right whitespace-nowrap">
+                                                {(hasPermission('add_payroll') || hasPermission('edit_payroll')) && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenPayroll(member.id)}
+                                                    >
+                                                        <FileText className="h-4 w-4 mr-2" />
+                                                        {record ? "Manage" : "Create"}
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {staff.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No staff members found.
+                            </div>
+                        ) : (
+                            staff.map((member) => {
                                 const record = payrollMap[member.id];
                                 return (
-                                    <TableRow key={member.id}>
-                                        <TableCell className="font-medium whitespace-nowrap">{member.full_name}</TableCell>
-                                        <TableCell className="whitespace-nowrap">₹{record ? record.base_salary : (member.salary || 0)}</TableCell>
-                                        <TableCell className="whitespace-nowrap">
-                                            {record ? `${record.present_days} / ${record.total_working_days}` : '-'}
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap">
-                                            <div className="flex items-center gap-2">
-                                                {record ? `₹${record.net_salary}` : '-'}
-                                                {record && calculatedNetSalaries[member.id] !== undefined && record.net_salary !== calculatedNetSalaries[member.id] && record.payment_status !== 'PAID' && (
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger>
-                                                                <AlertCircle className="h-4 w-4 text-amber-500" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p>Data updated! New calculated salary: ₹{calculatedNetSalaries[member.id]}</p>
-                                                                <p>Click "Manage" to update.</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                )}
+                                    <div key={member.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <h4 className="font-semibold text-foreground text-sm">{member.full_name}</h4>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Base: ₹{record ? record.base_salary : (member.salary || 0)}
+                                                </p>
                                             </div>
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap">
                                             {record ? (
                                                 <span className={cn(
-                                                    "px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
+                                                    "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
                                                     record.payment_status === 'PAID' ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
                                                 )}>
                                                     {record.payment_status}
                                                 </span>
                                             ) : (
-                                                <span className="text-muted-foreground text-xs whitespace-nowrap">Not Generated</span>
+                                                <span className="text-muted-foreground text-[10px] font-semibold bg-muted px-2 py-0.5 rounded">Not Generated</span>
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-right whitespace-nowrap">
-                                            {(hasPermission('add_payroll') || hasPermission('edit_payroll')) && (
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-lg">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Attendance</span>
+                                                <span className="font-medium text-foreground mt-0.5 block">
+                                                    {record ? `${record.present_days} / ${record.total_working_days} Days` : '-'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Net Salary</span>
+                                                <div className="flex items-center gap-1.5 font-semibold text-emerald-600 mt-0.5">
+                                                    {record ? `₹${record.net_salary}` : '-'}
+                                                    {record && calculatedNetSalaries[member.id] !== undefined && record.net_salary !== calculatedNetSalaries[member.id] && record.payment_status !== 'PAID' && (
+                                                        <AlertCircle className="h-3.5 w-3.5 text-amber-500 shrink-0" title={`Data updated! New calculated: ₹${calculatedNetSalaries[member.id]}`} />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {(hasPermission('add_payroll') || hasPermission('edit_payroll')) && (
+                                            <div className="flex justify-start pt-1 border-t border-border/40">
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
+                                                    className="h-8 text-xs gap-1.5"
                                                     onClick={() => handleOpenPayroll(member.id)}
                                                 >
-                                                    <FileText className="h-4 w-4 mr-2" />
+                                                    <FileText className="h-3.5 w-3.5" />
                                                     {record ? "Manage" : "Create"}
                                                 </Button>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
-                            })}
-                        </TableBody>
-                    </Table>
+                            })
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 

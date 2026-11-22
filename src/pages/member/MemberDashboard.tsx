@@ -1361,9 +1361,9 @@ export default function MemberDashboard({ defaultSection }: MemberDashboardProps
 
       {/* Invoice Receipt Modal Dialog */}
       <Dialog open={!!selectedInvoice} onOpenChange={(open) => !open && setSelectedInvoice(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border border-border">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-lg p-0 overflow-hidden bg-card border border-border max-h-[90vh] flex flex-col rounded-2xl mx-auto my-auto shadow-2xl">
           {selectedInvoice && (
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1 overscroll-contain">
               {/* Receipt Header */}
               <div className="flex items-start justify-between border-b border-border pb-4">
                 <div className="flex items-center gap-3">

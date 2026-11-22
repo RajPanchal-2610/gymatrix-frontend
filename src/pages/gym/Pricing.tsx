@@ -1706,7 +1706,8 @@ export default function Pricing() {
 
                 <Card className="border-border/50 overflow-hidden shadow-sm">
                     <CardContent className="p-0">
-                        <div className="overflow-x-auto">
+                        {/* Desktop Table View */}
+                        <div className="hidden md:block overflow-x-auto">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-muted/50 text-muted-foreground font-medium border-b border-border">
                                     <tr>
@@ -1874,6 +1875,81 @@ export default function Pricing() {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Mobile Cards View */}
+                        <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                            {historyLoading ? (
+                                <div className="p-8 text-center text-muted-foreground flex items-center justify-center gap-2 bg-card rounded-xl border border-border">
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    Loading history...
+                                </div>
+                            ) : history.length === 0 ? (
+                                <div className="p-8 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">
+                                    No subscription history found.
+                                </div>
+                            ) : (
+                                history.map((record) => (
+                                    <div key={record.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <h4 className="font-semibold text-foreground text-sm">{record.name}</h4>
+                                                <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                                                    {record.duration} Plan • {new Date(record.created_at).toLocaleDateString()}
+                                                </p>
+                                            </div>
+                                            <Badge
+                                                variant={record.status.toLowerCase() === 'active' ? 'default' :
+                                                    record.status.toLowerCase() === 'expired' ? 'destructive' : 'secondary'}
+                                                className={record.status.toLowerCase() === 'active' ? 'bg-emerald-100 text-emerald-800 border-none shrink-0' : 'shrink-0'}
+                                            >
+                                                {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                                            </Badge>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-lg">
+                                            <div>
+                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Amount</span>
+                                                <span className="font-semibold text-foreground flex items-center gap-1 mt-0.5">
+                                                    <Banknote className="h-3.5 w-3.5 text-emerald-600" />
+                                                    ₹{record.amount.toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Limits</span>
+                                                <span className="font-medium text-foreground mt-0.5 block">
+                                                    {record.max_gyms || 0} Gyms • {record.max_members || 0} Members
+                                                </span>
+                                            </div>
+                                            <div className="col-span-2 pt-1 border-t border-border/40">
+                                                <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Valid Period</span>
+                                                <span className="text-muted-foreground mt-0.5 block">
+                                                    {record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A'} → {record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A'}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {record.tx_id && (
+                                            <div className="flex justify-start pt-1 border-t border-border/40">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="h-8 text-xs gap-1.5 text-primary hover:bg-primary/10 border-primary/20"
+                                                    onClick={() => handleDownloadInvoice(record)}
+                                                    disabled={downloadingInvoice === record.id}
+                                                >
+                                                    {downloadingInvoice === record.id ? (
+                                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                    ) : (
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    )}
+                                                    Download Invoice
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

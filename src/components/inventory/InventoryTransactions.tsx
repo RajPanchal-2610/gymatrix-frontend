@@ -463,68 +463,133 @@ export function InventoryTransactions() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Item</TableHead>
-                                <TableHead>Quantity</TableHead>
-                                <TableHead>Details</TableHead>
-                                <TableHead>Cost</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {transactions.map((trx: any) => (
-                                <TableRow key={trx.id}>
-                                    <TableCell className="whitespace-nowrap">
-                                        {new Date(trx.created_at).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={`capitalize ${getTransactionColor(trx)}`}>
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead>Quantity</TableHead>
+                                    <TableHead>Details</TableHead>
+                                    <TableHead>Cost</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {transactions.map((trx: any) => (
+                                    <TableRow key={trx.id}>
+                                        <TableCell className="whitespace-nowrap">
+                                            {new Date(trx.created_at).toLocaleDateString()}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={`capitalize ${getTransactionColor(trx)}`}>
+                                                {getTransactionLabel(trx)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="font-medium">
+                                            {trx.gym_inventory_items?.name || `Item #${trx.item_id}`}
+                                        </TableCell>
+                                        <TableCell className="font-semibold">
+                                            {trx.quantity > 0 && ['purchase', 'opening_stock', 'adjustment', 'replacement'].includes(trx.transaction_type) ? '+' : ''}{trx.quantity}
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground w-[300px]">
+                                            <div className="truncate" title={trx.notes}>
+                                                {trx.notes || '-'}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {trx.total_cost ? `₹${Number(trx.total_cost).toFixed(2)}` : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission('edit_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEditClick(trx)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(trx)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {transactions.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
+                                            No transactions found. Log one above.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {transactions.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No transactions found. Log one above.
+                            </div>
+                        ) : (
+                            transactions.map((trx: any) => (
+                                <div key={trx.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <h4 className="font-semibold text-foreground text-sm">
+                                                {trx.gym_inventory_items?.name || `Item #${trx.item_id}`}
+                                            </h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {new Date(trx.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <Badge variant="outline" className={`capitalize text-[10px] shrink-0 ${getTransactionColor(trx)}`}>
                                             {getTransactionLabel(trx)}
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell className="font-medium">
-                                        {trx.gym_inventory_items?.name || `Item #${trx.item_id}`}
-                                    </TableCell>
-                                    <TableCell className="font-semibold">
-                                        {trx.quantity > 0 && ['purchase', 'opening_stock', 'adjustment', 'replacement'].includes(trx.transaction_type) ? '+' : ''}{trx.quantity}
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground w-[300px]">
-                                        <div className="truncate" title={trx.notes}>
-                                            {trx.notes || '-'}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-lg text-center">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Quantity</span>
+                                            <span className="font-bold text-foreground mt-0.5 block text-sm">
+                                                {trx.quantity > 0 && ['purchase', 'opening_stock', 'adjustment', 'replacement'].includes(trx.transaction_type) ? '+' : ''}{trx.quantity}
+                                            </span>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        {trx.total_cost ? `₹${Number(trx.total_cost).toFixed(2)}` : '-'}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-1">
-                                            {hasPermission('edit_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
-                                                <Button variant="ghost" size="icon" onClick={() => handleEditClick(trx)}>
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                            )}
-                                            {hasPermission('delete_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(trx)}>
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Total Cost</span>
+                                            <span className="font-bold text-emerald-600 mt-0.5 block text-sm">
+                                                {trx.total_cost ? `₹${Number(trx.total_cost).toFixed(2)}` : '-'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {trx.notes && (
+                                        <div className="text-xs text-muted-foreground bg-muted/20 p-2 rounded border border-border/30">
+                                            <span className="font-medium text-foreground">Notes: </span>
+                                            {trx.notes}
+                                        </div>
+                                    )}
+
+                                    {hasPermission('edit_inventory') && ['purchase', 'adjustment'].includes(trx.transaction_type) && (
+                                        <div className="flex justify-end pt-1 border-t border-border/40 gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => handleEditClick(trx)}>
+                                                <Edit className="h-4 w-4" />
+                                            </Button>
+                                            {hasPermission('delete_inventory') && (
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(trx)}>
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {transactions.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
-                                        No transactions found. Log one above.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>

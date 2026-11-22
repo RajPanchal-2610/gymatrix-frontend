@@ -243,7 +243,8 @@ export default function GymPayments() {
                     <CardTitle className="text-lg">Payment History</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto scrollbar-none">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto scrollbar-none">
                         <table className="w-full">
                             <thead>
                                 <tr className="border-b border-border text-left">
@@ -361,6 +362,129 @@ export default function GymPayments() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {loading ? (
+                            <div className="p-6 text-center text-muted-foreground bg-card rounded-xl border border-border">Loading...</div>
+                        ) : filteredPayments.length === 0 ? (
+                            <div className="p-6 text-center text-muted-foreground bg-card rounded-xl border border-border">No payments found</div>
+                        ) : (
+                            filteredPayments.map((payment) => {
+                                const isMemberPaused = payment.gym_members?.is_active === false || payment.gym_members?.status === 'paused';
+                                const pendingTxn = payment.gym_payment_transactions?.find(
+                                    t => t.transaction_reference
+                                );
+                                const latestUtr = pendingTxn?.transaction_reference;
+                                const planName = payment.gym_membership_history?.gym_membership_plans?.name || 'Unknown Plan';
+
+                                return (
+                                    <div key={payment.id} className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <h4 className="font-semibold text-foreground text-sm truncate">
+                                                    {payment.gym_members?.full_name}
+                                                </h4>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {planName}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0">
+                                                {getStatusBadge(payment.payment_status)}
+                                            </div>
+                                        </div>
+
+                                        {latestUtr && (
+                                            <div className="flex items-center gap-1.5 bg-primary/5 p-2 rounded border border-primary/15 text-xs">
+                                                <span className="font-medium text-muted-foreground">UTR:</span>
+                                                <span className="font-mono font-semibold text-primary">{latestUtr}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="grid grid-cols-3 gap-2 py-2 px-3 rounded-lg bg-muted/40 text-xs text-center">
+                                            <div>
+                                                <span className="text-muted-foreground block text-[11px]">Total</span>
+                                                <span className="font-semibold text-foreground">₹{payment.total_amount}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block text-[11px]">Paid</span>
+                                                <span className="font-semibold text-success">₹{payment.paid_amount}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-muted-foreground block text-[11px]">Due</span>
+                                                <span className="font-semibold text-destructive">₹{payment.due_amount}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                                            {/* Other Buttons on Left */}
+                                            <div className="flex items-center gap-1.5">
+                                                {hasPermission('add_payments') && (payment.payment_status === 'unpaid' || payment.payment_status === 'partial') && (
+                                                    <Button
+                                                        size="sm"
+                                                        className="h-8 text-xs gradient-primary"
+                                                        onClick={() => {
+                                                            setSelectedPayment(payment);
+                                                            setRecordPaymentOpen(true);
+                                                        }}
+                                                        disabled={isMemberPaused}
+                                                    >
+                                                        <PlusCircle className="h-3.5 w-3.5 mr-1.5" />
+                                                        Record Pay
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* View, Edit, and Delete Icons on Right */}
+                                            <div className="flex items-center gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                    onClick={() => {
+                                                        setSelectedPayment(payment);
+                                                        setViewPaymentOpen(true);
+                                                    }}
+                                                    title="View Details"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+
+                                                {hasPermission('edit_payments') && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                        onClick={() => {
+                                                            setSelectedPayment(payment);
+                                                            setEditPaymentOpen(true);
+                                                        }}
+                                                        disabled={isMemberPaused}
+                                                        title={isMemberPaused ? "Cannot edit payment of paused member" : "Edit Record"}
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+
+                                                {hasPermission('delete_payments') && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                        onClick={() => handleDeletePayment(payment.id)}
+                                                        disabled={isMemberPaused}
+                                                        title={isMemberPaused ? "Cannot delete payment of paused member" : "Delete"}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </CardContent>
             </Card>

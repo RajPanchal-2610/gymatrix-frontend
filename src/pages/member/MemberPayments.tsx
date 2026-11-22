@@ -391,24 +391,24 @@ export default function MemberPayments() {
           }
         }}
       >
-        <DialogContent className="max-w-md p-0 overflow-hidden bg-card border border-border">
-          <DialogHeader className="p-5 pb-3 border-b border-border/60">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-md p-0 overflow-hidden bg-card border border-border max-h-[90vh] flex flex-col rounded-2xl mx-auto my-auto shadow-2xl">
+          <DialogHeader className="p-4 sm:p-5 pb-3 border-b border-border/60 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <QrCode className="h-5 w-5" />
               </div>
-              <div>
-                <DialogTitle className="text-base font-bold">
+              <div className="min-w-0 pr-6">
+                <DialogTitle className="text-sm sm:text-base font-bold truncate">
                   UPI Payment & QR Code
                 </DialogTitle>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate">
                   {member?.gym_name} • {modalPlan}
                 </p>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="p-5 space-y-4">
+          <div className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1 overscroll-contain">
             {/* If gym hasn't set up UPI ID or custom QR */}
             {!upiId && !customQrUrl ? (
               <div className="text-center py-6 space-y-3">
@@ -433,13 +433,20 @@ export default function MemberPayments() {
             ) : (
               <>
                 {/* Amount to pay */}
-                <div className="p-3.5 rounded-xl bg-primary/5 border border-primary/20">
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                    Amount Due
-                  </p>
-                  <p className="text-2xl font-black text-primary">
-                    ₹{modalAmount.toLocaleString()}
-                  </p>
+                <div className="p-3 sm:p-3.5 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] sm:text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                      Amount Due
+                    </p>
+                    <p className="text-xl sm:text-2xl font-black text-primary">
+                      ₹{modalAmount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] text-muted-foreground font-medium block truncate max-w-[150px]">
+                      {modalPlan}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Tab switch between Dynamic QR and Custom Standee if both exist */}
@@ -473,16 +480,16 @@ export default function MemberPayments() {
                 )}
 
                 {/* QR Display Container */}
-                <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-border bg-white text-gray-900 shadow-sm text-center">
+                <div className="flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border border-border bg-white text-gray-900 shadow-sm text-center">
                   {qrTab === "standee" && customQrUrl ? (
                     <div className="space-y-2">
                       <img
                         src={customQrUrl}
                         alt="Gym QR Standee"
-                        className="max-h-[220px] w-auto mx-auto object-contain rounded-lg"
+                        className="max-h-[180px] sm:max-h-[220px] w-auto mx-auto object-contain rounded-lg"
                       />
-                      <p className="text-xs font-medium text-gray-600">
-                        Scan with GPay, PhonePe, Paytm, or BHIM
+                      <p className="text-[11px] sm:text-xs font-medium text-gray-600">
+                        Scan with any UPI App
                       </p>
                     </div>
                   ) : upiId ? (
@@ -490,16 +497,17 @@ export default function MemberPayments() {
                       <div className="p-2 inline-block bg-white rounded-lg">
                         <QRCodeSVG
                           value={dynamicUpiUri}
-                          size={190}
+                          size={165}
+                          className="w-[145px] h-[145px] sm:w-[170px] sm:h-[170px]"
                           level="M"
                           includeMargin={false}
                         />
                       </div>
-                      <div>
-                        <p className="font-bold text-xs text-gray-800 truncate max-w-[220px] mx-auto">
+                      <div className="px-1">
+                        <p className="font-bold text-xs text-gray-800 truncate max-w-[200px] sm:max-w-[240px] mx-auto">
                           {upiName}
                         </p>
-                        <p className="text-[11px] text-gray-500 font-mono truncate max-w-[220px] mx-auto">
+                        <p className="text-[11px] text-gray-500 font-mono truncate max-w-[200px] sm:max-w-[240px] mx-auto">
                           {upiId}
                         </p>
                       </div>
@@ -508,19 +516,19 @@ export default function MemberPayments() {
                     <img
                       src={customQrUrl}
                       alt="Gym QR Standee"
-                      className="max-h-[220px] w-auto mx-auto object-contain rounded-lg"
+                      className="max-h-[180px] sm:max-h-[220px] w-auto mx-auto object-contain rounded-lg"
                     />
                   )}
                 </div>
 
                 {/* UPI ID Copy Card */}
                 {upiId && (
-                  <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs">
-                    <div className="truncate pr-2">
-                      <span className="text-[10px] uppercase font-bold text-muted-foreground block">
+                  <div className="flex items-center justify-between p-2 sm:p-2.5 rounded-lg border border-border/80 bg-muted/40 text-xs gap-2">
+                    <div className="truncate pr-1 flex-1 min-w-0">
+                      <span className="text-[9.5px] uppercase font-bold text-muted-foreground block">
                         Payee UPI VPA:
                       </span>
-                      <span className="font-mono font-semibold text-foreground truncate block">
+                      <span className="font-mono font-semibold text-foreground truncate block text-xs">
                         {upiId}
                       </span>
                     </div>
@@ -528,7 +536,7 @@ export default function MemberPayments() {
                       variant="outline"
                       size="sm"
                       onClick={handleCopyUpi}
-                      className="h-7 text-xs gap-1 shrink-0"
+                      className="h-7 text-xs gap-1 shrink-0 px-2 sm:px-3"
                     >
                       {copiedUpi ? (
                         <>
@@ -545,25 +553,12 @@ export default function MemberPayments() {
                   </div>
                 )}
 
-                {/* Mobile Direct Pay Button */}
-                {upiId && (
-                  <Button
-                    onClick={() => {
-                      window.location.href = dynamicUpiUri;
-                    }}
-                    className="w-full gradient-primary gap-2 h-10 text-sm font-semibold shadow-sm sm:hidden"
-                  >
-                    <Smartphone className="h-4 w-4" />
-                    Open in UPI App (GPay / PhonePe)
-                  </Button>
-                )}
-
                 {/* UTR / Transaction Reference Submission Form */}
                 <div className="pt-2 border-t border-border/60">
                   {utrSubmitted ? (
-                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-1.5 animate-in fade-in-50">
+                    <div className="p-3 sm:p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-1 animate-in fade-in-50">
                       <div className="flex items-center justify-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs sm:text-sm">
-                        <CheckCircle2 className="h-4 w-4" />
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
                         Reference Number Submitted!
                       </div>
                       <p className="text-xs text-muted-foreground font-mono">
@@ -576,18 +571,18 @@ export default function MemberPayments() {
                   ) : (
                     <form onSubmit={handleSubmitUtr} className="space-y-2">
                       <div className="space-y-1.5">
-                        <Label htmlFor="utrNumber" className="text-xs font-semibold flex items-center justify-between">
+                        <Label htmlFor="utrNumber" className="text-xs font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-0.5">
                           <span>Enter UPI Reference / UTR Number:</span>
                           <span className="text-[10px] text-muted-foreground font-normal">12-digit number from payment receipt</span>
                         </Label>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
                           <Input
                             id="utrNumber"
                             type="text"
                             placeholder="e.g. 432156789012"
                             value={utrNumber}
                             onChange={(e) => setUtrNumber(e.target.value)}
-                            className="h-9 text-xs font-mono"
+                            className="h-9 text-xs font-mono flex-1 min-w-0"
                             disabled={isSubmittingUtr}
                           />
                           <Button
@@ -598,7 +593,7 @@ export default function MemberPayments() {
                             {isSubmittingUtr ? (
                               <>
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                Submitting...
+                                <span className="hidden sm:inline">Submitting...</span>
                               </>
                             ) : (
                               <>
@@ -609,7 +604,7 @@ export default function MemberPayments() {
                           </Button>
                         </div>
                       </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      <p className="text-[10.5px] sm:text-[11px] text-muted-foreground leading-relaxed">
                         After transferring fee via Google Pay, PhonePe, or Paytm, enter the 12-digit transaction ID (UTR) above so the gym owner can confirm and approve your invoice.
                       </p>
                     </form>
@@ -623,9 +618,9 @@ export default function MemberPayments() {
 
       {/* Invoice Receipt Modal Dialog */}
       <Dialog open={!!selectedInvoice} onOpenChange={(open) => !open && setSelectedInvoice(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden bg-card border border-border">
+        <DialogContent className="w-[calc(100%-2rem)] sm:max-w-lg p-0 overflow-hidden bg-card border border-border max-h-[90vh] flex flex-col rounded-2xl mx-auto my-auto shadow-2xl">
           {selectedInvoice && (
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1 overscroll-contain">
               {/* Receipt Header */}
               <div className="flex items-start justify-between border-b border-border pb-4">
                 <div className="flex items-center gap-3">

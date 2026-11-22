@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -298,64 +298,139 @@ export function InventoryItems() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Item Name</TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead>Brand / Model</TableHead>
-                                <TableHead className="text-center">Total Stock</TableHead>
-                                <TableHead className="text-center">Available Stock</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {items.map((item: any) => (
-                                <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openFlowchart(item)}>
-                                    <TableCell className="font-medium text-primary underline-offset-4 hover:underline">{item.name}</TableCell>
-                                    <TableCell>{item.gym_inventory_categories?.name || '-'}</TableCell>
-                                    <TableCell>
-                                        {item.brand && item.model ? `${item.brand} ${item.model}` : item.brand || item.model || '-'}
-                                    </TableCell>
-                                    <TableCell className="text-center font-semibold">
-                                        {item.gym_inventory_stock?.total_quantity || 0}
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={item.gym_inventory_stock?.available_quantity > 0 ? "default" : "secondary"} className={item.gym_inventory_stock?.available_quantity > 0 ? 'bg-green-500 hover:bg-green-600 font-medium' : ''}>
-                                            {item.gym_inventory_stock?.available_quantity || 0}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="capitalize">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Item Name</TableHead>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Brand / Model</TableHead>
+                                    <TableHead className="text-center">Total Stock</TableHead>
+                                    <TableHead className="text-center">Available Stock</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {items.map((item: any) => (
+                                    <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openFlowchart(item)}>
+                                        <TableCell className="font-medium text-primary underline-offset-4 hover:underline">{item.name}</TableCell>
+                                        <TableCell>{item.gym_inventory_categories?.name || '-'}</TableCell>
+                                        <TableCell>
+                                            {item.brand && item.model ? `${item.brand} ${item.model}` : item.brand || item.model || '-'}
+                                        </TableCell>
+                                        <TableCell className="text-center font-semibold">
+                                            {item.gym_inventory_stock?.total_quantity || 0}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Badge variant={item.gym_inventory_stock?.available_quantity > 0 ? "default" : "secondary"} className={item.gym_inventory_stock?.available_quantity > 0 ? 'bg-green-500 hover:bg-green-600 font-medium' : ''}>
+                                                {item.gym_inventory_stock?.available_quantity || 0}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="capitalize">
+                                                {item.status} ({item.condition})
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end gap-1">
+                                                {hasPermission('edit_inventory') && (
+                                                    <Button variant="ghost" size="icon" onClick={() => openDialog(item)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_inventory') && (
+                                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(item.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {items.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
+                                            No items found. Create one above.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Cards View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {items.length === 0 && !loading ? (
+                            <div className="text-center text-muted-foreground p-6 bg-card rounded-xl border border-border text-sm">
+                                No items found. Create one above.
+                            </div>
+                        ) : (
+                            items.map((item: any) => (
+                                <div
+                                    key={item.id}
+                                    className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all cursor-pointer"
+                                    onClick={() => openFlowchart(item)}
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div>
+                                            <h4 className="font-semibold text-foreground text-sm">{item.name}</h4>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {item.gym_inventory_categories?.name || 'Uncategorized'}
+                                                {(item.brand || item.model) && ` • ${item.brand || ''} ${item.model || ''}`}
+                                            </p>
+                                        </div>
+                                        <Badge variant="outline" className="capitalize shrink-0 text-[10px]">
                                             {item.status} ({item.condition})
                                         </Badge>
-                                    </TableCell>
-                                    <TableCell onClick={(e) => e.stopPropagation()}>
-                                        <div className="flex items-center justify-end gap-1">
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs bg-muted/40 p-2.5 rounded-lg text-center">
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Total Stock</span>
+                                            <span className="font-bold text-foreground mt-0.5 block text-sm">
+                                                {item.gym_inventory_stock?.total_quantity || 0}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Available</span>
+                                            <span className="font-bold text-emerald-600 mt-0.5 block text-sm">
+                                                {item.gym_inventory_stock?.available_quantity || 0}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-1 border-t border-border/40" onClick={(e) => e.stopPropagation()}>
+                                        <div className="text-xs text-muted-foreground">
+                                            {item.brand && <span>{item.brand}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                onClick={() => openFlowchart(item)}
+                                                title="View Lifecycle Flow"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
                                             {hasPermission('edit_inventory') && (
-                                                <Button variant="ghost" size="icon" onClick={() => openDialog(item)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openDialog(item)} title="Edit Item">
                                                     <Edit className="h-4 w-4" />
                                                 </Button>
                                             )}
                                             {hasPermission('delete_inventory') && (
-                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(item.id)}>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(item.id)} title="Delete Item">
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             )}
                                         </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {items.length === 0 && !loading && (
-                                <TableRow>
-                                    <TableCell colSpan={7} className="text-center text-muted-foreground p-6">
-                                        No items found. Create one above.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </CardContent>
             </Card>
 

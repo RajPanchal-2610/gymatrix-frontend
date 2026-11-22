@@ -1939,7 +1939,8 @@ export default function Members() {
 
                     <Card className="overflow-hidden">
                         <CardContent className="p-0">
-                            <div className="overflow-x-auto scrollbar-none">
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto scrollbar-none">
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
@@ -2383,6 +2384,381 @@ export default function Members() {
                                         )}
                                     </TableBody>
                                 </Table>
+                            </div>
+
+                            {/* Mobile Cards View */}
+                            <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                                {filteredMembers.length === 0 ? (
+                                    <div className="p-6 text-center text-muted-foreground flex flex-col items-center justify-center gap-2 bg-card rounded-xl border border-border">
+                                        <p className="font-medium text-foreground">No members found matching the selected filters.</p>
+                                        {activeFilterCount > 0 && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleClearAllFilters}
+                                                className="h-8 text-xs gap-1.5"
+                                            >
+                                                <RotateCcw className="h-3.5 w-3.5" />
+                                                Reset Filters
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    paginatedMembers.map((member) => {
+                                        const isMemberPaused = member.is_active === false || member.status === 'paused';
+                                        const status = getMemberStatusDisplay(member);
+
+                                        // Payment calculations
+                                        const allPayments = member.gym_membership_payments || [];
+                                        const visibleAllPayments = allPayments.filter(p => {
+                                            if (p.remarks === 'Personal Training Fee') {
+                                                return !!(member.assigned_staff_id?.toString() === role?.staff_id?.toString());
+                                            }
+                                            return true;
+                                        });
+                                        const sortedHistory = member.gym_membership_history?.slice().sort((a, b) => b.id - a.id) || [];
+                                        const latestHistory = sortedHistory[0];
+                                        const currentPayments = visibleAllPayments.filter(p => p.membership_history_id === latestHistory?.id);
+
+                                        const paymentBadges = [];
+                                        if (currentPayments.length > 0) {
+                                            currentPayments.forEach((payment) => {
+                                                let colorClass = "bg-secondary text-secondary-foreground";
+                                                if (payment.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                                if (payment.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                                if (payment.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                                paymentBadges.push(
+                                                    <Badge key={`m-curr-${payment.id}`} variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                        {payment.remarks ? `${payment.remarks}: ` : ""}
+                                                        {payment.payment_status.toUpperCase()}
+                                                        {payment.payment_status !== 'paid' && ` (₹${payment.due_amount})`}
+                                                    </Badge>
+                                                );
+                                            });
+                                        } else if (latestHistory && latestHistory.payment_status) {
+                                            let colorClass = "bg-secondary text-secondary-foreground";
+                                            if (latestHistory.payment_status === 'paid') colorClass = "text-success bg-success/10 border-success/20";
+                                            if (latestHistory.payment_status === 'partial') colorClass = "text-warning bg-warning/10 border-warning/20";
+                                            if (latestHistory.payment_status === 'unpaid') colorClass = "text-destructive bg-destructive/10 border-destructive/20";
+
+                                            paymentBadges.push(
+                                                <Badge key="m-hist-status" variant="outline" className={`h-5 text-[10px] px-1.5 ${colorClass}`}>
+                                                    {latestHistory.payment_status.toUpperCase()}
+                                                </Badge>
+                                            );
+                                        }
+
+                                        const previousUnpaid = visibleAllPayments.filter(p =>
+                                            !currentPayments.some(cp => cp.id === p.id) &&
+                                            (p.payment_status === 'unpaid' || p.payment_status === 'partial')
+                                        );
+                                        if (previousUnpaid.length > 0) {
+                                            const totalPreviousDue = previousUnpaid.reduce((sum, p) => sum + (p.due_amount || 0), 0);
+                                            paymentBadges.push(
+                                                <Badge key="m-prev-dues" variant="outline" className="h-5 text-[10px] px-1.5 text-destructive bg-destructive/10 border-destructive/20 border-dashed">
+                                                    PREVIOUS DUE (₹{totalPreviousDue})
+                                                </Badge>
+                                            );
+                                        }
+
+                                        const ptPayment = member.gym_membership_payments?.find(p =>
+                                            p.remarks === 'Personal Training Fee' &&
+                                            p.payment_status !== 'paid'
+                                        );
+
+                                        return (
+                                            <div
+                                                key={member.id}
+                                                className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm hover:border-primary/30 transition-all cursor-pointer"
+                                                onClick={() => navigate(`/members/${member.id}`)}
+                                            >
+                                                {/* Header: Member Avatar + Name + Status */}
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <Avatar className="h-10 w-10 shrink-0">
+                                                            <AvatarImage src={member.image_url || undefined} />
+                                                            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
+                                                                {member.full_name.substring(0, 2).toUpperCase()}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="min-w-0">
+                                                            <div className="font-semibold text-sm truncate">{member.full_name}</div>
+                                                            {member.phone && (
+                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                                    <Phone className="h-3 w-3" />
+                                                                    <span>{member.phone}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <Badge
+                                                        variant={status.variant as "default" | "secondary" | "destructive" | "outline"}
+                                                        className={`shrink-0 ${status.className}`}
+                                                    >
+                                                        {status.label}
+                                                    </Badge>
+                                                </div>
+
+                                                {/* Details: Plan, Expiry, Staff */}
+                                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground bg-muted/40 p-2.5 rounded-lg">
+                                                    <div>
+                                                        <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Plan</span>
+                                                        <span className="font-medium text-foreground flex items-center gap-1 mt-0.5">
+                                                            <Calendar className="h-3 w-3 text-primary" />
+                                                            {member.gym_membership_plans?.name || "-"}
+                                                        </span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[10px] uppercase font-semibold text-muted-foreground/70 block">Expiry</span>
+                                                        <span className="font-medium text-foreground flex items-center gap-1 mt-0.5">
+                                                            <Clock className="h-3 w-3 text-muted-foreground" />
+                                                            {member.expiry_date || "-"}
+                                                        </span>
+                                                    </div>
+                                                    {member.gym_staff && (
+                                                        <div className="col-span-2 pt-1 border-t border-border/40 flex items-center justify-between">
+                                                            <span className="text-[11px] flex items-center gap-1 text-primary">
+                                                                <User className="h-3 w-3" />
+                                                                {member.gym_staff.full_name}
+                                                            </span>
+                                                            {member.pt_fee && member.pt_fee > 0 && (member.assigned_staff_id?.toString() === role?.staff_id?.toString()) && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[11px] text-muted-foreground flex items-center gap-0.5">
+                                                                        <IndianRupee className="h-2.5 w-2.5" />
+                                                                        PT: ₹{member.pt_fee}
+                                                                    </span>
+                                                                    {ptPayment && (
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="h-5 text-[10px] px-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                                                                            onClick={(e) => {
+                                                                                if (isGymInactive || isMemberPaused) return;
+                                                                                e.stopPropagation();
+                                                                                setSelectedPaymentMember({ ...ptPayment, gym_members: member } as any);
+                                                                                setRecordPaymentOpen(true);
+                                                                            }}
+                                                                            disabled={isGymInactive || isMemberPaused}
+                                                                        >
+                                                                            Pay PT
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Payment Status Badges */}
+                                                {paymentBadges.length > 0 && (
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        {paymentBadges}
+                                                    </div>
+                                                )}
+
+                                                {/* Action Bar */}
+                                                <div className="flex items-center justify-between pt-1 border-t border-border/50" onClick={(e) => e.stopPropagation()}>
+                                                    {/* Other Buttons on Left */}
+                                                    <div className="flex items-center gap-1.5">
+                                                        {hasPermission('renew_membership') && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 text-xs gap-1"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenRenewDialog(member);
+                                                                }}
+                                                                disabled={isGymInactive || isMemberPaused}
+                                                            >
+                                                                <RefreshCw className="h-3 w-3 mr-1" />
+                                                                Renew
+                                                            </Button>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Edit, Delete, View and 3 Dots Menu on Right */}
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                navigate(`/members/${member.id}`);
+                                                            }}
+                                                            title="View Member Profile"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+
+                                                        {hasPermission('edit_members') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenDialog(member);
+                                                                }}
+                                                                disabled={isGymInactive || isMemberPaused}
+                                                                title="Edit Member"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                        {hasPermission('delete_members') && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                                                onClick={(e) => {
+                                                                    if (isGymInactive || isMemberPaused) return;
+                                                                    e.stopPropagation();
+                                                                    handleDelete(member.id);
+                                                                }}
+                                                                disabled={isGymInactive || isMemberPaused}
+                                                                title="Delete Member"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={(e) => e.stopPropagation()}>
+                                                                    <MoreHorizontal className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                                                {hasPermission('view_membership_history') && (
+                                                                    <DropdownMenuItem onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleViewHistory(member);
+                                                                    }}>
+                                                                        <Eye className="h-4 w-4 mr-2" />
+                                                                        View History
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {hasPermission('edit_members') && (
+                                                                    <DropdownMenuItem
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenAssignStaff(member);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                    >
+                                                                        <User className="h-4 w-4 mr-2" />
+                                                                        Assign Staff
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {hasPermission('renew_membership') && (
+                                                                    <DropdownMenuItem
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleOpenRenewDialog(member);
+                                                                        }}
+                                                                        disabled={isGymInactive || isMemberPaused}
+                                                                    >
+                                                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                                                        Renew
+                                                                    </DropdownMenuItem>
+                                                                )}
+                                                                {(hasPermission('add_payments') || (member.assigned_staff_id && member.assigned_staff_id.toString() === role?.staff_id?.toString())) && (() => {
+                                                                    const actions = [];
+                                                                    const outstandingPayments = visibleAllPayments.filter(p => p.payment_status !== 'paid');
+                                                                    outstandingPayments.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime());
+
+                                                                    outstandingPayments.forEach(payment => {
+                                                                        const isLatest = latestHistory && payment.membership_history_id === latestHistory.id;
+                                                                        const label = isLatest
+                                                                            ? (payment.remarks || `Record Payment`)
+                                                                            : (payment.remarks ? `Pay ${payment.remarks} (Previous)` : `Pay Previous Due`);
+
+                                                                        actions.push(
+                                                                            <DropdownMenuItem
+                                                                                key={`m-pay-${payment.id}`}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const paymentWithMember = { ...payment, gym_members: member };
+                                                                                    setSelectedPaymentMember(paymentWithMember as any);
+                                                                                    setRecordPaymentOpen(true);
+                                                                                }}
+                                                                                disabled={isGymInactive || isMemberPaused}
+                                                                            >
+                                                                                <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                {label} (₹{payment.due_amount})
+                                                                            </DropdownMenuItem>
+                                                                        );
+                                                                    });
+
+                                                                    const paidHistoryIds = allPayments.map(p => p.membership_history_id);
+                                                                    const orphanHistories = sortedHistory.filter(h =>
+                                                                        (h.payment_status === 'unpaid' || h.payment_status === 'partial') &&
+                                                                        !paidHistoryIds.includes(h.id)
+                                                                    );
+
+                                                                    orphanHistories.forEach(history => {
+                                                                        const isLatest = history.id === latestHistory?.id;
+                                                                        const label = isLatest ? "Regenerate Invoice" : "Regenerate Past Invoice";
+
+                                                                        actions.push(
+                                                                            <DropdownMenuItem
+                                                                                key={`m-regen-${history.id}`}
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
+                                                                                    try {
+                                                                                        const plan = plans.find(p => p.id === history.plan_id);
+                                                                                        if (!plan) {
+                                                                                            toast.error("Plan details not found, cannot regenerate invoice.");
+                                                                                            return;
+                                                                                        }
+                                                                                        const loadingToast = toast.loading("Regenerating invoice...");
+                                                                                        const { data: newPayment, error } = await supabase
+                                                                                            .from("gym_membership_payments")
+                                                                                            .insert({
+                                                                                                membership_history_id: history.id,
+                                                                                                member_id: member.id,
+                                                                                                gym_id: gymId,
+                                                                                                total_amount: plan.price,
+                                                                                                paid_amount: 0,
+                                                                                                due_amount: plan.price,
+                                                                                                payment_status: 'unpaid',
+                                                                                                billing_date: new Date().toISOString()
+                                                                                            })
+                                                                                            .select()
+                                                                                            .single();
+
+                                                                                        if (error) throw error;
+                                                                                        toast.dismiss(loadingToast);
+                                                                                        toast.success("Invoice regenerated");
+                                                                                        await fetchMembers();
+                                                                                        const paymentWithMember = { ...newPayment, gym_members: member };
+                                                                                        setSelectedPaymentMember(paymentWithMember as any);
+                                                                                        setRecordPaymentOpen(true);
+                                                                                    } catch (err: any) {
+                                                                                        toast.error("Failed to regenerate invoice: " + err.message);
+                                                                                    }
+                                                                                }}
+                                                                                disabled={isGymInactive || isMemberPaused}
+                                                                            >
+                                                                                <IndianRupee className="h-4 w-4 mr-2" />
+                                                                                {label}
+                                                                            </DropdownMenuItem>
+                                                                        );
+                                                                    });
+
+                                                                    return actions;
+                                                                })()}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
                         </CardContent>
                     </Card>

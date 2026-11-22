@@ -253,42 +253,97 @@ export function RolesView() {
 
             <Card>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {roles.map((role) => (
-                                <TableRow key={role.id}>
-                                    <TableCell className="font-medium capitalize">{role.name.replace(/_/g, ' ')}</TableCell>
-                                    <TableCell>{role.description}</TableCell>
-                                    <TableCell className="text-right">
-                                        {hasPermission('edit_roles') && (
-                                            <Button variant="ghost" size="icon" onClick={() => openDialog(role)}>
-                                                <Edit className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                        {hasPermission('delete_roles') && (
-                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(role.id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {roles.length === 0 && !loading && (
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={3} className="text-center text-muted-foreground p-6">
-                                        No roles found. Create one above.
-                                    </TableCell>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {roles.map((role) => (
+                                    <TableRow key={role.id}>
+                                        <TableCell className="font-medium capitalize">{role.name.replace(/_/g, ' ')}</TableCell>
+                                        <TableCell>{role.description}</TableCell>
+                                        <TableCell className="text-right">
+                                            {hasPermission('edit_roles') && (
+                                                <Button variant="ghost" size="icon" onClick={() => openDialog(role)}>
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                            {hasPermission('delete_roles') && (
+                                                <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(role.id)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {roles.length === 0 && !loading && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} className="text-center text-muted-foreground p-6">
+                                            No roles found. Create one above.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="block md:hidden p-3 space-y-3 bg-muted/20">
+                        {loading ? (
+                            <div className="p-6 text-center text-muted-foreground text-sm bg-card rounded-xl border border-border">Loading roles...</div>
+                        ) : roles.length === 0 ? (
+                            <div className="text-center text-muted-foreground p-6 text-sm bg-card rounded-xl border border-border">
+                                No roles found. Create one above.
+                            </div>
+                        ) : (
+                            roles.map((role) => {
+                                const permCount = role.gym_role_permissions?.length || 0;
+                                return (
+                                    <div key={role.id} className="rounded-xl border border-border bg-card p-4 space-y-2.5 shadow-sm hover:border-primary/30 transition-all">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0">
+                                                <h4 className="font-semibold text-foreground capitalize truncate">
+                                                    {role.name.replace(/_/g, ' ')}
+                                                </h4>
+                                                {role.description ? (
+                                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                                                        {role.description}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs text-muted-foreground/60 italic mt-0.5">
+                                                        No description provided
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-1 shrink-0">
+                                                {hasPermission('edit_roles') && (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={() => openDialog(role)}>
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                                {hasPermission('delete_roles') && (
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDelete(role.id)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {permCount > 0 && (
+                                            <div className="text-xs text-muted-foreground">
+                                                <span className="font-medium text-foreground">{permCount}</span> permissions configured
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
                 </CardContent>
             </Card>
         </div>
