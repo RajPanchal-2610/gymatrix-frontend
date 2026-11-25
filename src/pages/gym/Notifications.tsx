@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { 
   Bell, 
   BellOff, 
@@ -11,7 +12,8 @@ import {
   ShieldAlert, 
   Search,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +23,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGym } from "@/hooks/useGym";
 import { useNotifications } from "@/hooks/useNotifications";
 import { usePermissions } from "@/contexts/PermissionsContext";
+import { 
+  getNotificationPermission, 
+  getExistingPushSubscription,
+  subscribeToPushNotifications, 
+  sendTestPushNotification 
+} from "@/utils/pushNotifications";
 import { formatDistanceToNow, isToday, isYesterday } from "date-fns";
 
 export default function Notifications() {
@@ -40,6 +48,39 @@ export default function Notifications() {
 
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
+  useEffect(() => {
+    getExistingPushSubscription().then(sub => {
+      if (sub) setIsSubscribed(true);
+    });
+  }, []);
+
+  const handleTogglePush = async () => {
+    setPushLoading(true);
+    try {
+      // 1. Ensure browser push subscription is registered and saved in database
+      const subRes = await subscribeToPushNotifications(gymId);
+      if (!subRes.success) {
+        toast.error(subRes.message);
+        return;
+      }
+      setIsSubscribed(true);
+
+      // 2. Dispatch test push notification
+      const res = await sendTestPushNotification(gymId);
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error configuring notifications');
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   // Helper to resolve notification icons
   const getNotificationIcon = (type: string) => {
@@ -141,6 +182,21 @@ export default function Notifications() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-0">
+          <Button
+            variant={isSubscribed ? "outline" : "default"}
+            size="sm"
+            onClick={handleTogglePush}
+            disabled={pushLoading}
+            className={`h-9 gap-1.5 ${isSubscribed ? 'border-primary/30 text-primary hover:bg-primary/5' : 'bg-primary text-primary-foreground'}`}
+          >
+            <Bell className="h-4 w-4" />
+            {pushLoading
+              ? "Connecting..."
+              : isSubscribed
+              ? "Send Test Chrome Alert"
+              : "Enable Chrome Alerts"}
+          </Button>
+
           {unreadCount > 0 && (
             <Button 
               variant="outline" 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Notification } from '@/types/gym';
+import type { Notification } from '@/types/gym';
 import { toast } from 'sonner';
 
 export function useNotifications(gymId: number | null, canViewFinance: boolean = true) {
@@ -242,6 +242,31 @@ export function useNotifications(gymId: number | null, canViewFinance: boolean =
                       }
                     }
                   });
+
+                  // If user has switched to another tab or minimized the browser, trigger native Chrome notification
+                  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.visibilityState === 'hidden') {
+                    try {
+                      const nativeNotif = new Notification(notif.title, {
+                        body: notif.message,
+                        icon: '/pwa-192x192.png',
+                        badge: '/pwa-192x192.png',
+                        tag: `gymatrix-notif-${notif.id}`
+                      });
+                      nativeNotif.onclick = () => {
+                        window.focus();
+                        if (notif.type === 'new_member' || notif.type === 'membership_expiring') {
+                          navigate('/members');
+                        } else if (notif.type === 'payment_received' || notif.type === 'overdue_payment') {
+                          navigate('/payments');
+                        } else {
+                          navigate('/notifications');
+                        }
+                        nativeNotif.close();
+                      };
+                    } catch (e) {
+                      console.warn('Could not trigger background browser notification:', e);
+                    }
+                  }
                 }
               }
             }
